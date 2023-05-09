@@ -59,6 +59,7 @@ import re
 from datetime import datetime, timedelta
 import multiprocessing as mp
 import time
+from math import ceil
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
@@ -163,7 +164,7 @@ def run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = None, date2 =
     
     if verbose == True: print('Files downloaded to outroot ' + outroot)
     date      = date1
-    date_list = [date + timedelta(hours = x) for x in range(int((date2-date1).days*24 + (date2-date1).seconds/3600.0)+1)]                                                   #Extract all dates between date1 and date2 based on hour of satellite scan
+    date_list = [date + timedelta(hours = x) for x in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1)]                                             #Extract all dates between date1 and date2 based on hour of satellite scan
     nloops    = len(date_list)
     print(date_list)
     outroot0  = []
@@ -343,4 +344,3 @@ def main():
     
 if __name__ == '__main__':
     main()
-
