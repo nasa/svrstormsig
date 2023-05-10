@@ -533,7 +533,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
           print(comb_files[-1])
           exit()
         df_vis  = pd.DataFrame(vis_files)                                                                                                      #Create data structure containing VIS data file names
-        df_vis['date_time'] = df_vis[0].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))                      #Extract date of file scan and put into data structure
+        df_vis['date_time'] = df_vis[0].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))                      #Extract date of file scan and put into data structure
         df_vis.rename(columns={0:'vis_files'}, inplace = True)                                                                                 #Rename column VIS files
     else:
         if len(ir_files) == 0 or len(comb_files) == 0:
@@ -551,7 +551,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
           
     df_ir   = pd.DataFrame(ir_files)                                                                                                           #Create data structure containing IR data file names
     df_comb = pd.DataFrame(comb_files)                                                                                                         #Create data structure containing combined netCDF data file names
-    df_ir['date_time']   = df_ir[0].apply( lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))                         #Extract date of file scan and put into data structure
+    df_ir['date_time']   = df_ir[0].apply( lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))                         #Extract date of file scan and put into data structure
     df_comb['date_time'] = df_comb[0].apply(lambda x: datetime.strptime(((re.split('_s|_',  os.path.basename(x)))[5])[0:-1],'%Y%j%H%M%S'))     #Extract date of file scan and put into data structure
     df_ir.rename(columns={0:'ir_files'}, inplace = True)                                                                                       #Rename column IR files
     df_comb.rename(columns={0:'comb_files'}, inplace = True)                                                                                   #Rename column combined VIS/IR files
@@ -575,11 +575,11 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
                     if verbose == True: print('Writing file containing combined netCDF file names:', join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
                     if no_write_vis == False:
                         df_vis2 = pd.DataFrame({'vis_files': v_files, 'vis_index':range(len(v_files))})                                        #Create data structure containing VIS data file names
-                        df_vis2['date_time'] = df_vis2['vis_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))  #Extract date of file scan and put into data structure
+                        df_vis2['date_time'] = df_vis2['vis_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))  #Extract date of file scan and put into data structure
                         df_vis2.set_index('vis_index')                                                                                         #Extract visible data index and put into data structure
                     df_ir2  = pd.DataFrame({'ir_files' : i_files, 'ir_index' :range(len(i_files))})                                            #Create data structure containing IR data file names
                     df_tod2 = pd.DataFrame({'day_night': tod})                                                                                 #Create data structure containing night or day string
-                    df_ir2['date_time']  = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))#Extract date of file scan and put into data structure
+                    df_ir2['date_time']  = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))#Extract date of file scan and put into data structure
                     df_ir2.set_index('ir_index')                                                                                               #Extract IR data index and put into data structure
               #      if no_write_glm == False:
                     df_glm2 = pd.DataFrame({'glm_files': g_files, 'glm_index':range(len(g_files))})                                            #Create data structure containing GLM data file names
@@ -590,7 +590,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
                     if (len(tod) != len(i_files)):
                         print('day night variable does not match number of IR files???')
                         exit()
-                    df_tod2['date_time'] = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))#Extract date of file scan and put into data structure
+                    df_tod2['date_time'] = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))#Extract date of file scan and put into data structure
                     if no_write_vis == False:
                         ir_vis2 = df_vis2.merge(df_ir2,  on = 'date_time', how = 'outer', sort = True)                                         #Merge the two lists together ensuring that the largest one is kept
                     else:
@@ -657,7 +657,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
             lat_shape       = np.copy(np.asarray(combined_nc_dat.variables['latitude'])).shape                                                 #Copy array of latitudes into lat variable
 
             if pd.notna(ir_vis['ir_files'][f]) == True:
-                if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', ir_vis['ir_files'][f])[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
+                if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['ir_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
                     print('Combined netCDF and IR netCDF dates do not match')
                     exit()
                     
@@ -669,7 +669,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
                     ird_results.append(fetch_convert_irdiff(combined_nc_dat, lon_shape, lat_shape))                                            #Add new normalized IR BT difference data result to IRdiff list
             if no_write_vis == False: 
                 if pd.notna(ir_vis['vis_files'][f]) == True:
-                    if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', ir_vis['vis_files'][f])[3]) != (re.split('_s|_', ir_vis['comb_files'][f])[7])):  #Add check to make sure working with same file
+                    if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['vis_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
                         print('Combined netCDF and VIS netCDF dates do not match')
                         exit()
                   
@@ -729,13 +729,13 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
     if no_write_csv == False:
         if verbose == True: print('Writing file containing combined netCDF file names:', join(outdir, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
         df_ir2  = pd.DataFrame({'ir_files' : i_files,  'ir_index':range(len(i_files))})                                                        #Create data structure containing IR data file names
-        df_ir2['date_time']  = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))            #Extract date of file scan and put into data structure
+        df_ir2['date_time']  = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))            #Extract date of file scan and put into data structure
         df_ir2.set_index('ir_index')                                                                                                           #Extract visible data index and put into data structure
         df_tod2 = pd.DataFrame({'day_night':tod})                                                                                              #Create data structure containing IR data file names
-        df_tod2['date_time'] = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))            #Extract date of file scan and put into data structure
+        df_tod2['date_time'] = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))            #Extract date of file scan and put into data structure
         if no_write_vis == False:
             df_vis2 = pd.DataFrame({'vis_files': v_files, 'vis_index':range(len(v_files))})                                                    #Create data structure containing VIS data file names
-            df_vis2['date_time'] = df_vis2['vis_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S'))      #Extract date of file scan and put into data structure
+            df_vis2['date_time'] = df_vis2['vis_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))      #Extract date of file scan and put into data structure
             df_vis2.set_index('vis_index')                                                                                                     #Extract visible data index and put into data structure
             ir_vis2 = df_vis2.merge(df_ir2, on = 'date_time', how = 'outer', sort = True)                                                      #Merge the two lists together ensuring that the largest one is kept
         else:
