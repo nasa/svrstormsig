@@ -17,12 +17,29 @@ class PostDevelopCommand(develop):
         working_dir = os.getcwd()
         r = requests.get('https://science-data.larc.nasa.gov/LaRC-SD-Publications/2023-05-05-001-JWC/data/ML_data.zip', allow_redirects=True)
         open('ML_data.zip', 'wb').write(r.content)
-        with zipfile.ZipFile('ML_data.zip', 'r') as zip_ref:
-            zip_ref.extractall(working_dir)
-        
-        shutil.move(os.path.join(working_dir, 'ML_data', 'data'), os.path.join(os.path.dirname(working_dir), 'data'))
-        shutil.rmtree(os.path.join(working_dir, 'ML_data'))
-        os.remove(os.path.join(working_dir, 'ML_data.zip'))
+        try:
+          with zipfile.ZipFile(rfile, 'r') as zip_ref:
+            zip_ref.extractall('/Users/jwcooney/test/')
+          shutil.move(os.path.join(working_dir, 'ML_data', 'data'), os.path.join(os.path.dirname(working_dir), 'data'))
+          shutil.rmtree(os.path.join(working_dir, 'ML_data'))
+          os.remove(os.path.join(working_dir, 'ML_data.zip'))
+        except:
+          print('Zip file from NASA server https://science-data.larc.nasa.gov/LaRC-SD-Publications/2023-05-05-001-JWC/data/ML_data.zip failed to download. Trying again.')
+          r = requests.get('https://science-data.larc.nasa.gov/LaRC-SD-Publications/2023-05-05-001-JWC/data/ML_data.zip', allow_redirects=True)
+          open('ML_data.zip', 'wb').write(r.content)
+          try:
+            with zipfile.ZipFile('ML_data.zip', 'r') as zip_ref:
+                zip_ref.extractall(working_dir)
+            shutil.move(os.path.join(working_dir, 'ML_data', 'data'), os.path.join(os.path.dirname(working_dir), 'data'))
+            shutil.rmtree(os.path.join(working_dir, 'ML_data'))
+            os.remove(os.path.join(working_dir, 'ML_data.zip'))
+          except:
+            print('Zip file from NASA server failed to download for second time. Try downloading the file manually.')
+            print('Location of ip file is: https://science-data.larc.nasa.gov/LaRC-SD-Publications/2023-05-05-001-JWC/data/ML_data.zip')
+            print('This file needs to be downloaded and data subdirectory needs to be put into svrstormsig directory')
+            print('Directory paths: ')
+            print('svrstormsig -> data -> model_checkpoints, region, sat_projection_files')
+         
         os.makedirs(os.path.join(working_dir, 'glmtools_docs'), exist_ok = True)
         shutil.move(os.path.join(working_dir, 'docs'), os.path.join(working_dir, 'glmtools_docs', 'docs'))
         shutil.move(os.path.join(working_dir, 'examples'), os.path.join(working_dir, 'glmtools_docs', 'examples'))
