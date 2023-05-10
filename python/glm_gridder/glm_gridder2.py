@@ -85,7 +85,7 @@ def glm_gridder2(outfile     = None,
             date1      = date0 - timedelta(minutes = twindow[0], seconds = twindow[1])
             date0      = datetime.strptime(date_range[1][0:-1],'%Y%j%H%M%S')
             date2      = date0 + timedelta(minutes = twindow[0], seconds = twindow[1])
-            glm_fdates = lambda x : datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S')
+            glm_fdates = lambda x : datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S')
             files0     = [f for f in files if date1 <= glm_fdates(f) <= date2]
             files      = files0
         else:
@@ -94,7 +94,7 @@ def glm_gridder2(outfile     = None,
                 date0      = datetime.strptime(date_str[0:-1],'%Y%j%H%M%S')
                 date1      = date0 - timedelta(minutes = twindow[0], seconds = twindow[1])
                 date2      = date0 + timedelta(minutes = twindow[0], seconds = twindow[1])
-                glm_fdates = lambda x : datetime.strptime(((re.split('_s|_', x))[3])[0:-1],'%Y%j%H%M%S')
+                glm_fdates = lambda x : datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S')
                 files0     = [f for f in files if date1 <= glm_fdates(f) <= date2]
                 files      = files0
         if verbose == True: print('GLM gridder using ' + str(len(files)) + ' GLM files')
