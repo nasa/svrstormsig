@@ -166,13 +166,12 @@ def run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = None, date2 =
     date      = date1
     date_list = [date + timedelta(hours = x) for x in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1)]                                             #Extract all dates between date1 and date2 based on hour of satellite scan
     nloops    = len(date_list)
-    print(date_list)
     outroot0  = []
     for d in date_list:
         outroot0.append(os.path.join(outroot, d.strftime("%Y%m%d")))                                                                                                        #Store all output storage directories of the downloaded data
    
     pool      = mp.Pool(4)                                                                                                                                                  #Set up parallel multiprocessing threads
-    results   = [pool.apply_async(download_goes_ir_vis_l1b_glm_l2_data_parallel, args=(row, date_list, ir_vis_prod, glm_prod, sector0,  
+    results   = [pool.apply_async(download_goes_ir_vis_l1b_glm_l2_data_parallel, args=(row, date_list, date1, date2, ir_vis_prod, glm_prod, sector0,  
                                                                                        no_ir, no_vis, no_glm, no_irdiff, no_cirrus, no_snowice, no_dirtyir, outroot, bucket_name, gcs_bucket, del_local, verbose)) for row in range(nloops)]
     pool.close()                                                                                                                                                            #Close the multiprocessing threads
     pool.join()
@@ -184,11 +183,11 @@ def run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = None, date2 =
     
     return(outroot0)  
 
-def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
+def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
                                                   ir_vis_prod, glm_prod, sector0, 
                                                   no_ir, no_vis, no_glm, no_irdiff, no_cirrus, no_snowice, no_dirtyir, 
                                                   outroot, bucket_name, gcs_bucket, del_local, verbose):
-    
+
     date      = date_list[idx]                                                                                                                                              #Extract date to download from list of dates
     day_num   = date.timetuple().tm_yday                                                                                                                                    #Extract the day number for specified date
     iv_prefix = '{}/{}/{:03d}/{:02d}/'.format(ir_vis_prod, date.year, day_num, date.hour)                                                                                   #Extract the IR/VIS prefix to pass into list_gcs function for specified date
@@ -207,10 +206,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'ir')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download IR file to outdir
-                if gcs_bucket != None and outfile != -1:    
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'ir')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date1) and (fdate <= date2)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download IR file to outdir
+                    if gcs_bucket != None and outfile != -1:    
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'ir')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:    
             print('No IR files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
    
@@ -227,10 +228,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'dirtyir')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download Dirty IR C15 file to outdir
-                if gcs_bucket != None and outfile != -1:    
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'dirtyir')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date1) and (fdate <= date2)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download Dirty IR C15 file to outdir
+                    if gcs_bucket != None and outfile != -1:    
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'dirtyir')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:    
             print('No Dirty IR C15 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
    
@@ -247,10 +250,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'snowice')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download Dirty IR C15 file to outdir
-                if gcs_bucket != None and outfile != -1:    
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'snowice')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date1) and (fdate <= date2)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download snowice C05 file to outdir
+                    if gcs_bucket != None and outfile != -1:    
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'snowice')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:    
             print('No Snow/Ice C05 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
    
@@ -267,10 +272,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'cirrus')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download Dirty IR C15 file to outdir
-                if gcs_bucket != None and outfile != -1:    
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'cirrus')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date1) and (fdate <= date2)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download cirrus C04 file to outdir
+                    if gcs_bucket != None and outfile != -1:    
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'cirrus')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:    
             print('No Cirrus C04 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
         
@@ -280,10 +287,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'vis')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download VIS file to outdir
-                if gcs_bucket != None and outfile != -1:    
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'vis')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date1) and (fdate <= date2)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download VIS file to outdir
+                    if gcs_bucket != None and outfile != -1:    
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'vis')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:    
             print('No VIS files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
 
@@ -293,23 +302,29 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'ir_diff') 
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download VIS file to outdir
-                if gcs_bucket != None and outfile != -1:
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'ir_diff')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date1) and (fdate <= date2)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download 6.2 micron C08 file to outdir
+                    if gcs_bucket != None and outfile != -1:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'ir_diff')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:
             print('No 6.2 micron IR files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
         
     if no_glm == False:    
+        date01 = date1 - timedelta(minutes = 5)
+        date02 = date2 + timedelta(minutes = 5)
         files  = list_gcs(bucket_name, g_prefix, ['GLM', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour)])                                                          #Extract list of GLM files that match product and date
         if len(files) > 0:    
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'glm')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                         #Download GLM file to outdir
-                if gcs_bucket != None and outfile != -1:    
-                    pref = os.path.join(date.strftime("%Y%m%d"), 'glm')
-                    write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                          #Write locally stored files to a google cloud storage bucket
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                if ((fdate >= date01) and (fdate <= date02)):
+                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download GLM file to outdir
+                    if gcs_bucket != None and outfile != -1:    
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'glm')
+                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
         else:
             print('No GLM files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
         if date.minute < 5.0:
@@ -321,10 +336,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
                 outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'glm')     
                 os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
                 for i in files:    
-                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download GLM file to outdir
-                    if gcs_bucket != None and outfile != -1:    
-                        pref = os.path.join(date.strftime("%Y%m%d"), 'glm')
-                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
+                    fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                    if ((fdate >= date01) and (fdate <= date02)):
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download GLM file to outdir
+                        if gcs_bucket != None and outfile != -1:    
+                            pref = os.path.join(date.strftime("%Y%m%d"), 'glm')
+                            write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                  #Write locally stored files to a google cloud storage bucket
         if date.minute > 55.0:
             date0     = date + timedelta(hours = 1)
             day_num0  = date0.timetuple().tm_yday                                                                                                                           #Extract the day number for specified date
@@ -334,10 +351,12 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list,
                 outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'glm')     
                 os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
                 for i in files:    
-                    outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download GLM file to outdir
-                    if gcs_bucket != None and outfile != -1:    
-                        pref = os.path.join(date.strftime("%Y%m%d"), 'glm')
-                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
+                    fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                    if ((fdate >= date01) and (fdate <= date02)):
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download GLM file to outdir
+                        if gcs_bucket != None and outfile != -1:    
+                            pref = os.path.join(date.strftime("%Y%m%d"), 'glm')
+                            write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                  #Write locally stored files to a google cloud storage bucket
             
 def main():
     run_download_goes_ir_vis_l1b_glm_l2_data_parallel()
