@@ -10,6 +10,7 @@ This software is intended for research and operational use. Users can contact th
 **Contact Information**
 
 John Cooney: john.w.cooney@nasa.gov
+
 Kristopher Bedka: kristopher.m.bedka@nasa.gov
 
 **Overview**
