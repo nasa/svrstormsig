@@ -992,8 +992,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         no_download = False
       else:
         no_download = True
-     
-    if no_download == False and d_str1 != None:
+    if no_download == True and d_str1 != None:
       if vals[5] != 'None':
         raw_data_root = vals[5]                                                                                                    #User specifies location of raw data files since the files do not need to be downloaded
       raw_data_root00 = raw_data_root
