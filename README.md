@@ -5,7 +5,7 @@ This software was produced through collaborative work between John W. Cooney, Kr
 
 **Software Use**
 
-This software is intended for research and operational use. Users can contact the software team regarding its use. It is especially recommended that our team be contacted before publication or public presentation. This is the first official release of this software; these products that are still undergoing validation, testing, quality control, and debugging. Users are invited to address questions and provide feedback to the contacts below.
+This software is intended for research and operational use. Users can contact the software team regarding its use. It is especially recommended that our team be contacted before publication or public presentation. This is the first official release of this software; these products are still undergoing validation, testing, quality control, and debugging. Users are invited to address questions and provide feedback to the contacts below.
 
 **Contact Information**
 
