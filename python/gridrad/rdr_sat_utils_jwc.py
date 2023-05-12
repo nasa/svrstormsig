@@ -620,7 +620,7 @@ def sat_time_intervals(sat, sector = None):
         Time in seconds for specified satellite to scan specified sector.
     '''  
     sat = sat.replace(' ', '').replace('_', '').replace('-', '').lower()
-    if sat.lower() == 'goes16' or sat.lower() == 'goes17':
+    if sat.lower() == 'goes16' or sat.lower() == 'goes17' or sat.lower() == 'goes18':
         if sector == None:
             print('Sector must be specified for GOES satellite in sat_time_intervals function!!')
             exit()

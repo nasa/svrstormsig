@@ -212,6 +212,8 @@ def combine_ir_glm_vis(vis_file             = '../../../goes-data/vis/20200513-1
             
             # Data info
             proj_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'data', 'sat_projection_files')
+            if sat == 'goes18':
+              sat = 'goes17'
             if 'RadC' in os.path.basename(ir_file):
                 proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
 #                proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
@@ -229,7 +231,7 @@ def combine_ir_glm_vis(vis_file             = '../../../goes-data/vis/20200513-1
                     print(proj_file)
                     exit()
                 with Dataset(proj_file, 'r') as scan_proj_dataset:
-                    x_inds, y_inds, proj_extent_new, og_shape, lat_arr, lon_arr = get_lat_lon_subset_inds(scan_proj_dataset, xy_bounds, return_lats = True, satellite = satellite, use_native_ir = no_write_vis, scan_mode = scan_mode, verbose = verbose)
+                    x_inds, y_inds, proj_extent_new, og_shape, lat_arr, lon_arr = get_lat_lon_subset_inds(scan_proj_dataset, xy_bounds, return_lats = True, satellite = sat, use_native_ir = no_write_vis, scan_mode = scan_mode, verbose = verbose)
 #                print('Time to return subset inds = ' + str(time.time() - t0) + 'sec')
                 
                 if lon_arr.shape != og_shape or lat_arr.shape != og_shape:
