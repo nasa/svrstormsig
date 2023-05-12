@@ -23,4 +23,5 @@ shapely==1.8.0
 proplot
 geopandas
 suncalc
+imageio
 requests
