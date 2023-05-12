@@ -89,6 +89,7 @@ from xarray import open_dataset
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, load_csv_gcs, download_ncdf_gcs, list_gcs
 
 def rdr_sat_utils_jwc(date_str       = '20190430-0501', 

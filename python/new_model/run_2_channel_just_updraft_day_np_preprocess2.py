@@ -91,6 +91,7 @@ from new_model.OverlapChunks import OverlapChunks
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, load_npy_gcs, load_csv_gcs, list_csv_gcs
 
 def run_2_channel_just_updraft_day_np_preprocess2(inroot         = '../../../goes-data/labelled/', 

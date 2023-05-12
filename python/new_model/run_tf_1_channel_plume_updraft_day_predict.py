@@ -117,6 +117,7 @@ from threading import Thread
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.dataScaler import DataScaler
 from new_model.run_2_channel_just_updraft_day_np_preprocess2 import build_imgs, build_subset_tensor, reconstruct_tensor_from_subset, reconstruct_tensor_from_subset2, build_subset_tensor2, reconstruct_tensor_from_subset3, build_subset_tensor3
 from new_model.gcs_processing import write_to_gcs, download_model_chk_file, list_gcs_chkpnt, list_gcs, list_csv_gcs, load_csv_gcs, load_npy_blobs, load_npy_gcs, download_ncdf_gcs

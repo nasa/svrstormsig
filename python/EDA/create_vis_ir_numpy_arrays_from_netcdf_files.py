@@ -81,6 +81,7 @@ import scipy.ndimage as ndimage
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, load_csv_gcs
 from gridrad.rdr_sat_utils_jwc import match_sat_data_to_datetime
 from glm_gridder.run_create_image_from_three_modalities import sort_goes_irvis_files, sort_goes_comb_files

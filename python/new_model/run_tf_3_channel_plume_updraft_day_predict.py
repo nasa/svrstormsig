@@ -116,6 +116,7 @@ from threading import Thread
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.dataScaler import DataScaler
 from new_model.run_tf_1_channel_plume_updraft_day_predict import append_combined_ncdf_with_model_results, tf_1_channel_plume_updraft_day_predict
 from new_model.run_tf_2_channel_plume_updraft_day_predict import tf_2_channel_plume_updraft_day_predict

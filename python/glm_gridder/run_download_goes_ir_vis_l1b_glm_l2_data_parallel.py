@@ -63,6 +63,7 @@ from math import ceil
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs
 
 def run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = None, date2 = None, 

@@ -99,6 +99,7 @@ import sys
 sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(3, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'glmtools'))
+sys.path.insert(4, os.path.dirname(os.getcwd()))
 import glmtools
 from glmtools.io.glm import GLMDataset
 from glmtools.io.imagery import open_glm_time_series

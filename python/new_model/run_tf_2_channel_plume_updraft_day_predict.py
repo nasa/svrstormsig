@@ -118,6 +118,7 @@ from threading import Thread
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.dataScaler import DataScaler
 from new_model.run_tf_1_channel_plume_updraft_day_predict import append_combined_ncdf_with_model_results
 from new_model.run_2_channel_just_updraft_day_np_preprocess2 import build_imgs, build_subset_tensor, reconstruct_tensor_from_subset, reconstruct_tensor_from_subset2, build_subset_tensor2, reconstruct_tensor_from_subset3, build_subset_tensor3

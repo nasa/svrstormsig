@@ -81,6 +81,7 @@ import xarray
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, list_gcs, list_csv_gcs, load_csv_gcs, load_npy_blobs, load_npy_gcs, download_gcp_parallel, download_ncdf_gcs
 #from glm_gridder.run_create_image_from_three_modalities import *
 #from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results

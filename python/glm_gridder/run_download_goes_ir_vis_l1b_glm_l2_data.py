@@ -57,6 +57,7 @@ import multiprocessing as mp
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, download_gcp_parallel, copy_blob_gcs
 
 def run_download_goes_ir_vis_l1b_glm_l2_data(date1      = None, date2 = None, 

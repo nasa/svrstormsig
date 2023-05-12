@@ -135,6 +135,7 @@ from threading import Thread
 import time
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
+sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.glm_gridder2 import glm_gridder2
 from glm_gridder.combine_ir_glm_vis import combine_ir_glm_vis
 #from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
