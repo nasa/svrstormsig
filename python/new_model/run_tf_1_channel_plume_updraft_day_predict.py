@@ -826,9 +826,11 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   if use_updraft == True:
     mod_pat  = 'updraft_day_model'
     mod_name = 'OT'
+    val_set  = 1
   else:
     mod_pat  = 'plume_day_model'
     mod_name = 'AACP'
+    val_set  = 0
 
   if use_local == True:
     csv_files = sorted(glob.glob(os.path.join(outroot, 'labelled', pat, d_str2, str(sector), 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), recursive = True))   #Extract names of all of the GOES visible data files
@@ -1070,7 +1072,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       na  = (imgs[:, :, :, 0] < 0)                                                                                                                                          #Find instances in which the IR data are NaNs so they can be removed from results
       na2 = (imgs[:, :, :, 0] <= 0)
       if sector.lower() == 'c' or sector.lower() == 'f':
-        imgs[na, 0] = 1                                                                                                                                                     #Set NaN regions to 1 so that edges of domain are not mistakenly identified as an OT or AACP
+        imgs[na, :] = val_set                                                                                                                                               #Set NaN regions to 1 so that edges of domain are not mistakenly identified as an OT or AACP
       else:
         imgs[na, 0] = 0                                                                                                                                                     #Set NaN regions to 1 so that edges of domain are not mistakenly identified as an OT or AACP
    
