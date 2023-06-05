@@ -112,6 +112,7 @@ from new_model.gcs_processing import write_to_gcs, download_model_chk_file, list
 from new_model.run_tf_1_channel_plume_updraft_day_predict import run_tf_1_channel_plume_updraft_day_predict
 from new_model.run_tf_2_channel_plume_updraft_day_predict import run_tf_2_channel_plume_updraft_day_predict
 from new_model.run_tf_3_channel_plume_updraft_day_predict import run_tf_3_channel_plume_updraft_day_predict
+from new_model.run_write_severe_storm_post_processing import run_write_severe_storm_post_processing
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data import *
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data_parallel import *
 from glm_gridder.run_create_image_from_three_modalities2 import *
@@ -989,7 +990,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         print(d_str1)
         exit() 
       
-      if vals[4][0].lower() == 'y':                                                                                                 #User specifies if raw data files need to be downloaded
+      if vals[4][0].lower() == 'y':                                                                                                #User specifies if raw data files need to be downloaded
         no_download = False
       else:
         no_download = True
@@ -1027,7 +1028,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           print('Current path specified = ' + raw_data_root)
           raw_data_root = str(input('Enter the root directory to the raw IR/VIS/GLM data files (ex.  ' + raw_data_root00 + '): ')).replace("'", '')
          
-    reg_bound = vals[8]                                                                                                           #If user specified state or country to confine the data to
+    reg_bound = vals[8]                                                                                                            #If user specified state or country to confine the data to
     if reg_bound == 'None':
       xy_bounds = []
       region    = None
@@ -1039,8 +1040,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         print('You specified = ' + str(reg_bound.lower()))
         print('Regions possible = ' + str(sorted(regions)))
         print()
-        counter   = 0                                                                                                             #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-        mod_check = 0                                                                                                             #Initialize variable to store whether or not the user entered the appropriate information 
+        counter   = 0                                                                                                              #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                              #Initialize variable to store whether or not the user entered the appropriate information 
         while mod_check == 0:
           counter = counter + 1
           if counter == 4:
@@ -1058,18 +1059,18 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         region    = reg_bound.lower()
     
     if len(xy_bounds) == 0:
-      mod_bound = vals[9]                                                                                                         #If user set longitude and latitude boundaries to confine the data to
+      mod_bound = vals[9]                                                                                                          #If user set longitude and latitude boundaries to confine the data to
       if mod_bound == '[]' or mod_bound == '' or mod_bound == 'None':
         xy_bounds = []
       else:  
-        mod_bound = mod_bound.replace(' ' , '').replace('[', '').replace(']', '')                                                 #Remove any spaces
+        mod_bound = mod_bound.replace(' ' , '').replace('[', '').replace(']', '')                                                  #Remove any spaces
         mod_x0    = re.split(',', mod_bound)[0]
         mod_y0    = re.split(',', mod_bound)[1]
         mod_x1    = re.split(',', mod_bound)[2]
         mod_y1    = re.split(',', mod_bound)[3]
         
-        counter   = 0                                                                                                             #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-        mod_check = 0                                                                                                             #Initialize variable to store whether or not the user entered the appropriate information 
+        counter   = 0                                                                                                              #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                              #Initialize variable to store whether or not the user entered the appropriate information 
         while mod_check == 0:
           if counter >= 1:
             mod_x0 = input('Enter the minimum longitude point. Values must be between -180.0 and 180.0: ')
@@ -1090,8 +1091,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
             print('Format type entered = ' + str(type(mod_x0)))
             print()
           
-          counter   = 0                                                                                                           #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-          mod_check = 0                                                                                                           #Initialize variable to store whether or not the user entered the appropriate information 
+          counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+          mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
           while mod_check == 0:
             if counter >= 1:
               mod_x1 = input('Enter the maximum longitude point. Values must be between -180.0 and 180.0: ')
@@ -1118,8 +1119,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               print('Format type entered = ' + str(type(mod_x1)))
               print()
         
-          counter   = 0                                                                                                           #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-          mod_check = 0                                                                                                           #Initialize variable to store whether or not the user entered the appropriate information 
+          counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+          mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
           while mod_check == 0:
             if counter >= 1:
               mod_y0 = input('Enter the minimum latitude point. Values must be between -90.0 and 90.0: ')
@@ -1140,8 +1141,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               print('Format type entered = ' + str(type(mod_y0)))
               print()
           
-          counter   = 0                                                                                                           #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-          mod_check = 0                                                                                                           #Initialize variable to store whether or not the user entered the appropriate information 
+          counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+          mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
           while mod_check == 0:
             if counter >= 1:
               mod_y1 = input('Enter the maximum latitude point. Values must be between -90.0 and 90.0: ')
@@ -1170,9 +1171,9 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           
           xy_bounds = [x0, y0, x1, y1]
      
-    mod_loc = vals[10]                                                                                                            #Severe storm signature targeted by user
-    counter   = 0                                                                                                                 #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-    mod_check = 0                                                                                                                 #Initialize variable to store whether or not the user entered the appropriate information 
+    mod_loc = vals[10]                                                                                                             #Severe storm signature targeted by user
+    counter   = 0                                                                                                                  #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+    mod_check = 0                                                                                                                  #Initialize variable to store whether or not the user entered the appropriate information 
     while mod_check == 0:
       if counter >= 1:
         mod_loc = str(input('Enter the desired severe weather indicator (OT or AACP): ')).replace("'", '')
@@ -1196,8 +1197,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         print()
     
     transition = 'n'
-    day_night0 = vals[11]                                                                                                         #If user wants to use optimal model for day-night seamless transition run
-    day_night0 = ''.join(e for e in day_night0 if e.isalnum())                                                                    #Remove any special characters or spaces.
+    day_night0 = vals[11]                                                                                                          #If user wants to use optimal model for day-night seamless transition run
+    day_night0 = ''.join(e for e in day_night0 if e.isalnum())                                                                     #Remove any special characters or spaces.
     if day_night0[0].lower() == 'y':
       use_night  = True
       opt_params = 'y'
@@ -1207,7 +1208,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       opt_params = 'n'
       use_night  = True    
     
-    opt_params = ''.join(e for e in opt_params if e.isalnum())                                                                    #Remove any special characters or spaces.
+    opt_params = ''.join(e for e in opt_params if e.isalnum())                                                                     #Remove any special characters or spaces.
     if opt_params[0].lower() == 'y':
       mod_type = 'multiresunet'
       if mod_loc == 'OT':
@@ -1219,10 +1220,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           day   = {'mod_type': 'multiresunet', 'mod_inputs': 'IR+VIS+GLM', 'use_chkpnt': os.path.realpath(irvisglm_aacp_best), 'pthresh': 0.30, 'use_night' : False, 'use_irdiff' : False, 'use_glm' : True}
           night = {'mod_type': 'multiresunet', 'mod_inputs': 'IR+GLM', 'use_chkpnt': os.path.realpath(irglm_aacp_best), 'pthresh': 0.60, 'use_night' : True, 'use_irdiff' : False, 'use_glm' : True}
     else:  
-      mod_type = vals[13]                                                                                                         #Model type to be run (multiresunet, unet, attentionunet, etc.)
+      mod_type = vals[13]                                                                                                          #Model type to be run (multiresunet, unet, attentionunet, etc.)
       if mod_loc == 'OT':
-        counter   = 0                                                                                                             #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-        mod_check = 0                                                                                                             #Initialize variable to store whether or not the user entered the appropriate information 
+        counter   = 0                                                                                                              #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                              #Initialize variable to store whether or not the user entered the appropriate information 
         while mod_check == 0:
           if counter >= 1:  
             mod_type = str(input('Enter the model inputs you would like to use. Options are multiresunet, unet, attentionunet: ')).replace("'", '')
@@ -1247,9 +1248,9 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       else:
         mod_type = 'multiresunet'
       
-      mod_inputs = vals[12]                                                                                                       #Model inputs chosen by user
-      counter   = 0                                                                                                               #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-      mod_check = 0                                                                                                               #Initialize variable to store whether or not the user entered the appropriate information 
+      mod_inputs = vals[12]                                                                                                        #Model inputs chosen by user
+      counter   = 0                                                                                                                #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+      mod_check = 0                                                                                                                #Initialize variable to store whether or not the user entered the appropriate information 
       while mod_check == 0:
         if counter >= 1:
           mod_inputs = str(input('Enter the model inputs you would like to use (ex. IR+VIS): ')).replace("'", '')
@@ -1363,12 +1364,12 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           print('Model inputs entered are not available. Options are IR, IR+VIS, IR+GLM, IR+IRDIFF, and IR+VIS+GLM. Please try again.')
           print()
     
-      opt_pthresh = vals[15]                                                                                                      #If user wants to use optimal likelihood score for model inputs chose
+      opt_pthresh = vals[15]                                                                                                       #If user wants to use optimal likelihood score for model inputs chose
       opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
       if opt_pthresh[0].lower() != 'y':
-        pthresh   = vals[16]                                                                                                      #Likelihood score chosen by user
-        counter   = 0                                                                                                             #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-        mod_check = 0                                                                                                             #Initialize variable to store whether or not the user entered the appropriate information 
+        pthresh   = vals[16]                                                                                                       #Likelihood score chosen by user
+        counter   = 0                                                                                                              #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                              #Initialize variable to store whether or not the user entered the appropriate information 
         while mod_check == 0:
           if counter >= 1:
             pthresh = input('Enter the likelihood value you would like to use (0-1): ')
@@ -1427,7 +1428,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       print('(4) You have chosen the model to identify ' + mod_loc + 's')
       if transition == 'y':
         print('(5) Multiresunet is the best model. Model type cannot be changed unless (6) is changed.')
-        print('(6) You have chosen to run the optimal model based on the time of day. This model will seamlessly transition between the model the works best for day and night hours.')
+        print('(6) You have chosen to run the optimal model based on the time of day. This model will seamlessly transition between the model that works best for day and night hours.')
       else:
         print('(5) You have chosen to run the ' + mod_type + ' model type')
         print('(6) You have chosen to use ' + mod_inputs + ' as inputs into the model')
@@ -1512,14 +1513,14 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               print('End date entered = ' + d_str2)
               print()
               exit()
-            try:                                                                                                                #Make sure date1 is in proper format
+            try:                                                                                                                   #Make sure date1 is in proper format
               d1 = datetime.strptime(d_str1, "%Y-%m-%d %H:%M:%S")
             except:
               print('date1 not in correct format!!! Format must be YYYY-mm-dd HH:MM:SS. Exiting program. Please try again.') 
               print(d_str1)
               exit() 
             
-            try:                                                                                                                #Make sure date2 is in proper format
+            try:                                                                                                                   #Make sure date2 is in proper format
               d2 = datetime.strptime(d_str2, "%Y-%m-%d %H:%M:%S")
             except:
               print('date1 not in correct format!!! Format must be YYYY-mm-dd HH:MM:SS. Exiting program. Please try again.') 
@@ -1528,8 +1529,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           if dd == 1:
             good = 1  
           elif dd == 2:
-            counter   = 0                                                                                                       #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-            mod_check = 0                                                                                                       #Initialize variable to store whether or not the user entered the appropriate information 
+            counter   = 0                                                                                                          #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+            mod_check = 0                                                                                                          #Initialize variable to store whether or not the user entered the appropriate information 
             while mod_check == 0:
               counter = counter + 1
               if counter == 4:
@@ -1540,7 +1541,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 mod_sat = 'goes-16'
                 print('Using GOES-16 satellite data')
                 print()
-              mod_sat = ''.join(e for e in mod_sat if e.isalnum())                                                              #Remove any special characters or spaces.
+              mod_sat = ''.join(e for e in mod_sat if e.isalnum())                                                                 #Remove any special characters or spaces.
               if mod_sat[0:4].lower() == 'goes':
                 mod_check = 1
                 sat       = mod_sat[0:4].lower() + '-' + str(mod_sat[4:].lower())
@@ -1557,10 +1558,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               else:
                 print('Model is not currently set up to handle satellite specified. Please try again.')
                 print()
-#            raw_data_root = os.path.realpath('../../../' + re.split('-', sat)[0] + '-data/')                                    #Set default directory for the stored raw data files. This may need to be changed if the raw data root directory differs from this.            
+#            raw_data_root = os.path.realpath('../../../' + re.split('-', sat)[0] + '-data/')                                       #Set default directory for the stored raw data files. This may need to be changed if the raw data root directory differs from this.            
           elif dd == 3:
-            counter   = 0                                                                                                       #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-            mod_check = 0                                                                                                       #Initialize variable to store whether or not the user entered the appropriate information 
+            counter   = 0                                                                                                          #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+            mod_check = 0                                                                                                          #Initialize variable to store whether or not the user entered the appropriate information 
             while mod_check == 0:
               counter = counter + 1
               if counter == 4:
@@ -1568,7 +1569,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 exit()
               mod_sector = str(input('Enter the ' + sat + ' satellite sector to run model on (ex. M1, M2, F, C): ')).replace("'", '')
               if mod_sector != '':
-                mod_sector = ''.join(e for e in mod_sector if e.isalnum())                                                      #Remove any special characters or spaces.
+                mod_sector = ''.join(e for e in mod_sector if e.isalnum())                                                         #Remove any special characters or spaces.
                 if mod_sector[0].lower() == 'm':
                   try:
                     sector    = 'meso' + mod_sector[-1]
@@ -1594,8 +1595,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               mod_loc = 'AACP'
             else:
               mod_loc = 'OT'  
-#             counter   = 0                                                                                                       #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-#             mod_check = 0                                                                                                       #Initialize variable to store whether or not the user entered the appropriate information 
+#             counter   = 0                                                                                                         #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+#             mod_check = 0                                                                                                         #Initialize variable to store whether or not the user entered the appropriate information 
 #             while mod_check == 0:
 #               counter = counter + 1
 #               if counter == 4:
@@ -1617,8 +1618,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 #                 print('Please try again.')
 #                 print()
           elif dd == 5:
-            counter   = 0                                                                                                       #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-            mod_check = 0                                                                                                       #Initialize variable to store whether or not the user entered the appropriate information 
+            counter   = 0                                                                                                          #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+            mod_check = 0                                                                                                          #Initialize variable to store whether or not the user entered the appropriate information 
             while mod_check == 0:
               counter = counter + 1
               if counter == 4:
@@ -1729,7 +1730,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               day_night0 = str(input('Would you like the model to seamlessly transition between previously identified optimal models? (y/n): ')).replace("'", '')
               if day_night0 == '':
                 day_night0 = 'y'
-              day_night0 = ''.join(e for e in day_night0 if e.isalnum())                                                          #Remove any special characters or spaces.
+              day_night0 = ''.join(e for e in day_night0 if e.isalnum())                                                           #Remove any special characters or spaces.
               if day_night0.lower() == 'y':
                 use_night  = True
                 opt_params = 'y'
@@ -1739,7 +1740,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 opt_params = 'n'
                 transition = 'n'
 
-            opt_params = ''.join(e for e in opt_params if e.isalnum())                                                          #Remove any special characters or spaces.
+            opt_params = ''.join(e for e in opt_params if e.isalnum())                                                             #Remove any special characters or spaces.
             if opt_params[0].lower() == 'y':
               if mod_loc == 'OT':
                 if transition == 'y':
@@ -1756,8 +1757,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                   print(night['mod_inputs'] + ' ' + night['mod_type'] + ' AACP model will be used during night time scans.')
                   print()          
             else:  
-              counter   = 0                                                                                                     #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-              mod_check = 0                                                                                                     #Initialize variable to store whether or not the user entered the appropriate information 
+              counter   = 0                                                                                                        #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+              mod_check = 0                                                                                                        #Initialize variable to store whether or not the user entered the appropriate information 
               while mod_check == 0:
                 counter = counter + 1
                 if counter == 4:
@@ -1896,8 +1897,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 print('You specified = ' + str(reg_bound.lower()))
                 print('Regions possible = ' + str(sorted(regions)))
                 print()
-                counter   = 0                                                                                                   #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-                mod_check = 0                                                                                                   #Initialize variable to store whether or not the user entered the appropriate information 
+                counter   = 0                                                                                                      #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+                mod_check = 0                                                                                                      #Initialize variable to store whether or not the user entered the appropriate information 
                 while mod_check == 0:
                   counter = counter + 1
                   if counter == 4:
@@ -1920,10 +1921,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               print('Data will be not be constrained to longitude and latitude bounds')
               print()
             else:  
-              mod_bound = ''.join(e for e in mod_bound if e.isalnum())                                                          #Remove any special characters or spaces.
+              mod_bound = ''.join(e for e in mod_bound if e.isalnum())                                                             #Remove any special characters or spaces.
               if mod_bound[0].lower() == 'y':
-                counter   = 0                                                                                                   #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-                mod_check = 0                                                                                                   #Initialize variable to store whether or not the user entered the appropriate information 
+                counter   = 0                                                                                                      #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+                mod_check = 0                                                                                                      #Initialize variable to store whether or not the user entered the appropriate information 
                 while mod_check == 0:
                   counter = counter + 1
                   if counter == 4:
@@ -1943,8 +1944,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                     print('Format type entered = ' + str(type(mod_x0)))
                     print()
                 
-                counter   = 0                                                                                                   #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-                mod_check = 0                                                                                                   #Initialize variable to store whether or not the user entered the appropriate information 
+                counter   = 0                                                                                                      #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+                mod_check = 0                                                                                                      #Initialize variable to store whether or not the user entered the appropriate information 
                 while mod_check == 0:
                   counter = counter + 1
                   if counter == 4:
@@ -1970,8 +1971,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                     print('Format type entered = ' + str(type(mod_x0)))
                     print()
               
-                counter   = 0                                                                                                        #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-                mod_check = 0                                                                                                        #Initialize variable to store whether or not the user entered the appropriate information 
+                counter   = 0                                                                                                      #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+                mod_check = 0                                                                                                      #Initialize variable to store whether or not the user entered the appropriate information 
                 while mod_check == 0:
                   counter = counter + 1
                   if counter == 4:
@@ -1991,8 +1992,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                     print('Format type entered = ' + str(type(mod_x0)))
                     print()
                 
-                counter   = 0                                                                                                        #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-                mod_check = 0                                                                                                        #Initialize variable to store whether or not the user entered the appropriate information 
+                counter   = 0                                                                                                      #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+                mod_check = 0                                                                                                      #Initialize variable to store whether or not the user entered the appropriate information 
                 while mod_check == 0:
                   counter = counter + 1
                   if counter == 4:
@@ -2032,6 +2033,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 
   no_plot = True
   if nhours == None:
+    tstart = int(''.join(re.split('-', d_str1))[0:8])                                                                              #Extract start date of job for real-time post processing
+    tend   = int(''.join(re.split('-', d_str2))[0:8])                                                                              #Extract end date of job for real-time post processing
     t0 = time.strftime("%Y-%m-%d %H:%M:%S")
     if d_str2 > t0:
       print('Waiting until end date to start archived model run.')
@@ -2142,17 +2145,18 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         print('Not set up for specified model. You have encountered a bug. Exiting program.')
         exit()
   else:   
-    t_sec = sat_time_intervals(sat, sector = sector)                                                                             #Extract time interval between satellite sector scan files (sec)
+    t_sec = sat_time_intervals(sat, sector = sector)                                                                               #Extract time interval between satellite sector scan files (sec)
     while datetime.utcnow().second < 5:
-        sleep(1)                                                                                                                 #Wait until time has elapsed for new satellite scan file to be available
-    t0    = time.time()                                                                                                          #Start clock to time the run job process
-    tdiff = 0.0                                                                                                                  #Initialize variable to calulate the amount of time that has passed
-    lc    = 0                                                                                                                    #Initialize variable to store loop counter
+        sleep(1)                                                                                                                   #Wait until time has elapsed for new satellite scan file to be available
+    tstart = int(datetime.utcnow().strftime("%Y%m%d"))                                                                             #Extract start date of job for post processing
+    t0     = time.time()                                                                                                           #Start clock to time the run job process
+    tdiff  = 0.0                                                                                                                   #Initialize variable to calulate the amount of time that has passed
+    lc     = 0                                                                                                                     #Initialize variable to store loop counter
     while (tdiff <= (nhours*3600.0)):
       if tdiff != 0.0:
         cc = 0
         while (time.time()-t0) < lc*t_sec:
-          sleep(0.1)                                                                                                             #Wait until time has elapsed for new satellite scan file to be available
+          sleep(0.1)                                                                                                               #Wait until time has elapsed for new satellite scan file to be available
           if cc == 0 and verbose == True:
               print('Waiting for next model input files to come online')
               cc = 1
@@ -2262,7 +2266,26 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       lc = lc+1
       backend.clear_session()  
       tdiff = time.time() - t0
-      
+    
+    tend = int(datetime.utcnow().strftime("%Y%m%d"))                                                                               #Extract end date of job for real-time post processing
+    
+  
+  object_type = 'OT' if use_updraft == True else 'AACP'
+  if transition == 'y':
+    mod_type = day['mod_type']
+  
+  print('Starting post-processing of ' + object_type + ' ' + mod_type + ' job')
+  if nhours != None:
+    time.sleep(2)
+  for u in range(tstart, tend+1): 
+    run_write_severe_storm_post_processing(inroot = os.path.join(raw_data_root, 'combined_nc_dir', str(u)), 
+                                           use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
+                                           c_bucket_name = 'ir-vis-sandwhich',
+                                           object_type   = object_type,
+                                           mod_type      = mod_type,
+                                           sector        = sector,
+                                           verbose       = verbose)
+    
 def main():
     args = sys.argv[1:]
     config_file = None
