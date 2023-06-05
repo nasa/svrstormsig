@@ -132,9 +132,11 @@ def combine_ir_glm_vis(vis_file             = '../../../goes-data/vis/20200513-1
             ### VIS Data to reflectance ###      
             vis_img  = get_ref_from_rad(vis)                                                                                                #Calculate reflectance from radiance
             pat_proj = '_vis_'
+            xyres    = vis.spatial_resolution
         else:
             vis_img  = bt*0.0
             pat_proj = '_ir_'
+            xyres    = ir.spatial_resolution
         # Define Vis images       
         if no_write_irdiff == False:
             ir_dstr = re.split('_s|_', os.path.basename(ir_file))[3]                                                                        #Extract IR date string that started scan
@@ -375,6 +377,7 @@ def combine_ir_glm_vis(vis_file             = '../../../goes-data/vis/20200513-1
 
         f.x_inds  = x_inds                                                                                                                  #Write min latitude as global variable
         f.y_inds  = y_inds                                                                                                                  #Write max latitude as global variable
+        f.spatial_resolution = xyres                                                                                                        #Write satellite spatial resolution to the file
         
         if len(xy_bounds) > 0  and ('RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file)):
             image_projection.bounds = str(proj_extent_new[0]) + ',' + str(proj_extent_new[1]) + ',' + str(proj_extent_new[2]) + ',' + str(proj_extent_new[3])
@@ -492,7 +495,9 @@ def combine_ir_glm_vis(vis_file             = '../../../goes-data/vis/20200513-1
             with warnings.catch_warnings():
               warnings.simplefilter("ignore", category=RuntimeWarning)
               vis_img = vis_img/coszen                                                                                                      #Calculate reflectance by normalizing by solar zenith angle
-       
+            vis_img[vis_img > 2] = 2                                                                                                        #Set maximum visible reflectance normalized by solar zenith angle to be 2
+            vis_img[vis_img < 0] = 0                                                                                                        #Set minimum visible reflectance normalized by solar zenith angle to be 0
+            
         var_ir.long_name      = 'Infrared Brightness Temperature Image' + pat
         var_ir.standard_name  = 'IR_brightness_temperature'
         var_ir.units          = 'kelvin'
