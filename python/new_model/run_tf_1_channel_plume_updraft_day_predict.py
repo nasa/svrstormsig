@@ -1265,7 +1265,7 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, optim
 #    Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                                                      #Extract data scaling and offset ability for np.int32
     var_mod = f.createVariable(vname, 'f4', ('time', 'Y', 'X',), zlib = True)#, fill_value = Scaler._FillValue)
     var_mod.set_auto_maskandscale( False )
-    var_mod.long_name       = mod_description + ' Machine Learning Model Results'
+    var_mod.long_name       = mod_description + ' Machine Learning Detection Likelihood'
     var_mod.standard_name   = '_'.join(re.split(' |_', mod_description)[:-1]) + '_Model_Results'
     var_mod.checkpoint_file = use_chkpnt
     var_mod.model_type      = re.split(' ', mod_description)[2]
