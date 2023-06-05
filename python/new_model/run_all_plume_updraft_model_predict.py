@@ -41,6 +41,10 @@
 #                       SHALL BE THE IMMEDIATE, UNILATERAL TERMINATION OF THIS AGREEMENT.
 # Author and history:
 #     John W. Cooney           2022-05-05.
+#                              2022-06-05. MAJOR REVISIONS. 1) Added post-processing function that yields object ID numbers of OTs and AACPs as well as
+#                                          OT IR-anvil brightness temperature differences. 2) Fixed issue that occurred in full disk and CONUS scanned
+#                                          model runs. The issue occurred at the very edge of the domain where the satellite view is off in to space on the
+#                                          edge of Earth. This issue was fixed prior to release for OTs but AACPs needed to be fixed in a unique way.
 #
 #-
 
