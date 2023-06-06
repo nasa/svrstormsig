@@ -86,7 +86,7 @@ from new_model.gcs_processing import write_to_gcs, list_gcs, list_csv_gcs, load_
 #from glm_gridder.run_create_image_from_three_modalities import *
 #from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
 
-def run_write_plot_model_result_predictions(inroot         = '../../../goes-data/aacp_results/ir_vis_glm/updraft_day_model/not_real_time/2022-02-18/multiresunet/', 
+def run_write_plot_model_result_predictions(inroot         = os.path.join('..', '..', '..', 'goes-data', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'multiresunet'), 
                                             outroot        = None, 
                                             region         = None, 
                                             latlon_domain  = [], 
@@ -181,6 +181,11 @@ def run_write_plot_model_result_predictions(inroot         = '../../../goes-data
     mod00 = ' Plume Detection'
     chek0 = 'plume_day_model'
   
+  if 'real_time' not in inroot:
+    subset     = True
+    by_date    = True
+    by_updraft = True
+    
   use_chan = os.path.basename(os.path.realpath(re.split(chek0, inroot)[0]))
   if len(chk_day_night) == 0:
     if use_chan == 'ir':                      
@@ -227,7 +232,7 @@ def run_write_plot_model_result_predictions(inroot         = '../../../goes-data
   if use_local == True:
     csv_file = sorted(glob.glob(os.path.join(inroot, 'dates_with_ftype.csv'), recursive = True))
   else:
-    pref     = os.path.join('Cooney_testing', re.split('aacp_results', inroot)[1])
+    pref     = os.path.join('Cooney_testing', re.split('aacp_results' + os.sep, inroot)[1])
     csv_file = list_csv_gcs(f_bucket_name, pref, 'dates_with_ftype.csv')
     if isinstance(csv_file, list) == False:
       csv_file = []
@@ -247,7 +252,7 @@ def run_write_plot_model_result_predictions(inroot         = '../../../goes-data
     img_path = str(df_dates['out_date'][0]) + '-' + str(df_dates['out_date'][len(img_path)-1])                                                                                  #Set up Image output path based on dates
   else:
     img_path = str(df_dates['out_date'][0])                                                                                                                                     #Set up Image output path based on dates
-    
+
   results  = []
   nc_files = []                                                                                                                                                                 #Initialize list to store the combined netCDF file names
   ir_files = []                                                                                                                                                                 #Initialize list to store the raw file names
@@ -572,7 +577,7 @@ def run_write_plot_model_result_predictions(inroot         = '../../../goes-data
     
     if use_local == False:
       os.makedirs(os.path.realpath(os.path.dirname(nc_names[0])), exist_ok = True)
-      nc_names2  = list_gcs(c_bucket_name, os.path.join('combined_nc_dir', re.split('combined_nc_dir/', nc_names)[1]), ['.nc'], delimiter = '/')
+      nc_names2  = list_gcs(c_bucket_name, os.path.join('combined_nc_dir', re.split('combined_nc_dir' + os.sep, nc_names)[1]), ['.nc'], delimiter = '/')
       pool       = mp.Pool(3)
       results2   = [pool.apply_async(download_gcp_parallel, args=(row, nc_names2, c_bucket_name, os.path.realpath(os.path.dirname(nc_names[0])))) for row in range(len(nc_names2))]
       pool.close()
@@ -629,8 +634,8 @@ def run_write_plot_model_result_predictions(inroot         = '../../../goes-data
     [os.remove(x) for x in nc_files if os.path.isfile(x)]                                                                                                                       #Remove all downloaded combined netCDF files
 
 def write_plot_model_result_predictions(nc_names, ir_files, tod = [], res = [], region = None, latlon_domain = [], pthresh = 0.5, 
-                                        res_dir          = '../../../aacp_results/ir_vis_glm/updraft_day_model/not_real_time/2022-02-18/multiresunet/',
-                                        outroot          = '../../../aacp_results_imgs/', 
+                                        res_dir          = os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', 'not_real_time', '2022-02-18', 'multiresunet'),
+                                        outroot          = os.path.join('..', '..', '..', 'aacp_results_imgs'), 
                                         res_bucket_name  = 'aacp-results',
                                         proc_bucket_name = 'aacp-proc-data', 
                                         write_gcs        = True, 
@@ -749,7 +754,7 @@ def write_plot_model_result_predictions(nc_names, ir_files, tod = [], res = [], 
               else:  
                 res0 = np.load(res_file[0])                                                                                                                                     #Load numpy results file
             else:      
-              pref = os.path.join('Cooney_testing', re.split('aacp_results/', res_dir)[1])
+              pref = os.path.join('Cooney_testing', re.split('aacp_results' + os.sep, res_dir)[1])
               if pref != pref0:  
                 res_file = list_gcs(res_bucket_name, pref, ['results', '.npy'], delimiter = '/')                                                                                #Extract name of model results file
                 if len(res_file) == 0:      
@@ -849,7 +854,7 @@ def write_plot_model_result_predictions(nc_names, ir_files, tod = [], res = [], 
       for idx, n in enumerate(nc_names):   
         res_dir = os.path.realpath(res_dir)                                                                                                                                     #Create link to real input root directory path so compatible with Mac
         if use_local == True:  
-          res_file = sorted(glob.glob(res_dir + '/*.npy'))                                                                                                                      #Extract name of numpy results file
+          res_file = sorted(glob.glob(res_dir + os.sep + '*.npy'))                                                                                                                      #Extract name of numpy results file
           if len(res_file) == 0:      
             print('No results file found??')      
           if len(res_file) > 1:                                                                                                                                                 #If results file for each scan
@@ -885,7 +890,7 @@ def write_plot_model_result_predictions(nc_names, ir_files, tod = [], res = [], 
                 res2[res0 > res2] = res0[res0 > res2]                                                                                                                           #Retain only the maximum values at each index
                 res0 = []  
         else:      
-          pref = os.path.join('Cooney_testing', re.split('aacp_results/', res_dir)[1] )     
+          pref = os.path.join('Cooney_testing', re.split('aacp_results' + os.sep, res_dir)[1] )     
           if pref != pref0:  
             res_file = list_gcs(res_bucket_name, pref, ['results', '.npy'], delimiter = '/')                                                                                    #Extract name of model results file
             if len(res_file) == 0:      
