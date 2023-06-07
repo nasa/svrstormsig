@@ -148,8 +148,8 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                run_gcs        = True, 
                                                use_local      = False, 
                                                del_local      = True, 
-                                               inroot         = '../../../goes-data/aacp_results/', 
-                                               outroot        = '../../../goes-data/', 
+                                               inroot         = os.path.join('..', '..', '..', 'goes-data', 'aacp_results'), 
+                                               outroot        = os.path.join('..', '..', '..', 'goes-data'), 
                                                og_bucket_name = 'goes-data',
                                                c_bucket_name  = 'ir-vis-sandwhich',
                                                p_bucket_name  = 'aacp-proc-data',
@@ -761,8 +761,8 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                            run_gcs        = True, 
                                            use_local      = False, 
                                            del_local      = True, 
-                                           inroot         = '../../../goes-data/20190505/', 
-                                           outroot        = '../../../goes-data/', 
+                                           inroot         = os.path.join('..', '..', '..', 'goes-data', '20190505'), 
+                                           outroot        = os.path.join('..', '..', '..', 'goes-data'), 
                                            p_bucket_name  = 'aacp-proc-data',
                                            c_bucket_name  = 'ir-vis-sandwhich', 
                                            f_bucket_name  = 'aacp-results', 
@@ -1188,6 +1188,7 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         if len(na2) > 0:
           results[na2, 0] = 0
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', results.shape[1]) + '_results.npy')                                      #Save file path and name in case want to write results to google cloud storage bucket
+      results[results < 0.02] = 0
       np.save(fname, results)                                                                                                                                               #Save model results to numpy file in local storage
       if verbose == True:
         print('Prediction file output file path/name = ' + fname)

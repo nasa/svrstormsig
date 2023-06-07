@@ -132,11 +132,11 @@ from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, 
 from gridrad.rdr_sat_utils_jwc import read_dcotss_er2_plane, doctss_read_lat_lon_alt_trajectory_particle_ncdf
 from glm_gridder.run_create_image_from_three_modalities import sort_goes_irvis_files
 
-def run_create_image_from_three_modalities2(inroot             = '../../../goes-data/20200513-14/', 
-                                            glm_out_dir        = '../../../goes-data/out_dir/', 
-                                            layered_dir        = '../../../goes-data/combined_nc_dir/', 
-                                            img_out_dir        = '../../../goes-data/layered_img_dir/', 
-                                            plane_inroot       = '../../../misc-data0/DCOTSS/aircraft/',
+def run_create_image_from_three_modalities2(inroot             = os.path.join('..', '..', '..', 'goes-data', '20200513-14'), 
+                                            glm_out_dir        = os.path.join('..', '..', '..', 'goes-data', 'out_dir'), 
+                                            layered_dir        = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
+                                            img_out_dir        = os.path.join('..', '..', '..', 'goes-data', 'layered_img_dir'), 
+                                            plane_inroot       = os.path.join('..', '..', '..', 'misc-data0', 'DCOTSS', 'aircraft'),
                                             no_plot_glm        = True, no_plot = False, 
                                             no_write_glm       = False, no_write_vis = False, no_write_irdiff = True, no_write_cirrus = True, no_write_snowice = True, no_write_dirtyirdiff = True, 
                                             xy_bounds          = [], 
@@ -901,7 +901,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
             pref = os.path.join('combined_nc_dir', os.path.basename(os.path.dirname(combined_nc_file)))                                        #Extract path prefix to write files into google cloud
             write_to_gcs(out_bucket_name, pref, combined_nc_file, del_local = del_local)                                                       #Write combined netCDF file to google cloud storage bucket
         if no_plot == False:    
-            pref = 'layered_img_dir/' + re.split('layered_img_dir/', os.path.dirname(image))[1]                                                #Extract path prefix to write files into google cloud
+            pref = 'layered_img_dir' + os.sep + re.split('layered_img_dir' + os.sep, os.path.dirname(image))[1]                                #Extract path prefix to write files into google cloud
             write_to_gcs(out_bucket_name, pref, image, del_local = del_local)                                                                  #Write sandwich image to google cloud storage bucket    
     else:
         if del_combined_nc == True:

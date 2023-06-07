@@ -317,7 +317,7 @@ def get_lat_lon_from_vis(_vis_dataset, verbose = True):
 def get_lat_lon_subset_inds(_scan_proj_dataset, xy_bounds, 
                            lat           = [], lon = [], 
                            return_lats   = False, 
-                           region_csvdir = '../../data/region/', 
+                           region_csvdir = os.path.join('..', '..', 'data', 'region'), 
                            satellite     = 'goes16', scan_mode = 'full', 
                            use_native_ir = False, 
                            verbose       = True):

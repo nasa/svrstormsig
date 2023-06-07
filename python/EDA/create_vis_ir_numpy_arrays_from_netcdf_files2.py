@@ -229,7 +229,7 @@ def merge_csv_files(json_root, run_gcs = False, proc_bucket_name = 'aacp-proc-da
     sector = os.path.basename(json_root)
     rm = 0
     if run_gcs == True:
-        prefix   = os.path.join(os.path.basename(re.split('/labelled/', json_root)[0]), 'labelled', re.split('/labelled/', json_root)[1])
+        prefix   = os.path.join(os.path.basename(re.split(os.sep + 'labelled' + os.sep, json_root)[0]), 'labelled', re.split(os.sep + 'labelled' + os.sep, json_root)[1])
         json_csv = list_gcs(proc_bucket_name, prefix, ['.csv'], delimiter = '*/')
         if os.path.join(prefix, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv') in json_csv: 
             json_csv.remove(os.path.join(prefix, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'))                                #Do not merge previously merged ir, vis, glm, and json data frame
@@ -288,11 +288,11 @@ def merge_csv_files(json_root, run_gcs = False, proc_bucket_name = 'aacp-proc-da
         return(join(json_root, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'))
     else:
         return(-1)
-        
-def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../goes-data/20190517-18/', 
-                                                  layered_root     = '../../../goes-data/combined_nc_dir/',
-                                                  outroot          = '../../../goes-data/labelled/',
-                                                  json_root        = '../../../goes-data/labelled/',  
+
+def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.join('..', '..', '..', 'goes-data', '20190517-18'), 
+                                                  layered_root     = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'),
+                                                  outroot          = os.path.join('..', '..', '..', 'goes-data', 'labelled'),
+                                                  json_root        = os.path.join('..', '..', '..', 'goes-data', 'labelled'),  
                                                   date_range       = [], 
                                                   meso_sector      = 2, 
                                                   domain_sector    = None, 
@@ -636,7 +636,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = '../../../g
             
             outdir    = join(outroot, date_str)                                                                                                #Set up output directory path using file date (year + day_number)
             if run_gcs == True:
-                pref  = os.path.join(os.path.basename(re.split('/labelled/', outdir)[0]), 'labelled', re.split('/labelled/', outdir)[1])
+                pref  = os.path.join(os.path.basename(re.split(os.sep + 'labelled' + os.sep, outdir)[0]), 'labelled', re.split(os.sep + 'labelled' + os.sep, outdir)[1])
             os.makedirs(join(outdir, sector, 'ir'),  exist_ok = True)                                                                          #Create output directory if it does not exist
             if no_write_irdiff == False:
                 os.makedirs(join(outdir, sector, 'ir_diff'), exist_ok = True)                                                                  #Create output directory if it does not exist

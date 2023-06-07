@@ -55,7 +55,7 @@ import time
 #print('glm_gridder.py Imports complete.')
 
 def glm_gridder2(outfile     = None, 
-                 glm_root    = '../../../data/goes-data/20200513-14/glm/', 
+                 glm_root    = os.path.join('..', '..', '..', 'data', 'goes-data', '20200513-14', 'glm'), 
                  date_str    = None, 
                  date_range  = [], 
                  twindow     = [2, 30], 
@@ -67,14 +67,14 @@ def glm_gridder2(outfile     = None,
 
     ## pipeline configuration ##
     # define output directory and file
-    if outfile == None: outfile = '../../../data/out_dir/gridded_data.nc'                                                                   #Set default output file
+    if outfile == None: outfile = os.path.join('..', '..', '..', 'data', 'out_dir', 'gridded_data.nc')                                      #Set default output file
     outfile = os.path.realpath(outfile)                                                                                                     #Create link to real path so compatible with Mac
     os.makedirs(os.path.dirname(outfile), exist_ok = True)	                                                                                #Make output directory if it does not exist		
     if os.path.isfile(outfile) == False:
         open(outfile, 'w').close()                                                                                                          #Create empty output file
         
         # define input file directory and generate list of filenames and paths
-        if outfile == None: glm_root = '../../../data/raw_dir/'                                                                             #Cooney path = '../../../data/goes-data/20200513-14/glm_dir/'
+        if outfile == None: glm_root = os.path.join('..', '..', '..', 'data', 'raw_dir')                                                    #Cooney path = '../../../data/goes-data/20200513-14/glm_dir/'
         glm_root = os.path.realpath(glm_root)                                                                                               #Create link to real path so compatible with Mac
         
         #raw_dir = '/Users/jwcooney/python/data/goes-data/20200513-14/glm_dir/'

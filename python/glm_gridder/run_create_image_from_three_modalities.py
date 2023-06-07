@@ -142,11 +142,11 @@ from glm_gridder.combine_ir_glm_vis import combine_ir_glm_vis
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, load_csv_gcs
 from gridrad.rdr_sat_utils_jwc import read_dcotss_er2_plane, doctss_read_lat_lon_alt_trajectory_particle_ncdf
 
-def run_create_image_from_three_modalities(inroot             = '../../../goes-data/20200513-14/', 
-                                           glm_out_dir        = '../../../goes-data/out_dir/', 
-                                           layered_dir        = '../../../goes-data/combined_nc_dir/', 
-                                           img_out_dir        = '../../../goes-data/layered_img_dir/', 
-                                           plane_inroot       = '../../../misc-data0/DCOTSS/aircraft/',
+def run_create_image_from_three_modalities(inroot             = os.path.join('..', '..', '..', 'goes-data', '20200513-14'), 
+                                           glm_out_dir        = os.path.join('..', '..', '..', 'goes-data', 'out_dir'), 
+                                           layered_dir        = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
+                                           img_out_dir        = os.path.join('..', '..', '..', 'goes-data', 'layered_img_dir'), 
+                                           plane_inroot       = os.path.join('..', '..', '..', 'misc-data0', 'DCOTSS', 'aircraft'),
                                            no_plot_glm        = True, no_write_vis = False, no_write_glm = False, no_write_irdiff = True, no_plot = False, 
                                            xy_bounds          = [], 
                                            domain_sector      = None, 

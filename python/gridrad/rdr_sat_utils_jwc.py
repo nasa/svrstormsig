@@ -96,8 +96,8 @@ def rdr_sat_utils_jwc(date_str       = '20190430-0501',
                       sector         = 'M1',
                       lat_correction = None, #0.12, # This needs to change based on the geographic focus of the satellite.  0.12 for most datasets, 0.09 for 5 Apr 2017
                       lon_correction = None, #0.05, # This needs to change based on the geographic focus of the satellite.  0.05 for most datasets, -0.02 for 5 Apr 2017
-                      rdr_inroot     = '../../../misc-data0/GridRad/NEXRAD/',
-                      sat_inroot     = '../../../goes-data/combined_nc_dir/', 
+                      rdr_inroot     = os.path.join('..', '..', '..', 'misc-data0', 'GridRad', 'NEXRAD'),
+                      sat_inroot     = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
                       rdr_bucket     = 'misc-data0',
                       sat_bucket     = 'ir-vis-sandwhich', 
                       use_local      = False, write_gcs = True, del_local = True, 
@@ -136,12 +136,12 @@ def rdr_sat_utils_jwc(date_str       = '20190430-0501',
   sat_dir    = os.path.join(sat_inroot, date_str)                                                                                          #Add date string to satellite root path directory
   if use_local == False:
     dir_maker(sat_dir)                                                                                                                     #Create output directory for satellite data if it does not already exist
-    sat_files = list_gcs(comb_bucket_name, 'combined_nc_dir/' + date_str + '/', [sector + '_COMBINED_'], delimiter = '*/')                 #Extract list of satellite files from GCP storage bucket
+    sat_files = list_gcs(sat_bucket, os.path.join('combined_nc_dir', date_str), [sector + '_COMBINED_'], delimiter = '*/')                 #Extract list of satellite files from GCP storage bucket
     for g in sat_files: download_ncdf_gcs(sat_bucket, g, sat_dir)                                                                          #Download IR/VIS/GLM combined netCDF files from GCP bucket
 
   # Find domain bounds
   if lat_correction == None or lon_correction == None:
-    sat_files = sorted(glob.glob(sat_dir + '/*_' + sector + '_*.nc'))                                                                      #Extract names of all of the GOES combined netCDF data files
+    sat_files = sorted(glob.glob(sat_dir + os.sep + '*_' + sector + '_*.nc'))                                                              #Extract names of all of the GOES combined netCDF data files
     with Dataset(sat_files[0]) as f:       
       domain = [np.nanmin(f.variables['longitude'][0,:]), np.nanmin(f.variables['latitude'][0,:]), np.nanmax(f.variables['longitude'][0,:]), np.nanmax(f.variables['latitude'][0,:])]
     pc = estimate_sector_parallax(domain = domain)
@@ -158,7 +158,7 @@ def rdr_sat_utils_jwc(date_str       = '20190430-0501',
   rdr_df.to_csv(os.path.join(rdr_inroot, date_str, sector, 'update_rdr_data.csv'), index=False)
   
   if write_gcs == True and use_local == False:
-      pref = re.split('misc-data0/', rdr_inroot)[1]
+      pref = re.split('misc-data0' + os.sep, rdr_inroot)[1]
       write_to_gcs(rdr_bucket, os.path.join(pref, date_str, sector, 'update_rdr_data.csv'), os.path.join(rdr_inroot, date_str, sector, 'update_rdr_data.csv'), del_local = del_local)
   
   print("--- %s seconds ---" % (time.time() - start_time))
@@ -378,7 +378,7 @@ def get_sat_files(in_dir, img_type, sector):
     dataframe containing all filenames in the specified in_dir and extracted date times from each filename.
   '''
 #  files = [f for f in listdir(in_dir) if ((isfile(join(in_dir, f)) and (not (f.startswith('.')))))]
-  files = [os.path.basename(f) for f in sorted(glob.glob(in_dir + '/*_' + sector + '_*.nc'))]
+  files = [os.path.basename(f) for f in sorted(glob.glob(in_dir + os.sep + '*_' + sector + '_*.nc'))]
   df    = pd.DataFrame(files, columns = ['filename'])
   if (img_type == 'IR'):
     df['date_time'] = df['filename'].apply(lambda x: datetime.strptime(x,'IR_%Y%j_%H%M%S.nc'))
@@ -444,7 +444,7 @@ def rdr_csv_update2(rdr_csv, comb_dir, lat_correction, lon_correction, sector,
   if use_local == True:
     rdr_df = pd.read_csv(rdr_csv, skiprows = [1])                                                                                                  #Read radar csv file into pandas dataframe
   else:
-    pref   = re.split('misc-data0/', rdr_csv)[1]                                                                                                   #Extract path after misc-data0 to get GCP bucket path
+    pref   = re.split('misc-data0' + os.sep, rdr_csv)[1]                                                                                                   #Extract path after misc-data0 to get GCP bucket path
     rdr_df = load_csv_gcs(rdr_bucket, pref, skiprows = [1])                                                                                        #Read radar csv file into pandas dataframe fromGCP
 
   rdr_df.fillna(0.0, inplace=True)                                                                                                                 #Fill data frame of NaNs with zeros
@@ -1210,7 +1210,7 @@ def sat_info():
   
   return(sat)
  
-def read_goes_east_parallax_correction_ncdf(infile = '../../../goes-data/parallax_corrections/G-16.2021253.2210.plax.cldtop15.0-km.image.nc'):
+def read_goes_east_parallax_correction_ncdf(infile = os.path.join('..', '..', '..', 'goes-data', 'parallax_corrections', 'G-16.2021253.2210.plax.cldtop15.0-km.image.nc')):
   '''
   Reads the GOES east parallax correction file.
   Args:

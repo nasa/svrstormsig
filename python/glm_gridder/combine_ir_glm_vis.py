@@ -80,10 +80,10 @@ from glm_gridder.glm_data_processing import *
 from glm_gridder.dataScaler import DataScaler
 from suncalc import get_position
 
-def combine_ir_glm_vis(vis_file             = '../../../goes-data/vis/20200513-14/OR_ABI-L1b-RadM2-M6C02_G16_s20201340000494_e20201340000552_c20201340000582.nc',
-                       ir_file              = '../../../goes-data/ir/goes-data/20200513-14/OR_ABI-L1b-RadM2-M6C13_G16_s20201340000494_e20201340000564_c20201340001007.nc',
-                       glm_file             = '../../../goes-data/out_dir/gridded_data.nc',
-                       layered_dir          = '../../../goes-data/combined_nc_dir/', 
+def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'goes-data', 'vis', '20200513-14', 'OR_ABI-L1b-RadM2-M6C02_G16_s20201340000494_e20201340000552_c20201340000582.nc'),
+                       ir_file              = os.path.join('..', '..', '..', 'goes-data', 'ir', 'goes-data', '20200513-14', 'OR_ABI-L1b-RadM2-M6C13_G16_s20201340000494_e20201340000564_c20201340001007.nc'),
+                       glm_file             = os.path.join('..', '..', '..', 'goes-data', 'out_dir', 'gridded_data.nc'),
+                       layered_dir          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
                        universal_file       = False, 
                        rewrite_nc           = False, 
                        no_write_vis         = False,                       

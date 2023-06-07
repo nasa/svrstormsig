@@ -611,10 +611,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 pthresh       = 0.20
                 use_native_ir = True
               elif mod_type == 'unet':  
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.45
               elif mod_type == 'attentionunet':  
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 print('Optimal pthresh must still be entered!!!')
                 print(mod_inputs)
                 exit()
@@ -629,10 +629,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 use_chkpnt = os.path.realpath(irvis_ot_best)
                 pthresh    = 0.25
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.35
               elif mod_type == 'attentionunet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.65
             else:
               use_chkpnt = os.path.realpath(irvis_aacp_best)
@@ -649,10 +649,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 pthresh       = 0.30
                 use_native_ir = True
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.45
               elif mod_type == 'attentionunet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 print('Optimal pthresh must still be entered!!!')
                 print(mod_inputs)
                 exit()
@@ -667,10 +667,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 use_chkpnt = os.path.realpath(irirdiff_ot_best)
                 pthresh    = 0.35
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.45
               elif mod_type == 'attentionunet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 print('Optimal pthresh must still be entered!!!')
                 print(mod_inputs)
                 exit()
@@ -688,10 +688,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 use_chkpnt = os.path.realpath(irvisglm_ot_best)
                 pthresh    = 0.40
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.45
               elif mod_type == 'attentionunet':
-                use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 pthresh    = 0.20
             else:
               use_chkpnt = os.path.realpath(irvisglm_aacp_best)
@@ -746,7 +746,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       else:
         no_download = False
      
-#       if raw_data_root and not raw_data_root.endswith('/'):                                                                        #Make sure the specified root directory path has / at the end
+#       if raw_data_root and not raw_data_root.endswith('/'):                                                                      #Make sure the specified root directory path has / at the end
 #           raw_data_root += '/'
       
       raw_data_root00 = raw_data_root
@@ -1279,10 +1279,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               pthresh       = 0.20
               use_native_ir = True
             elif mod_type == 'unet':  
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.45
             elif mod_type == 'attentionunet':  
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               print('Optimal pthresh must still be entered!!!')
               print(mod_inputs)
               exit()
@@ -1297,10 +1297,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               use_chkpnt = os.path.realpath(irvis_ot_best)
               pthresh    = 0.25
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.35
             elif mod_type == 'attentionunet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.65
           else:
             use_chkpnt = os.path.realpath(irvis_aacp_best)
@@ -1317,10 +1317,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               pthresh       = 0.30
               use_native_ir = True
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.45
             elif mod_type == 'attentionunet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               print('Optimal pthresh must still be entered!!!')
               print(mod_inputs)
               exit()
@@ -1335,10 +1335,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               use_chkpnt = os.path.realpath(irirdiff_ot_best)
               pthresh    = 0.35
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.45
             elif mod_type == 'attentionunet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               print('Optimal pthresh must still be entered!!!')
               print(mod_inputs)
               exit()
@@ -1356,10 +1356,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               use_chkpnt = os.path.realpath(irvisglm_ot_best)
               pthresh    = 0.40
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.45
             elif mod_type == 'attentionunet':
-              use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               pthresh    = 0.20
           else:
             use_chkpnt = os.path.realpath(irvisglm_aacp_best)
@@ -1677,19 +1677,19 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 if transition != 'y':
                   if mod_loc == 'OT':
                     if mod_inputs.lower() == 'ir':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh0   = 0.45
                     elif mod_inputs.lower() == 'ir+vis':  
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh0   = 0.35
                     elif mod_inputs.lower() == 'ir+glm':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh0   = 0.45
                     elif mod_inputs.lower() == 'ir+irdiff':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh0   = 0.45
                     elif mod_inputs.lower() == 'ir+vis+glm':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh0   = 0.45  
                   else:
                     print('AACP model not set up to use unet model.. ONLY multiresunet is available!!')
@@ -1699,25 +1699,25 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 mod_type  = 'attentionunet'
                 if transition != 'y':
                   if mod_inputs.lower() == 'ir':
-                    use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                     print('Optimal pthresh must still be entered!!!')
                     print(mod_inputs)
                     exit()
                   elif mod_inputs.lower() == 'ir+vis':  
-                    use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                     pthresh0   = 0.65
                   elif mod_inputs.lower() == 'ir+glm':
-                    use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                     print('Optimal pthresh must still be entered!!!')
                     print(mod_inputs)
                     exit()
                   elif mod_inputs.lower() == 'ir+irdiff':
-                    use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                     print('Optimal pthresh must still be entered!!!')
                     print(mod_inputs)
                     exit()
                   elif mod_inputs.lower() == 'ir+vis+glm':
-                    use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                     pthresh0   = 0.20
                 else:
                   print('AACP model not set up to use attentionunet model.. ONLY multiresunet is available!!')
@@ -1787,10 +1787,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                       pthresh0   = 0.20
                       use_native_ir = True
                     elif mod_type == 'unet':  
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.45
                     elif mod_type == 'attentionunet':  
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       print('Optimal pthresh must still be entered!!!')
                       print(mod_inputs)
                       exit()
@@ -1806,10 +1806,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                       use_chkpnt = os.path.realpath(irvis_ot_best)
                       pthresh    = 0.25
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.35
                     elif mod_type == 'attentionunet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.65
                   else:
                     use_chkpnt = os.path.realpath(irvis_aacp_best)
@@ -1827,10 +1827,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                       pthresh    = 0.30
                       use_native_ir = True
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.45
                     elif mod_type == 'attentionunet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       print('Optimal pthresh must still be entered!!!')
                       print(mod_inputs)
                       exit()
@@ -1846,10 +1846,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                       use_chkpnt = os.path.realpath(irirdiff_ot_best)
                       pthresh    = 0.35
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.45
                     elif mod_type == 'attentionunet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_irdiff/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       print('Optimal pthresh must still be entered!!!')
                       print(mod_inputs)
                       exit()
@@ -1867,10 +1867,10 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                       use_chkpnt = os.path.realpath(irvisglm_ot_best)
                       pthresh    = 0.40
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/unet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.45
                     elif mod_type == 'attentionunet':
-                      use_chkpnt = os.path.realpath('../../../aacp_results/ir_vis_glm/updraft_day_model/2022-02-18/attentionunet/chosen_indices/by_date/by_updraft/unet_checkpoint.cp')
+                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       pthresh    = 0.20
                   else:
                     use_chkpnt = os.path.realpath(irvisglm_aacp_best)
