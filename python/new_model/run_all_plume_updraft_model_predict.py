@@ -521,11 +521,12 @@ def run_all_plume_updraft_model_predict(verbose              = False,
             print()
           else:
             if use_night == False:
-              mod_type   = 'multiresunet'
-              mod_inputs = 'IR+VIS+GLM'
-              use_glm    = True
-              use_chkpnt = os.path.realpath(irvisglm_ot_best)
-              pthresh    = 0.40
+              mod_type    = 'multiresunet'
+              mod_inputs  = 'IR+VIS+GLM'
+              use_glm     = True
+              use_chkpnt  = os.path.realpath(irvisglm_ot_best)
+              pthresh     = 0.40
+              opt_pthres0 = pthresh
             else:  
               mod_type      = 'multiresunet'
               mod_inputs    = 'IR'
@@ -533,6 +534,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 #               pthresh       = 0.40
               use_chkpnt    = os.path.realpath(ir_ot_native_best)
               pthresh       = 0.20
+              opt_pthres0   = pthresh
               use_native_ir = True
             print('You have chosen to run an ' + mod_inputs + ' ' + mod_type + ' OT model') 
         else:
@@ -544,17 +546,19 @@ def run_all_plume_updraft_model_predict(verbose              = False,
             print()          
           else:  
             if use_night == False:
-              mod_type   = 'multiresunet'
-              mod_inputs = 'IR+VIS+GLM'
-              use_glm    = True
-              use_chkpnt = os.path.realpath(irvisglm_aacp_best)
-              pthresh    = 0.30
+              mod_type    = 'multiresunet'
+              mod_inputs  = 'IR+VIS+GLM'
+              use_glm     = True
+              use_chkpnt  = os.path.realpath(irvisglm_aacp_best)
+              pthresh     = 0.30
+              opt_pthres0 = pthresh
             else:  
-              mod_type   = 'multiresunet'
-              mod_inputs = 'IR+GLM'
-              use_glm    = True
-              use_chkpnt = os.path.realpath(irglm_aacp_best)
-              pthresh    = 0.60
+              mod_type    = 'multiresunet'
+              mod_inputs  = 'IR+GLM'
+              use_glm     = True
+              use_chkpnt  = os.path.realpath(irglm_aacp_best)
+              pthresh     = 0.60
+              opt_pthres0 = pthresh
             print('You have chosen to run an ' + mod_inputs + ' ' + mod_type + ' AACP model') 
         print()
       else:  
@@ -609,34 +613,41 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 #                 pthresh    = 0.40
                 use_chkpnt    = os.path.realpath(ir_ot_native_best)
                 pthresh       = 0.20
+                opt_pthres0   = pthresh
                 use_native_ir = True
               elif mod_type == 'unet':  
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.45
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.45
+                opt_pthres0 = pthresh
               elif mod_type == 'attentionunet':  
                 use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 print('Optimal pthresh must still be entered!!!')
                 print(mod_inputs)
                 exit()
             else:
-              use_chkpnt = os.path.realpath(ir_aacp_best)
-              pthresh    = 0.80
+              use_chkpnt  = os.path.realpath(ir_aacp_best)
+              pthresh     = 0.80
+              opt_pthres0 = pthresh
           elif mod_inputs.lower() == 'ir+vis' or mod_inputs.lower() == 'vis+ir':  
             mod_inputs = 'IR+VIS'
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                use_chkpnt = os.path.realpath(irvis_ot_best)
-                pthresh    = 0.25
+                use_chkpnt  = os.path.realpath(irvis_ot_best)
+                pthresh     = 0.25
+                opt_pthres0 = pthresh
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.35
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.35
+                opt_pthres0 = pthresh
               elif mod_type == 'attentionunet':
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.65
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.65
+                opt_pthres0 = pthresh
             else:
               use_chkpnt = os.path.realpath(irvis_aacp_best)
-              pthresh    = 0.40
+              pthresh     = 0.40
+              opt_pthres0 = pthresh
           elif mod_inputs.lower() == 'ir+glm' or mod_inputs.lower() == 'glm+ir':
             mod_inputs = 'IR+GLM'
             mod_check  = 1
@@ -647,28 +658,33 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 #                 pthresh    = 0.65
                 use_chkpnt    = os.path.realpath(irglm_ot_native_best)
                 pthresh       = 0.30
+                opt_pthres0   = pthresh
                 use_native_ir = True
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.45
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.45
+                opt_pthres0 = pthresh
               elif mod_type == 'attentionunet':
                 use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 print('Optimal pthresh must still be entered!!!')
                 print(mod_inputs)
                 exit()
             else:
-              use_chkpnt = os.path.realpath(irglm_aacp_best)
-              pthresh    = 0.60
+              use_chkpnt  = os.path.realpath(irglm_aacp_best)
+              pthresh     = 0.60
+              opt_pthres0 = pthresh
           elif mod_inputs.lower() == 'ir+irdiff' or mod_inputs.lower() == 'irdiff+ir':  
             mod_inputs = 'IR+IRDIFF'
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                use_chkpnt = os.path.realpath(irirdiff_ot_best)
-                pthresh    = 0.35
+                use_chkpnt  = os.path.realpath(irirdiff_ot_best)
+                pthresh     = 0.35
+                opt_pthres0 = pthresh
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.45
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.45
+                opt_pthres0 = pthresh
               elif mod_type == 'attentionunet':
                 use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                 print('Optimal pthresh must still be entered!!!')
@@ -685,17 +701,21 @@ def run_all_plume_updraft_model_predict(verbose              = False,
             use_glm    = True
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                use_chkpnt = os.path.realpath(irvisglm_ot_best)
-                pthresh    = 0.40
+                use_chkpnt  = os.path.realpath(irvisglm_ot_best)
+                pthresh     = 0.40
+                opt_pthres0 = pthresh
               elif mod_type == 'unet':
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.45
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.45
+                opt_pthres0 = pthresh
               elif mod_type == 'attentionunet':
-                use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                pthresh    = 0.20
+                use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                pthresh     = 0.20
+                opt_pthres0 = pthresh
             else:
-              use_chkpnt = os.path.realpath(irvisglm_aacp_best)
-              pthresh    = 0.30
+              use_chkpnt  = os.path.realpath(irvisglm_aacp_best)
+              pthresh     = 0.30
+              opt_pthres0 = pthresh
           else:
             print('Model inputs entered are not available. Options are IR, IR+VIS, IR+GLM, IR+IRDIFF, and IR+VIS+GLM. Please try again.')
             print()
@@ -933,7 +953,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
     else:
       sector = ''
 
-    if vals[0].lower() == 'y':                                                                                                     #Satellite scan sector to use#Check if user wants to run a real-time model or archived model
+    if vals[0].lower() == 'y':                                                                                                     #Check if user wants to run a real-time model or archived model
       d_str1 = None
       d_str2 = None
       try:
@@ -1200,6 +1220,40 @@ def run_all_plume_updraft_model_predict(verbose              = False,
         print('Please try again.')
         print()
     
+    if mod_loc.lower() == 'ot':
+      if len(vals) >= 18:
+        percent_omit = vals[17]                                                                                                    #If target is OT, determine the percent of coldest and warmest anvil pixels to omit from the OT IR-anvil BTD calculation
+        counter   = 0                                                                                                              #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                              #Initialize variable to store whether or not the user entered the appropriate information 
+        while mod_check == 0:
+          if counter >= 1:
+            percent_omit = str(input('For post-processing, Enter the percent of coldest and warmest pixels to omit from the anvil calculation to remove bias in determining OT IR-anvil BTD: ')).replace("'", '')
+          counter = counter + 1
+          if counter == 4:
+            print('Too many failed attempts! Exiting program.')
+            exit()
+          percent_omit = ''.join(e for e in percent_omit if e.isdigit() or e == '.' or e == '-')
+          try:
+            percent_omit = float(percent_omit)
+            if percent_omit < 0 or percent_omit > 100:
+              print('You MUST enter only a number between 0 and 100 for % of pixels of pixels to be omitted from and mean brightness temperature calculation')
+              print('The default is 20')
+              print('You entered : ' + str(percent_omit))
+              print('Please try again.')
+              print()
+            else:
+              mod_check = 1
+          except:
+            print('You MUST enter only a number between 0 and 100 for % of pixels of pixels to be omitted from and mean brightness temperature calculation')
+            print('The default is 20')
+            print('You entered : ' + str(percent_omit))
+            print('Please try again.')
+            print()
+      else:
+        percent_omit = 20                                                                                                          #Set default percent omit. This does not matter of AACPs but it still needs to be passed into post-processing function
+    else:
+      percent_omit = 20                                                                                                            #Set default percent omit. This does not matter of AACPs but it still needs to be passed into post-processing function
+      
     transition = 'n'
     day_night0 = vals[11]                                                                                                          #If user wants to use optimal model for day-night seamless transition run
     day_night0 = ''.join(e for e in day_night0 if e.isalnum())                                                                     #Remove any special characters or spaces.
@@ -1277,34 +1331,41 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 #               pthresh    = 0.40
               use_chkpnt    = os.path.realpath(ir_ot_native_best)
               pthresh       = 0.20
+              opt_pthres0   = pthresh
               use_native_ir = True
             elif mod_type == 'unet':  
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.45
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.45
+              opt_pthres0 = pthresh
             elif mod_type == 'attentionunet':  
               use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               print('Optimal pthresh must still be entered!!!')
               print(mod_inputs)
               exit()
           else:
-            use_chkpnt = os.path.realpath(ir_aacp_best)
-            pthresh    = 0.80
+            use_chkpnt  = os.path.realpath(ir_aacp_best)
+            pthresh     = 0.80
+            opt_pthres0 = pthresh
         elif mod_inputs.lower() == 'ir+vis' or mod_inputs.lower() == 'vis+ir':  
           mod_inputs = 'IR+VIS'
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              use_chkpnt = os.path.realpath(irvis_ot_best)
-              pthresh    = 0.25
+              use_chkpnt  = os.path.realpath(irvis_ot_best)
+              pthresh     = 0.25
+              opt_pthres0 = pthresh
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.35
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.35
+              opt_pthres0 = pthresh
             elif mod_type == 'attentionunet':
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.65
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.65
+              opt_pthres0 = pthresh
           else:
-            use_chkpnt = os.path.realpath(irvis_aacp_best)
-            pthresh    = 0.40
+            use_chkpnt  = os.path.realpath(irvis_aacp_best)
+            pthresh     = 0.40
+            opt_pthres0 = pthresh
         elif mod_inputs.lower() == 'ir+glm' or mod_inputs.lower() == 'glm+ir':
           mod_inputs = 'IR+GLM'
           mod_check  = 1
@@ -1315,28 +1376,33 @@ def run_all_plume_updraft_model_predict(verbose              = False,
 #               pthresh    = 0.65
               use_chkpnt    = os.path.realpath(irglm_ot_native_best)
               pthresh       = 0.30
+              opt_pthres0   = pthresh
               use_native_ir = True
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.45
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.45
+              opt_pthres0 = pthresh
             elif mod_type == 'attentionunet':
               use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               print('Optimal pthresh must still be entered!!!')
               print(mod_inputs)
               exit()
           else:
-            use_chkpnt = os.path.realpath(irglm_aacp_best)
-            pthresh    = 0.60
+            use_chkpnt  = os.path.realpath(irglm_aacp_best)
+            pthresh     = 0.60
+            opt_pthres0 = pthresh
         elif mod_inputs.lower() == 'ir+irdiff' or mod_inputs.lower() == 'irdiff+ir':  
           mod_inputs = 'IR+IRDIFF'
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              use_chkpnt = os.path.realpath(irirdiff_ot_best)
-              pthresh    = 0.35
+              use_chkpnt  = os.path.realpath(irirdiff_ot_best)
+              pthresh     = 0.35
+              opt_pthres0 = pthresh
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.45
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.45
+              opt_pthres0 = pthresh
             elif mod_type == 'attentionunet':
               use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
               print('Optimal pthresh must still be entered!!!')
@@ -1353,22 +1419,26 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           use_glm    = True
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              use_chkpnt = os.path.realpath(irvisglm_ot_best)
-              pthresh    = 0.40
+              use_chkpnt  = os.path.realpath(irvisglm_ot_best)
+              pthresh     = 0.40
+              opt_pthres0 = pthresh
             elif mod_type == 'unet':
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.45
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.45
+              opt_pthres0 = pthresh
             elif mod_type == 'attentionunet':
-              use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-              pthresh    = 0.20
+              use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+              pthresh     = 0.20
+              opt_pthres0 = pthresh
           else:
-            use_chkpnt = os.path.realpath(irvisglm_aacp_best)
-            pthresh    = 0.30
+            use_chkpnt  = os.path.realpath(irvisglm_aacp_best)
+            pthresh     = 0.30
+            opt_pthres0 = pthresh
         else:
           print('Model inputs entered are not available. Options are IR, IR+VIS, IR+GLM, IR+IRDIFF, and IR+VIS+GLM. Please try again.')
           print()
     
-      opt_pthresh = vals[15]                                                                                                       #If user wants to use optimal likelihood score for model inputs chose
+      opt_pthresh = vals[15]                                                                                                       #If user wants to use optimal likelihood score for model inputs chosen
       opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
       if opt_pthresh[0].lower() != 'y':
         pthresh   = vals[16]                                                                                                       #Likelihood score chosen by user
@@ -1452,6 +1522,9 @@ def run_all_plume_updraft_model_predict(verbose              = False,
             print('(9) Domain corners set to ' + str(xy_bounds))
           else:
             print('(9) You have chosen not to constrain model to any lat/lon boundary points')
+
+      if mod_loc.lower() == 'ot':
+        print('(10) In post-processing, the percent of coldest and warmest anvil pixels to omit from OT IR-anvil BTD calculation is ' + str(percent_omit))
       
       print()
       dd = str(input('Is the information above all correct? If yes, hit ENTER. If no, type the number of the question you would like changed: ')).replace("'", '')
@@ -1473,8 +1546,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
           print('Wrong data type entered! If all of the information above is correct, hit ENTER. If not, type the number that of statement you would like changed.')
           print('Please try again.')
         
-        if dd > 9 or dd <= 0:
-          print('Invalid number entered. Numbers allowed range between 1 and 9.')
+        if dd > 10 or dd <= 0:
+          print('Invalid number entered. Numbers allowed range between 1 and 10.')
           print('You entered : ' + str(dd))
           print('Please try again.')
         else:  
@@ -1599,6 +1672,149 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               mod_loc = 'AACP'
             else:
               mod_loc = 'OT'  
+              counter   = 0                                                                                                        #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+              mod_check = 0                                                                                                        #Initialize variable to store whether or not the user entered the appropriate information 
+              while mod_check == 0:
+                percent_omit = str(input('For post-processing, Enter the percent of coldest and warmest pixels to omit from the anvil calculation to remove bias in determining OT IR-anvil BTD: ')).replace("'", '')
+                counter = counter + 1
+                if counter == 4:
+                  print('Too many failed attempts! Exiting program.')
+                  exit()
+                if type(percent_omit) == str:
+                  percent_omit = ''.join(e for e in percent_omit if e.isdigit() or e == '.' or e == '-')
+                try:
+                  percent_omit = float(percent_omit)
+                  if percent_omit < 0 or percent_omit > 100:
+                    print('You MUST enter only a number between 0 and 100 for % of pixels of pixels to be omitted from and mean brightness temperature calculation')
+                    print('The default is 20')
+                    print('You entered : ' + str(percent_omit))
+                    print('Please try again.')
+                    print()
+                  else:
+                    mod_check = 1
+                except:
+                  print('You MUST enter only a number between 0 and 100 for % of pixels of pixels to be omitted from and mean brightness temperature calculation')
+                  print('The default is 20')
+                  print('You entered : ' + str(percent_omit))
+                  print('Please try again.')
+                  print()
+
+            if mod_type.lower() == 'multiresunet':  
+              mod_check = 1
+              mod_type  = 'multiresunet'
+              if transition != 'y':
+                if mod_loc == 'OT':
+                  if mod_inputs.lower() == 'ir':
+#                     use_chkpnt    = os.path.realpath(ir_ot_best)
+#                     pthresh0      = 0.40
+                    use_chkpnt    = os.path.realpath(ir_ot_native_best)
+                    pthresh0      = 0.20
+                    opt_pthres0   = pthresh0               
+                    use_native_ir = True
+                  elif mod_inputs.lower() == 'ir+vis':  
+                    use_chkpnt    = os.path.realpath(irvis_ot_best)
+                    pthresh0      = 0.25
+                    opt_pthres0   = pthresh0
+                    use_native_ir = False
+                  elif mod_inputs.lower() == 'ir+glm':
+#                     use_chkpnt = os.path.realpath(irglm_ot_best)
+#                     pthresh0   = 0.65
+                    use_chkpnt    = os.path.realpath(irglm_ot_native_best)
+                    pthresh0      = 0.30
+                    opt_pthres0   = pthresh0               
+                    use_native_ir = True
+                  elif mod_inputs.lower() == 'ir+irdiff':
+                    use_chkpnt    = os.path.realpath(irirdiff_ot_best)
+                    pthresh0      = 0.35
+                    opt_pthres0   = pthresh0               
+                    use_native_ir = False
+                  elif mod_inputs.lower() == 'ir+vis+glm':
+                    use_chkpnt    = os.path.realpath(irvisglm_ot_best)
+                    pthresh0      = 0.40  
+                    opt_pthres0   = pthresh0               
+                    use_native_ir = False
+                else:
+                  use_native_ir = False
+                  if mod_inputs.lower() == 'ir':
+                    use_chkpnt  = os.path.realpath(ir_aacp_best)
+                    pthresh0    = 0.80
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+vis':  
+                    use_chkpnt  = os.path.realpath(irvis_aacp_best)
+                    pthresh0    = 0.40
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+glm':
+                    use_chkpnt  = os.path.realpath(irglm_aacp_best)
+                    pthresh0    = 0.60
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+vis+glm':
+                    use_chkpnt  = os.path.realpath(irvisglm_aacp_best)
+                    pthresh0    = 0.30
+                    opt_pthres0 = pthresh0               
+            elif mod_type.lower() == 'unet':  
+              mod_check     = 1
+              mod_type      = 'unet'
+              use_native_ir = False
+              if transition != 'y':
+                if mod_loc == 'OT':
+                  if mod_inputs.lower() == 'ir':
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.45
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+vis':  
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.35
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+glm':
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.45
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+irdiff':
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.45
+                    opt_pthres0 = pthresh0               
+                  elif mod_inputs.lower() == 'ir+vis+glm':
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.45  
+                    opt_pthres0 = pthresh0               
+                else:
+                  print('AACP model not set up to use unet model.. ONLY multiresunet is available!!')
+                  exit()
+            elif mod_type.lower() == 'attentionunet':
+              mod_check     = 1
+              mod_type      = 'attentionunet'
+              use_native_ir = False
+              if transition != 'y':
+                if mod_inputs.lower() == 'ir':
+                  use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                  print('Optimal pthresh must still be entered!!!')
+                  print(mod_inputs)
+                  exit()
+                elif mod_inputs.lower() == 'ir+vis':  
+                  use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                  pthresh0    = 0.65
+                  opt_pthres0 = pthresh0               
+                elif mod_inputs.lower() == 'ir+glm':
+                  use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                  print('Optimal pthresh must still be entered!!!')
+                  print(mod_inputs)
+                  exit()
+                elif mod_inputs.lower() == 'ir+irdiff':
+                  use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                  print('Optimal pthresh must still be entered!!!')
+                  print(mod_inputs)
+                  exit()
+                elif mod_inputs.lower() == 'ir+vis+glm':
+                  use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                  pthresh0    = 0.20
+                  opt_pthres0 = pthresh0               
+              else:
+                print('AACP model not set up to use attentionunet model.. ONLY multiresunet is available!!')
+                exit()
+            else:
+              print('Model type entered is not available. Options are multiresunet, unet, or attentionunet. Please try again.')
+              print()
+
 #             counter   = 0                                                                                                         #Initialize variable to store the number of times the program attempted to ascertain information from the user 
 #             mod_check = 0                                                                                                         #Initialize variable to store whether or not the user entered the appropriate information 
 #             while mod_check == 0:
@@ -1638,59 +1854,73 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 if transition != 'y':
                   if mod_loc == 'OT':
                     if mod_inputs.lower() == 'ir':
-#                       use_chkpnt = os.path.realpath(ir_ot_best)
-#                       pthresh0   = 0.40
-                      use_chkpnt = os.path.realpath(ir_ot_native_best)
-                      pthresh0   = 0.20
+#                       use_chkpnt    = os.path.realpath(ir_ot_best)
+#                       pthresh0      = 0.40
+                      use_chkpnt    = os.path.realpath(ir_ot_native_best)
+                      pthresh0      = 0.20
+                      opt_pthres0   = pthresh0               
                       use_native_ir = True
                     elif mod_inputs.lower() == 'ir+vis':  
-                      use_chkpnt = os.path.realpath(irvis_ot_best)
-                      pthresh0   = 0.25
+                      use_chkpnt  = os.path.realpath(irvis_ot_best)
+                      pthresh0    = 0.25
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+glm':
 #                       use_chkpnt = os.path.realpath(irglm_ot_best)
 #                       pthresh0   = 0.65
                       use_chkpnt    = os.path.realpath(irglm_ot_native_best)
-                      pthresh       = 0.30
+                      pthresh0      = 0.30
+                      opt_pthres0   = pthresh0               
                       use_native_ir = True
                     elif mod_inputs.lower() == 'ir+irdiff':
-                      use_chkpnt = os.path.realpath(irirdiff_ot_best)
-                      pthresh0   = 0.35
+                      use_chkpnt  = os.path.realpath(irirdiff_ot_best)
+                      pthresh0    = 0.35
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+vis+glm':
-                      use_chkpnt = os.path.realpath(irvisglm_ot_best)
-                      pthresh0   = 0.40  
+                      use_chkpnt  = os.path.realpath(irvisglm_ot_best)
+                      pthresh0    = 0.40  
+                      opt_pthres0 = pthresh0               
                   else:
                     if mod_inputs.lower() == 'ir':
-                      use_chkpnt = os.path.realpath(ir_aacp_best)
-                      pthresh0   = 0.80
+                      use_chkpnt  = os.path.realpath(ir_aacp_best)
+                      pthresh0    = 0.80
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+vis':  
-                      use_chkpnt = os.path.realpath(irvis_aacp_best)
-                      pthresh0   = 0.40
+                      use_chkpnt  = os.path.realpath(irvis_aacp_best)
+                      pthresh0    = 0.40
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+glm':
-                      use_chkpnt = os.path.realpath(irglm_aacp_best)
-                      pthresh0   = 0.60
+                      use_chkpnt  = os.path.realpath(irglm_aacp_best)
+                      pthresh0    = 0.60
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+vis+glm':
-                      use_chkpnt = os.path.realpath(irvisglm_aacp_best)
-                      pthresh0   = 0.30
+                      use_chkpnt  = os.path.realpath(irvisglm_aacp_best)
+                      pthresh0    = 0.30
+                      opt_pthres0 = pthresh0               
               elif mod_type.lower() == 'unet':  
                 mod_check = 1
                 mod_type = 'unet'
                 if transition != 'y':
                   if mod_loc == 'OT':
                     if mod_inputs.lower() == 'ir':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh0   = 0.45
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.45
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+vis':  
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh0   = 0.35
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.35
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+glm':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh0   = 0.45
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.45
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+irdiff':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh0   = 0.45
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.45
+                      opt_pthres0 = pthresh0               
                     elif mod_inputs.lower() == 'ir+vis+glm':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh0   = 0.45  
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.45  
+                      opt_pthres0 = pthresh0               
                   else:
                     print('AACP model not set up to use unet model.. ONLY multiresunet is available!!')
                     exit()
@@ -1704,8 +1934,9 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                     print(mod_inputs)
                     exit()
                   elif mod_inputs.lower() == 'ir+vis':  
-                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                    pthresh0   = 0.65
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.65
+                    opt_pthres0 = pthresh0               
                   elif mod_inputs.lower() == 'ir+glm':
                     use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                     print('Optimal pthresh must still be entered!!!')
@@ -1717,8 +1948,9 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                     print(mod_inputs)
                     exit()
                   elif mod_inputs.lower() == 'ir+vis+glm':
-                    use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                    pthresh0   = 0.20
+                    use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                    pthresh0    = 0.20
+                    opt_pthres0 = pthresh0               
                 else:
                   print('AACP model not set up to use attentionunet model.. ONLY multiresunet is available!!')
                   exit()
@@ -1781,39 +2013,48 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                   use_night  = True
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-#                       use_chkpnt = os.path.realpath(ir_ot_best)
-#                       pthresh    = 0.40
-                      use_chkpnt = os.path.realpath(ir_ot_native_best)
-                      pthresh0   = 0.20
+#                       use_chkpnt    = os.path.realpath(ir_ot_best)
+#                       pthresh       = 0.40
+                      use_chkpnt    = os.path.realpath(ir_ot_native_best)
+                      pthresh0      = 0.20
+                      opt_pthres0   = pthresh0               
                       use_native_ir = True
                     elif mod_type == 'unet':  
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.45
+                      use_chkpnt    = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0      = 0.45
+                      opt_pthres0   = pthresh0     
+                      use_native_ir = False          
                     elif mod_type == 'attentionunet':  
                       use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       print('Optimal pthresh must still be entered!!!')
                       print(mod_inputs)
                       exit()
                   else:
-                    use_chkpnt = os.path.realpath(ir_aacp_best)
-                    pthresh    = 0.80
+                    use_chkpnt  = os.path.realpath(ir_aacp_best)
+                    pthresh0    = 0.80
+                    opt_pthres0 = pthresh0               
                 elif mod_inputs.lower() == 'ir+vis' or mod_inputs.lower() == 'vis+ir':  
-                  mod_inputs = 'IR+VIS'
-                  mod_check  = 1
-                  use_night  = False
+                  mod_inputs    = 'IR+VIS'
+                  mod_check     = 1
+                  use_night     = False
+                  use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      use_chkpnt = os.path.realpath(irvis_ot_best)
-                      pthresh    = 0.25
+                      use_chkpnt  = os.path.realpath(irvis_ot_best)
+                      pthresh0    = 0.25
+                      opt_pthres0 = pthresh0               
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.35
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.35
+                      opt_pthres0 = pthresh0               
                     elif mod_type == 'attentionunet':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.65
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.65
+                      opt_pthres0 = pthresh0               
                   else:
-                    use_chkpnt = os.path.realpath(irvis_aacp_best)
-                    pthresh    = 0.40
+                    use_chkpnt  = os.path.realpath(irvis_aacp_best)
+                    pthresh0    = 0.40
+                    opt_pthres0 = pthresh0               
                 elif mod_inputs.lower() == 'ir+glm' or mod_inputs.lower() == 'glm+ir':
                   mod_inputs = 'IR+GLM'
                   mod_check  = 1
@@ -1821,33 +2062,42 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                   use_night  = True
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-#                       use_chkpnt = os.path.realpath(irglm_ot_best)
-#                       pthresh    = 0.65
-                      use_chkpnt = os.path.realpath(irglm_ot_native_best)
-                      pthresh    = 0.30
+#                       use_chkpnt    = os.path.realpath(irglm_ot_best)
+#                       pthresh       = 0.65
+                      use_chkpnt    = os.path.realpath(irglm_ot_native_best)
+                      pthresh0      = 0.30
+                      opt_pthres0   = pthresh0               
                       use_native_ir = True
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.45
+                      use_chkpnt    = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0      = 0.45
+                      opt_pthres0   = pthresh0               
+                      use_native_ir = False          
                     elif mod_type == 'attentionunet':
                       use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       print('Optimal pthresh must still be entered!!!')
                       print(mod_inputs)
                       exit()
                   else:
-                    use_chkpnt = os.path.realpath(irglm_aacp_best)
-                    pthresh    = 0.60
+                    use_chkpnt    = os.path.realpath(irglm_aacp_best)
+                    pthresh0      = 0.60
+                    opt_pthres0   = pthresh0               
+                    use_native_ir = False          
                 elif mod_inputs.lower() == 'ir+irdiff' or mod_inputs.lower() == 'irdiff+ir':  
                   mod_inputs = 'IR+IRDIFF'
                   mod_check  = 1
                   use_night  = True
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      use_chkpnt = os.path.realpath(irirdiff_ot_best)
-                      pthresh    = 0.35
+                      use_chkpnt    = os.path.realpath(irirdiff_ot_best)
+                      pthresh0      = 0.35
+                      opt_pthres0   = pthresh0               
+                      use_native_ir = False          
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.45
+                      use_chkpnt    = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0      = 0.45
+                      opt_pthres0   = pthresh0               
+                      use_native_ir = False          
                     elif mod_type == 'attentionunet':
                       use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_irdiff', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
                       print('Optimal pthresh must still be entered!!!')
@@ -1858,26 +2108,64 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                     print()
                     mod_check = 0
                 elif 'ir' in mod_inputs.lower() and 'vis' in mod_inputs.lower() and 'glm' in mod_inputs.lower(): 
-                  mod_inputs = 'IR+VIS+GLM'
-                  mod_check  = 1
-                  use_glm    = True
-                  use_night  = False
+                  mod_inputs    = 'IR+VIS+GLM'
+                  mod_check     = 1
+                  use_glm       = True
+                  use_night     = False
+                  use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      use_chkpnt = os.path.realpath(irvisglm_ot_best)
-                      pthresh    = 0.40
+                      use_chkpnt  = os.path.realpath(irvisglm_ot_best)
+                      pthresh0    = 0.40
+                      opt_pthres0 = pthresh0               
                     elif mod_type == 'unet':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.45
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'unet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.45
+                      opt_pthres0 = pthresh0               
                     elif mod_type == 'attentionunet':
-                      use_chkpnt = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
-                      pthresh    = 0.20
+                      use_chkpnt  = os.path.realpath(os.path.join('..', '..', '..', 'aacp_results', 'ir_vis_glm', 'updraft_day_model', '2022-02-18', 'attentionunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'))
+                      pthresh0    = 0.20
+                      opt_pthres0 = pthresh0               
                   else:
-                    use_chkpnt = os.path.realpath(irvisglm_aacp_best)
-                    pthresh    = 0.30
+                    use_chkpnt  = os.path.realpath(irvisglm_aacp_best)
+                    pthresh0    = 0.30
+                    opt_pthres0 = pthresh0               
                 else:
                   print('Model inputs entered are not available. Options are IR, IR+VIS, IR+GLM, IR+IRDIFF, and IR+VIS+GLM. Please try again.')
                   print()
+                  
+              opt_pthresh = str(input('Would you like to use the previously identified optimal ' + mod_loc + ' likelihood value for the ' + mod_inputs + ' ' + mod_type + ' model? (y/n): ')).replace("'", '')
+              if opt_pthresh == '':
+                opt_pthresh = 'y'
+                pthresh     = pthresh0
+              
+              opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
+              if opt_pthresh[0].lower() != 'y':
+                counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+                mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
+                while mod_check == 0:
+                  counter = counter + 1
+                  if counter == 4:
+                    print('Too many failed attempts! Exiting program.')
+                    exit()
+                  opt_pthresh = input('Enter the likelihood value you would like to use (0-1): ')
+                  try:
+                    opt_pthresh = float(opt_pthresh)
+                    if opt_pthresh < 0 or opt_pthresh > 1:
+                      print('Likelihood value must be between 0 and 1. Please try again.')
+                      print()
+                    else:
+                      mod_check = 1
+                      pthresh   = opt_pthresh
+                  except:
+                    print('Wrong type entered! Likelihood value must either be set to an integer or floating point value between 0 and 1. Please try again.')
+                    print('Format type entered = ' + str(type(opt_pthresh)))
+                    print()
+              else:
+                pthresh = pthresh0
+              
+              print()
+                  
           elif dd == 7:
             if no_plot == True:
 #              print('This job will now output images.')
@@ -2024,7 +2312,36 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                 xy_bounds = [x0, y0, x1, y1]
               else:
                 xy_bounds = []
-          
+          elif dd == 10:
+            if mod_loc.lower() == 'ot':
+              counter   = 0                                                                                                          #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+              mod_check = 0                                                                                                          #Initialize variable to store whether or not the user entered the appropriate information 
+              while mod_check == 0:
+                percent_omit = str(input('For post-processing, Enter the percent of coldest and warmest pixels to omit from the anvil calculation to remove bias in determining OT IR-anvil BTD: ')).replace("'", '')
+                counter = counter + 1
+                if counter == 4:
+                  print('Too many failed attempts! Exiting program.')
+                  exit()
+                if type(percent_omit) == str:
+                  percent_omit = ''.join(e for e in percent_omit if e.isdigit() or e == '.' or e == '-')
+                try:
+                  percent_omit = float(percent_omit)
+                  if percent_omit < 0 or percent_omit > 100:
+                    print('You MUST enter only a number between 0 and 100 for % of pixels of pixels to be omitted from and mean brightness temperature calculation')
+                    print('The default is 20')
+                    print('You entered : ' + str(percent_omit))
+                    print('Please try again.')
+                    print()
+                  else:
+                    mod_check = 1
+                except:
+                  print('You MUST enter only a number between 0 and 100 for % of pixels of pixels to be omitted from and mean brightness temperature calculation')
+                  print('The default is 20')
+                  print('You entered : ' + str(percent_omit))
+                  print('Please try again.')
+                  print()
+            else:
+              print('The question specified to be changed does not matter for AACPs. If you intended on detecting OTs, please change that.')
           else:
             print('Invalid number entered.')
             print('You entered : ' + str(dd))
@@ -2047,6 +2364,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       
     if transition == 'y':
       chk_day_night = {'day': day, 'night': night}
+      pthresh = None
       run_tf_3_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                  use_updraft    = use_updraft, 
                                                  sat            = sat,
@@ -2078,6 +2396,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                                    region         = None, 
                                                    xy_bounds      = xy_bounds, 
                                                    pthresh        = pthresh,
+                                                   opt_pthresh    = opt_pthres0,
                                                    run_gcs        = run_gcs, 
                                                    use_local      = use_local, 
                                                    del_local      = del_local, 
@@ -2104,6 +2423,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                                    region         = None, 
                                                    xy_bounds      = xy_bounds, 
                                                    pthresh        = pthresh,
+                                                   opt_pthresh    = opt_pthres0,
                                                    run_gcs        = run_gcs, 
                                                    use_local      = use_local, 
                                                    del_local      = del_local, 
@@ -2129,6 +2449,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                                    region         = None, 
                                                    xy_bounds      = xy_bounds, 
                                                    pthresh        = pthresh,
+                                                   opt_pthresh    = opt_pthres0,
                                                    run_gcs        = run_gcs, 
                                                    use_local      = use_local, 
                                                    del_local      = del_local, 
@@ -2166,6 +2487,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
               cc = 1
       if transition == 'y':
         chk_day_night = {'day': day, 'night': night}
+        pthresh = None
         run_tf_3_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                    use_updraft    = use_updraft, 
                                                    sat            = sat,
@@ -2197,6 +2519,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                                      region         = None, 
                                                      xy_bounds      = xy_bounds, 
                                                      pthresh        = pthresh,
+                                                     opt_pthresh    = opt_pthres0,
                                                      run_gcs        = run_gcs, 
                                                      use_local      = use_local, 
                                                      del_local      = del_local, 
@@ -2223,6 +2546,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                                      region         = None, 
                                                      xy_bounds      = xy_bounds, 
                                                      pthresh        = pthresh,
+                                                     opt_pthresh    = opt_pthres0,
                                                      run_gcs        = run_gcs, 
                                                      use_local      = use_local, 
                                                      del_local      = del_local, 
@@ -2248,6 +2572,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                                      region         = None, 
                                                      xy_bounds      = xy_bounds, 
                                                      pthresh        = pthresh,
+                                                     opt_pthresh    = opt_pthres0,
                                                      run_gcs        = run_gcs, 
                                                      use_local      = use_local, 
                                                      del_local      = del_local, 
@@ -2288,6 +2613,8 @@ def run_all_plume_updraft_model_predict(verbose              = False,
                                            object_type   = object_type,
                                            mod_type      = mod_type,
                                            sector        = sector,
+                                           pthresh       = pthresh,
+                                           percent_omit  = percent_omit,
                                            verbose       = verbose)
     
 def main():
