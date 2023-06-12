@@ -37,6 +37,8 @@
 #                      DEFAULT = [] -> write combined netCDF data for full scan region.
 #     pthresh        : FLOAT keyword to specify probability threshold to use. 
 #                      DEFAULT = None -> Use maximized IoU probability threshold.
+#     opt_pthresh    : FLOAT keyword to specify probability threshold that was found to optimize the specified model during Cooney testing. 
+#                      DEFAULT = None.
 #     run_gcs        : IF keyword set (True), write the output files to the google cloud in addition to local storage.
 #                      DEFAULT = True.
 #     use_local      : IF keyword set (True), use local files. If False, use files located on the google cloud. 
@@ -142,6 +144,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                region         = None, 
                                                xy_bounds      = [], 
                                                pthresh        = None,
+                                               opt_pthresh    = None,
                                                run_gcs        = True, 
                                                use_local      = False, 
                                                del_local      = True, 
@@ -186,6 +189,8 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                        DEFAULT = [] -> write combined netCDF data for full scan region.
       pthresh        : FLOAT keyword to specify probability threshold to use. 
                        DEFAULT = None -> Use maximized IoU probability threshold.
+      opt_pthresh    : FLOAT keyword to specify probability threshold that was found to optimize the specified model during Cooney testing. 
+                       DEFAULT = None.
       run_gcs        : IF keyword set (True), write the output files to the google cloud in addition to local storage.
                        DEFAULT = True.
       use_local      : IF keyword set (True), use local files. If False, use files located on the google cloud. 
@@ -465,6 +470,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                     date_range    = date_range,
                                                                     sector        = sector00,
                                                                     pthresh       = pthresh,
+                                                                    opt_pthresh   = opt_pthresh,
                                                                     rt            = rt, 
                                                                     run_gcs       = run_gcs, 
                                                                     use_local     = use_local, 
@@ -742,6 +748,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                            date_range     = [], 
                                            sector         = 'M2', 
                                            pthresh        = None, 
+                                           opt_pthresh    = None,
                                            rt             = True,
                                            run_gcs        = True, 
                                            use_local      = False, 
@@ -774,6 +781,8 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       sector         : INT keyword to specifiy the mesoscale sector. DEFAULT = 'M2'
       pthresh        : FLOAT keyword to specify probability threshold to use. 
                        DEFAULT = None -> Use maximized IoU probability threshold.
+      opt_pthresh    : FLOAT keyword to specify probability threshold that was found to optimize the specified model during Cooney testing. 
+                       DEFAULT = None.
       rt             : Real-time flag.
                        DEFAULT = True.
       run_gcs        : IF keyword set (True), write the output files to the google cloud in addition to local storage.
@@ -935,8 +944,8 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   else:  
     csv_file2 = os.path.join('Cooney_testing', os.path.relpath(indir, re.split(mod1, indir)[0]), 'dates_with_max_iou.csv')                                                  #Find max_iou csv file. Can be used for model type (Unet or MultiResUnet)
     df_iou    = load_csv_gcs(f_bucket_name, csv_file2)                                                                                                                      #Read specified csv file from GCP
-  if pthresh == None:
-      pthresh = df_iou['threshold'][0]                                                                                                                                      #Use threshold that maximizes IoU if threshold not given
+#   if pthresh == None:
+#       pthresh = df_iou['threshold'][0]                                                                                                                                      #Use threshold that maximizes IoU if threshold not given
     
   if df_iou.empty == False:  
     mod_type = str(df_iou['model'][0])                                                                                                                                      #Extract model type from file
@@ -1210,14 +1219,16 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         dn     = df['day_night'][d]
         if dn.lower() == 'night':
           pthresh = chk_day_night['night']['pthresh']
+          opt_pthresh = pthresh
         elif dn.lower() == 'day':
           pthresh = chk_day_night['day']['pthresh']
+          opt_pthresh = pthresh
         else:
           print('dn variable must be set to day or night if given chk_day_night dictionary.')
           print(dn)
           print(chk_day_night)
           exit()
-      t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'optimal_thresh' : pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'verbose': verbose})     #Write results to combined netCDF file
+      t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'optimal_thresh' : opt_pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'verbose': verbose})     #Write results to combined netCDF file
       t2.start()
       counter = counter+1
 #     t2.join()
