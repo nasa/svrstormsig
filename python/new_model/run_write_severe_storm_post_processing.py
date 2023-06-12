@@ -31,6 +31,12 @@
 #     mod_type      : STRING specifying the model type used to make the detections that you want to postprocess. (ex. multiresunet, unet, attentionunet)
 #                     DEFAULT = 'multiresunet'
 #     sector        : STRING specifying the domain sector to use to create maps (= 'conus' or 'full' or 'm1' or 'm2'). DEFAULT = None -> use meso_sector
+#     rewrite       : BOOL keyword to specify whether or not to rewrite the ID numbers and IR BTD, etc.
+#                     DEFAULT = True -> rewrite the post-processed data
+#     percent_omit  : FLOAT keyword specifying the percentage of cold and warm pixels to remove from anvil mean brightness temperature calculation
+#                     DEFAULT = 20 -> 20% of the warmest and coldest anvil pixel temperatures are removed in order to prevent the contribution of noise to 
+#                     the OT IR-anvil BTD calculation.
+#                     NOTE: percent_omit must be between 0 and 100.
 #     verbose       : BOOL keyword to specify whether or not to print verbose informational messages.
 #                     DEFAULT = True which implies to print verbose informational messages
 # Author and history:
@@ -64,6 +70,7 @@ def run_write_severe_storm_post_processing(inroot        = os.path.join('..', '.
                                            sector        = 'M2',
                                            pthresh       = None, 
                                            rewrite       = True,
+                                           percent_omit  = 20, 
                                            verbose       = True):
     
     '''    
@@ -105,6 +112,10 @@ def run_write_severe_storm_post_processing(inroot        = os.path.join('..', '.
                         jobs.
         rewrite       : BOOL keyword to specify whether or not to rewrite the ID numbers and IR BTD, etc.
                         DEFAULT = True -> rewrite the post-processed data
+        percent_omit  : FLOAT keyword specifying the percentage of cold and warm pixels to remove from anvil mean brightness temperature calculation
+                        DEFAULT = 20 -> 20% of the warmest and coldest anvil pixel temperatures are removed in order to prevent the contribution of noise to 
+                        the OT IR-anvil BTD calculation.
+                        NOTE: percent_omit must be between 0 and 100.
         verbose       : BOOL keyword to specify whether or not to print verbose informational messages.
                         DEFAULT = True which implies to print verbose informational messages
     Author and history:
@@ -243,8 +254,7 @@ def run_write_severe_storm_post_processing(inroot        = os.path.join('..', '.
                                         if len(anvil_bts) <= 0:
                                             anvil_bt_mean = np.nan                                                                                     #Set to 0 if no pixels possible to calculate anvil mean
                                         else:
-#                                            tenper    = int(np.floor(0.1*len(anvil_bts)))                                                              #Calculate the 10% of number of pixels in anvil
-                                            tenper    = int(np.floor(0.2*len(anvil_bts)))                                                              #Calculate the 20% of number of pixels in anvil
+                                            tenper    = int(np.floor((percent_omit/100.0)*len(anvil_bts)))                                             #Calculate the 20% of number of pixels in anvil
                                             anvil_bts = anvil_bts[0+tenper:len(anvil_bts)-tenper]
                                             anvil_bt_mean = np.nanmean(anvil_bts)                                                                      #Calculate anvil mean BTD
                                             if np.isnan(anvil_bt_mean):
@@ -256,9 +266,9 @@ def run_write_severe_storm_post_processing(inroot        = os.path.join('..', '.
                                             
                                         btd[inds2] = min_bt0 - anvil_bt_mean                                                                           #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
 
-                        append_combined_ncdf_with_model_post_porcessing(nc_file, ot_id, btd, data.attrs, anv_p, pthresh = pthresh, rewrite = rewrite, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
+                        append_combined_ncdf_with_model_post_porcessing(nc_file, ot_id, btd, data.attrs, anv_p, pthresh = pthresh, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
 
-def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod_attrs, resolution, pthresh = None, rewrite = True, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
+def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod_attrs, resolution, pthresh = None, rewrite = True, percent_omit = 20, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
   '''
   This is a function to append the combined netCDF files with the model post-processing data. 
   Args:
@@ -274,6 +284,10 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
                       DEFAULT = None -> use the default value in file
                       NOTE: day_night optimal runs may require different pthresh scores that yield the best results. It is suggested to keep this as None for those
                       jobs.
+      percent_omit  : FLOAT keyword specifying the percentage of cold and warm pixels to remove from anvil mean brightness temperature calculation
+                      DEFAULT = 20 -> 20% of the warmest and coldest anvil pixel temperatures are removed in order to prevent the contribution of noise to 
+                      the OT IR-anvil BTD calculation.
+                      NOTE: percent_omit must be between 0 and 100.
       write_gcs     : IF keyword set (True), write the output files to the google cloud in addition to local storage.
                       DEFAULT = True.
       del_local     : IF keyword set (True) AND run_gcs = True, delete local copy of output file.
@@ -300,11 +314,11 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
       if vname + '_id_number' in vnames:
         f[vname + '_id_number'][0, :, :] = object_id
         if pthresh != None:
-          f[vname + '_id_number'].optimal_thresh = pthresh
+          f[vname + '_id_number'].likelihood_threshold = pthresh
         if 'ot' in mod_attrs['standard_name'].lower():
           f[vname + '_anvilmean_brightness_temperature_difference'][0, :, :] = btd
           if pthresh != None:
-            f[vname + '_anvilmean_brightness_temperature_difference'].optimal_thresh = pthresh
+            f[vname + '_anvilmean_brightness_temperature_difference'].likelihood_threshold = pthresh
       else:
         lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                          #Read latitude from combined netCDF file to make sure it is the same shape as the model results
         lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                         #Read longitude from combined netCDF file to make sure it is the same shape as the model results
@@ -323,9 +337,9 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
         var_mod.model_type     = mod_attrs['model_type']
    #     var_mod.valid_range    = np.asarray([1, 65535], dtype=np.uint16)
         if pthresh == None:
-          var_mod.optimal_thresh = mod_attrs['optimal_thresh']
+          var_mod.likelihood_threshold = mod_attrs['optimal_thresh']
         else:
-          var_mod.optimal_thresh = pthresh
+          var_mod.likelihood_threshold = pthresh
         
         var_mod.missing_value  = 0
         var_mod.units          = 'dimensionless'
@@ -342,12 +356,12 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
           var_mod2.valid_range    = [-50.0, 0.0]
           var_mod2.missing_value  = np.nan
           if pthresh == None:
-            var_mod2.optimal_thresh = mod_attrs['optimal_thresh']
+            var_mod2.likelihood_threshold = mod_attrs['optimal_thresh']
           else:
-            var_mod2.optimal_thresh = pthresh
+            var_mod2.likelihood_threshold = pthresh
           var_mod2.units          = 'K'
           var_mod2.coordinates    = 'longitude latitude time'
-          var_mod2.description    = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest 20% of anvil BT pixels are removed prior to anvil mean calulcation." 
+          var_mod2.description    = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest " + str(percent_omit) + "% of anvil BT pixels are removed prior to anvil mean calulcation." 
           var_mod2[0, :, :]       = np.copy(btd)
 #          data2, scale_btd, offset_btd = Scaler.scaleData(btd)                                                                                            #Extract BTD data, scale factor and offsets that is scaled from Float to short
 #           var_mod2.add_offset    = offset_btd                                                                                                             #Write the data offset to the combined netCDF file
