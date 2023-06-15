@@ -379,8 +379,12 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
     vis_dir    = join(inroot, 'vis')
     irdiff_dir = join(inroot, 'ir_diff')
     os.makedirs(ir_dir,  exist_ok = True)
+    no_write_sza = True
+    keep0 = 'first'
     if no_write_vis == False:
         os.makedirs(vis_dir, exist_ok = True)
+        keep0 = 'last'
+        no_write_sza = False
     if no_write_irdiff == False:
         os.makedirs(irdiff_dir, exist_ok = True)
     if domain_sector == None:
@@ -620,7 +624,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                                     ir_vis3 = load_csv_gcs(proc_bucket_name, csv_exist[0])                                                     #Read in csv dataframe
                                     ir_vis3.drop("Unnamed: 0",axis=1, inplace = True)
                                     ir_vis2 = pd.concat([ir_vis3, ir_vis2], axis = 0, join = 'outer', ignore_index = True)
-                    ir_vis2 = ir_vis2.iloc[pd.to_datetime(ir_vis2.date_time).values.argsort()].drop_duplicates(subset = ['glm_files']).reset_index().drop(columns = ['index']) #Remove duplicate date times and sort them
+                    ir_vis2 = ir_vis2.iloc[pd.to_datetime(ir_vis2.date_time).values.argsort()].drop_duplicates(subset = ['glm_files'], keep = keep0).reset_index().drop(columns = ['index']) #Remove duplicate date times and sort them
                     ir_vis2['ir_index']   = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['ir_index'])]
                     ir_vis2['comb_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['comb_index'])]
                     ir_vis2['glm_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['glm_index'])]
@@ -683,9 +687,12 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                 else:
                     tod.append(np.nan)    
             else:
-                vis, tod0, sza = fetch_convert_vis(combined_nc_dat, no_write_vis = no_write_vis)                                               #Extract new normalized VIS data result and if night or day
-                sza_results.append(sza)                                                                                                        #Add new SZA data result to SZA list
-                tod.append(tod0)                                                                                                               #Add if night or day to list
+                if no_write_sza == False:
+                    vis, tod0, sza = fetch_convert_vis(combined_nc_dat, no_write_vis = no_write_vis)                                           #Extract new normalized VIS data result and if night or day
+                    sza_results.append(sza)                                                                                                    #Add new SZA data result to SZA list
+                    tod.append(tod0)                                                                                                           #Add if night or day to list
+                else:
+                    tod.append('night')
             g_files.append(os.path.relpath(ir_vis['comb_files'][f]))                                                                           #Add loops GLM file name to list
             if no_write_glm == False: 
                 glm_results.append(fetch_convert_glm(combined_nc_dat, lon_shape, lat_shape))                                                   #Add new normalized GLM data result to GLM list
@@ -774,7 +781,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                         ir_vis3 = load_csv_gcs(proc_bucket_name, csv_exist[0])                                                                 #Read in csv dataframe
                         ir_vis3.drop("Unnamed: 0",axis=1, inplace = True)
                         ir_vis2 = pd.concat([ir_vis3, ir_vis2], axis = 0, join = 'outer', ignore_index = True)
-        ir_vis2 = ir_vis2.iloc[pd.to_datetime(ir_vis2.date_time).values.argsort()].drop_duplicates(subset = ['glm_files']).reset_index().drop(columns = ['index'])       #Remove duplicate date times and sort them
+        ir_vis2 = ir_vis2.iloc[pd.to_datetime(ir_vis2.date_time).values.argsort()].drop_duplicates(subset = ['glm_files'], keep = keep0).reset_index().drop(columns = ['index'])       #Remove duplicate date times and sort them
         ir_vis2['ir_index']   = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['ir_index'])]
         ir_vis2['glm_index']  = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['glm_index'])]
         ir_vis2['comb_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['comb_index'])]
