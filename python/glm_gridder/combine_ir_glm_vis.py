@@ -320,12 +320,12 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
         f.createDimension('time',      1)
         
         # variable declaration for output file
-        var_lon  = f.createVariable('longitude', 'f4', ('Y','X',), zlib = True)
+        var_lon  = f.createVariable('longitude', 'f4', ('Y','X',), zlib = True, least_significant_digit = 3)
         var_lon.long_name     = 'longitude -180 to 180 degrees east'
         var_lon.standard_name = 'longitude'
         var_lon.units         = 'degrees_east'
   
-        var_lat  = f.createVariable('latitude', 'f4', ('Y', 'X',), zlib = True)
+        var_lat  = f.createVariable('latitude', 'f4', ('Y', 'X',), zlib = True, least_significant_digit = 3)
         var_lat.long_name     = 'latitude -90 to 90 degrees north'
         var_lat.standard_name = 'latitude'
         var_lat.units         = 'degrees_north'
@@ -342,11 +342,11 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_vis.units         = 'reflectance_normalized_by_solar_zenith_angle'
             var_vis.coordinates   = 'longitude latitude time'
             
-        var_zen  = f.createVariable('solar_zenith_angle', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
-        var_zen.set_auto_maskandscale( False )
-        var_zen.long_name     = 'Solar Zenith Angle'
-        var_zen.standard_name = 'solar_zenith_angle'
-        var_zen.units         = 'degrees'
+            var_zen  = f.createVariable('solar_zenith_angle', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 2)
+            var_zen.set_auto_maskandscale( False )
+            var_zen.long_name     = 'Solar Zenith Angle'
+            var_zen.standard_name = 'solar_zenith_angle'
+            var_zen.units         = 'degrees'
         
         image_projection = f.createVariable('imager_projection', np.int32, zlib = True)        
         image_projection.long_name                      = proj_img.long_name
@@ -391,7 +391,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             pat  = ''
             pat2 = ''
             if os.path.isfile(glm_file) == True and no_write_glm == False: 
-                var_glm   = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'GLM_Y', 'GLM_X',), zlib = True, fill_value = Scaler._FillValue)    
+                var_glm   = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'GLM_Y', 'GLM_X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_glm.set_auto_maskandscale( False )
                 long_name = str('Flash extent density within +/- 2.5 min of time variable' + pat + pat2)
                 var_glm.long_name     = long_name
@@ -399,7 +399,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 var_glm.units         = 'Count per nominal 3136 microradian^2 pixel per 1.0 min'
                 var_glm.coordinates   = 'longitude latitude time'
             if os.path.isfile(ird_f[0]) == True and no_write_irdiff == False: 
-                var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'IR_Y', 'IR_X',), zlib = True, fill_value = Scaler._FillValue)    
+                var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'IR_Y', 'IR_X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir2.set_auto_maskandscale( False )
                 var_ir2.long_name      = '6.2 - 10.3 micron Infrared Brightness Temperature Image' + pat
                 var_ir2.standard_name  = 'IR_brightness_temperature_difference'
@@ -414,28 +414,28 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_ir   = f.createVariable('ir_brightness_temperature', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
             var_ir.set_auto_maskandscale( False )
             if no_write_irdiff == False: 
-                var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)    
+                var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir2.set_auto_maskandscale( False )
                 var_ir2.long_name      = '6.2 - 10.3 micron Infrared Brightness Temperature Image' + pat
                 var_ir2.standard_name  = 'IR_brightness_temperature_difference'
                 var_ir2.units          = 'kelvin'
                 var_ir2.coordinates    = 'longitude latitude time'
             if no_write_cirrus == False: 
-                var_cirrus   = f.createVariable('cirrus_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)    
+                var_cirrus   = f.createVariable('cirrus_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_cirrus.set_auto_maskandscale( False )
                 var_cirrus.long_name      = '1.37 micron Near-Infrared Reflectance Image' + pat
                 var_cirrus.standard_name  = 'Cirrus_Band_Reflectance'
                 var_cirrus.units          = 'reflectance_normalized_by_solar_zenith_angle'
                 var_cirrus.coordinates    = 'longitude latitude time'
             if no_write_snowice == False: 
-                var_snowice   = f.createVariable('snowice_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)    
+                var_snowice   = f.createVariable('snowice_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_snowice.set_auto_maskandscale( False )
                 var_snowice.long_name      = '1.6 micron Near-Infrared Reflectance Image' + pat
                 var_snowice.standard_name  = 'Snow_Ice_Band_Reflectance'
                 var_snowice.units          = 'reflectance_normalized_by_solar_zenith_angle'
                 var_snowice.coordinates    = 'longitude latitude time'
             if no_write_dirtyirdiff == False: 
-                var_ir3   = f.createVariable('dirtyir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)    
+                var_ir3   = f.createVariable('dirtyir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir3.set_auto_maskandscale( False )
                 var_ir3.long_name      = '12.3 - 10.3 micron Dirty Infrared Brightness Temperature Difference Image' + pat
                 var_ir3.standard_name  = 'Dirty_IR_brightness_temperature_difference'
@@ -444,7 +444,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             if no_write_glm == False:
                 pat2 = ' and then smoothed using Gaussian filter'
                 long_name = str('Flash extent density within +/- 2.5 min of time variable' + pat + pat2)
-                var_glm  = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
+                var_glm  = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)
                 var_glm.long_name     = long_name
                 var_glm.standard_name = 'Flash_extent_density'
                 var_glm.units         = 'Count per nominal 3136 microradian^2 pixel per 1.0 min'
@@ -530,8 +530,10 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_vis.scale_factor  = scale_vis
             vis.close()
         
-        data, scale_zen, offset_zen = Scaler.scaleData(np.copy(np.asarray(np.rad2deg(zen))))                                                #Extract data, scale factor and offsets that is scaled from Float to short
-        var_zen[0, :, :]  = data
+            data, scale_zen, offset_zen = Scaler.scaleData(np.copy(np.asarray(np.rad2deg(zen))))                                            #Extract data, scale factor and offsets that is scaled from Float to short
+            var_zen[0, :, :]  = data
+            var_zen.add_offset    = offset_zen
+            var_zen.scale_factor  = scale_zen
         
         if no_write_glm == False:
             data, scale_glm, offset_glm = Scaler.scaleData(glm_raw_img)
@@ -563,8 +565,6 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
         var_ir.add_offset     = offset_ir
         var_ir.scale_factor   = scale_ir
 
-        var_zen.add_offset    = offset_zen
-        var_zen.scale_factor  = scale_zen
 
         shape_arr = lon_arr.shape[0]
 #        t0 = time.time()

@@ -50,7 +50,7 @@ import numpy as np
 import glob
 import os
 import re
-from math import ceil
+from math import ceil, floor
 from scipy.ndimage import label, generate_binary_structure
 import xarray as xr
 from netCDF4 import Dataset
@@ -303,10 +303,10 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
       Appends the combined netCDF data files with post-processing data
   '''  
 
-  with Dataset(nc_file, 'a') as f:                                                                                                                       #Open combined netCDF file to append with model results
-    chan0  = re.split('_', mod_attrs['standard_name'])[0].upper()                                                                                        #Extract satellite channels input into model
-    vname  = chan0.replace('+', '_').lower() + '_' + re.split('_', mod_attrs['standard_name'])[1].lower()                                                #Extract model info to create variable name
-    mod_description = chan0 + ' ' + re.split('_', mod_attrs['standard_name'])[1].upper()                                                                 #Extract model info for attributes description
+  with Dataset(nc_file, 'a', format="NETCDF4") as f:                                                                                                   #Open combined netCDF file to append with model results
+    chan0  = re.split('_', mod_attrs['standard_name'])[0].upper()                                                                                      #Extract satellite channels input into model
+    vname  = chan0.replace('+', '_').lower() + '_' + re.split('_', mod_attrs['standard_name'])[1].lower()                                              #Extract model info to create variable name
+    mod_description = chan0 + ' ' + re.split('_', mod_attrs['standard_name'])[1].upper()                                                               #Extract model info for attributes description
   #  missin = np.where(np.isnan(btd))
   #  btd[missin] = 0.0
     vnames = list(f.variables.keys())
@@ -320,8 +320,8 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
           if pthresh != None:
             f[vname + '_anvilmean_brightness_temperature_difference'].likelihood_threshold = pthresh
       else:
-        lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                          #Read latitude from combined netCDF file to make sure it is the same shape as the model results
-        lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                         #Read longitude from combined netCDF file to make sure it is the same shape as the model results
+        lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                        #Read latitude from combined netCDF file to make sure it is the same shape as the model results
+        lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                       #Read longitude from combined netCDF file to make sure it is the same shape as the model results
         if object_id.shape != lat.shape or btd.shape != lon.shape:
           print('Model results file does not match file latitude or longitude shape!!!!')
           print(lon.shape)
@@ -330,7 +330,8 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
           print(btd.shape)
           exit()
         #Declare variables
-        var_mod = f.createVariable(vname + '_id_number', np.uint16, ('time', 'Y', 'X',), zlib = True)
+        var_mod = f.createVariable(vname + '_id_number', 'u2', ('time', 'Y', 'X',), zlib = True, complevel = 7)
+#        var_mod = f.createVariable(vname + '_id_number', np.uint16, ('time', 'Y', 'X',), zlib = True)
         var_mod.set_auto_maskandscale( False )
         var_mod.long_name      = mod_description + ' Identification Number'
         var_mod.standard_name  = mod_description + ' ID Number'
@@ -345,10 +346,11 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
         var_mod.units          = 'dimensionless'
         var_mod.coordinates    = 'longitude latitude time'
         var_mod.description    = "The object Identification Number field shows all pixels that belong to an individual object region.  The ID numbers apply uniquely to each satellite scan, i.e. ID number 1 in one scan will likely not be the same feature as ID number 1 in the next scan, and therefore cannot be used to track an object throughout its lifetime." 
-        var_mod[0, :, :]       = np.copy(object_id)                                                                                                      #Write the Identification numbers to the combined netCDF file
+        var_mod[0, :, :]       = np.copy(object_id)                                                                                                    #Write the Identification numbers to the combined netCDF file
         if 'ot' in mod_attrs['standard_name'].lower():
-         # Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                             #Extract data scaling and offset ability for np.int32
-          var_mod2 = f.createVariable(vname + '_anvilmean_brightness_temperature_difference', 'f4', ('time', 'Y', 'X',), zlib = True)#, fill_value = Scaler._FillValue)
+#          Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                           #Extract data scaling and offset ability for np.int32
+          var_mod2 = f.createVariable(vname + '_anvilmean_brightness_temperature_difference', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
+#          var_mod2 = f.createVariable(vname + '_anvilmean_brightness_temperature_difference', 'f4', ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
           var_mod2.set_auto_maskandscale( False )
           var_mod2.long_name      = chan0 + " Overshooting Top Minus Anvil Brightness Temperature Difference"
           var_mod2.standard_name  = chan0 + " OT - Anvil BTD"
@@ -363,12 +365,12 @@ def append_combined_ncdf_with_model_post_porcessing(nc_file, object_id, btd, mod
           var_mod2.coordinates    = 'longitude latitude time'
           var_mod2.description    = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest " + str(percent_omit) + "% of anvil BT pixels are removed prior to anvil mean calulcation." 
           var_mod2[0, :, :]       = np.copy(btd)
-#          data2, scale_btd, offset_btd = Scaler.scaleData(btd)                                                                                            #Extract BTD data, scale factor and offsets that is scaled from Float to short
-#           var_mod2.add_offset    = offset_btd                                                                                                             #Write the data offset to the combined netCDF file
-#           var_mod2.scale_factor  = scale_btd                                                                                                              #Write the data scale factor to the combined netCDF file
+#           data2, scale_btd, offset_btd = Scaler.scaleData(btd)                                                                                       #Extract BTD data, scale factor and offsets that is scaled from Float to short
+#           var_mod2.add_offset    = offset_btd                                                                                                        #Write the data offset to the combined netCDF file
+#           var_mod2.scale_factor  = scale_btd                                                                                                         #Write the data scale factor to the combined netCDF file
 #           var_mod2[0, :, :]      = data2
-#           var_mod2.add_offset    = offset_btd                                                                                                             #Write the data offset to the combined netCDF file
-#           var_mod2.scale_factor  = scale_btd                                                                                                              #Write the data scale factor to the combined netCDF file
+#           var_mod2.add_offset    = offset_btd                                                                                                        #Write the data offset to the combined netCDF file
+#           var_mod2.scale_factor  = scale_btd                                                                                                         #Write the data scale factor to the combined netCDF file
   
     if verbose == True:
         print('Post-processing model output netCDF file name = ' + nc_file)
