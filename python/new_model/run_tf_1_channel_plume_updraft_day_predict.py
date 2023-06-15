@@ -338,6 +338,8 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       og_dir = sorted(list(set([os.path.join(outroot, (date01 + timedelta(hours = x)).strftime("%Y%m%d")) for x in range(int((date02-date01).days*24 + ceil((date02-date01).seconds/3600.0))+1)])))   #Extract all date hours between date1 and date2 based on hour of satellite scan
+      if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
+        og_dir = og_dir[:-1]
 #       date_list = [date01 + timedelta(hours = x) for x in range(int((date02-date01).days*24 + (date02-date01).seconds/3600.0)+1)]                                           #Extract all date hours between date1 and date2 based on hour of satellite scan
 #       og_dir    = []                                                                                                                                                        #Initialize list to store the output root directories for each date 
 #       for d in date_list:
@@ -1275,7 +1277,7 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, optim
       exit()
     #Declare variables
 #    Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                                                      #Extract data scaling and offset ability for np.int32
-    var_mod = f.createVariable(vname, 'f4', ('time', 'Y', 'X',), zlib = True)#, fill_value = Scaler._FillValue)
+    var_mod = f.createVariable(vname, 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 3)#, fill_value = Scaler._FillValue)
     var_mod.set_auto_maskandscale( False )
     var_mod.long_name       = mod_description + ' Machine Learning Detection Likelihood'
     var_mod.standard_name   = '_'.join(re.split(' |_', mod_description)[:-1]) + '_Model_Results'
@@ -1287,11 +1289,14 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, optim
     var_mod.missing_value   = 0
     var_mod.units           = 'dimensionless'
     var_mod.coordinates     = 'longitude latitude time'
-    
-#    data, scale_mod, offset_mod = Scaler.scaleData(res[0, :, :, 0])                                                                                                        #Scale the results data
     var_mod[0, :, :]     = res[0, :, :, 0]                                                                                                                                  #Write the results data to the combined netCDF file
-#    var_mod.add_offset   = offset_mod                                                                                                                                      #Write the data offset to the combined netCDF file
-#    var_mod.scale_factor = scale_mod                                                                                                                                       #Write the data scale factor to the combined netCDF file
+    
+#     data, scale_mod, offset_mod = Scaler.scaleData(res[0, :, :, 0])                                                                                                         #Scale the results data
+#     print(data.shape)
+#     var_mod.add_offset   = offset_mod                                                                                                                                       #Write the data offset to the combined netCDF file
+#     var_mod.scale_factor = scale_mod                                                                                                                                        #Write the data scale factor to the combined netCDF file
+#     var_mod[0, :, :]     = data                                                                                                                                             #Write the results data to the combined netCDF file
+  
   print('Model output netCDF file name = ' + nc_file)
   f.close()                                                                                                                                                                 #Close combined netCDF file once finished appending
   res = None

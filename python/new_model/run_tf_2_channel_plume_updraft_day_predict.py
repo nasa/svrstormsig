@@ -347,6 +347,8 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       og_dir = sorted(list(set([os.path.join(outroot, (date01 + timedelta(hours = x)).strftime("%Y%m%d")) for x in range(int((date02-date01).days*24 + ceil((date02-date01).seconds/3600.0))+1)])))   #Extract all date hours between date1 and date2 based on hour of satellite scan
+      if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
+        og_dir = og_dir[:-1]
 #       date_list = [date01 + timedelta(hours = x) for x in range(int((date02-date01).days*24 + (date02-date01).seconds/3600.0)+1)]                                           #Extract all date hours between date1 and date2 based on hour of satellite scan
 #       og_dir    = []                                                                                                                                                        #Initialize list to store the output root directories for each date 
 #       for d in date_list:
