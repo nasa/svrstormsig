@@ -45,6 +45,14 @@
 #                                          OT IR-anvil brightness temperature differences. 2) Fixed issue that occurred in full disk and CONUS scanned
 #                                          model runs. The issue occurred at the very edge of the domain where the satellite view is off in to space on the
 #                                          edge of Earth. This issue was fixed prior to release for OTs but AACPs needed to be fixed in a unique way.
+#                              2022-06-13. MINOR REVISIONS. 1) Fixed issue where user wants to correct the model inputs or model type and not everything 
+#                                          like the correct optimal model to be called followed with it. 2) Pass optimal_threshold for a given model to be written
+#                                          to output netCDF file rather than whatever is chosen by user for post-processing and plotting. The one chosen by
+#                                          the user is still passed into the subroutines for plotting and post-processing and is referred to as the likelihood_threshold
+#                                          in order to differentiate it from the optimal_thresh attribute in the raw model likelihood output variables. Users can
+#                                          identify objects in post-processing by specifying their own likelihood thresholds, rather than being forced to use the
+#                                          optimal thresholds found for a particular model. 3) Decrease size of files by improving compression by setting 
+#                                          least_significant_digits keyword when creating the variables.
 #
 #-
 
