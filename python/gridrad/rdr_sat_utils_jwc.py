@@ -86,6 +86,8 @@ import os
 import re
 from netCDF4 import Dataset
 from xarray import open_dataset
+from scipy.interpolate import interpn
+import scipy.ndimage as ndimage
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
@@ -1904,6 +1906,51 @@ def extract_goeseast_lat_lon_region_parallax_correction(region):
         print(region + ' is not set up to for finding the parallax corrections. Please make changes to code and try again')
         exit()
     return(pc)
+
+def gfs_interpolate_gridrad_tropT_to_goes_grid(tropT, x_gfs, y_gfs, x_sat, y_sat, 
+                                               no_parallax = True, 
+                                               x_pc        = [],
+                                               y_pc        = [],
+                                               sigma       = 36,
+                                               verbose     = True):
+    '''
+    Interpolates tropopause temperatures from GFS onto a satellite data grid
+    Args:
+      tropT : Array of GFS tropopause temperatures 
+      x_gfs : Array containing GFS longitude data
+      y_gfs : Array containing GFS latitude data
+      x_sat : Array containing satellite longitude data to interpolate GFS tropopause data onto.
+      y_sat : Array containing satellite latitude data to interpolate GFS tropopause data onto.
+    Keywords:
+      no_parallax : BOOL keyword to specify whether or not to apply a parallax correction. DEFAULT = False -> apply parallax correction
+      x_pc        : Numpy array storing the longitude parallax correction values for each point in x_sat and y_sat. DEFAULT = [] -> read it from find_nearest_parallax_correction_on_grid
+      y_pc        : Numpy array storing the latitude parallax correction values for each point in x_sat and y_sat. DEFAULT = [] -> read it from find_nearest_parallax_correction_on_grid
+      sigma       : Standard deviation for Gaussian kernel. The standard deviations of the Gaussian filter are given for each axis as a sequence, or as a single number, in which case it is equal for all axes.
+                    DEFAULT = 36 -> found to smooth temperatures well for 0.5 km GOES VIS data grid.
+      verbose     : BOOL keyword to specify whether or not to print verbose informational messages.
+                    DEFAULT = True which implies to print verbose informational messages
+    Returns:
+      z_e : Array of echo-top altitudes (in km) on the GOES data grid
+      z_t : Array of tropopause altitudes (in km) on the GOES data grid
+    '''
+
+    if no_parallax == True:
+      x_pc = 0.0
+      y_pc = 0.0
+    else:
+      if isinstance(x_pc, list) or isinstance(x_pc, np.ndarray):
+        if len(x_pc) == 0 or len(y_pc) == 0:
+          x_pc, y_pc = find_nearest_parallax_correction_on_grid(x_sat, y_sat)
+
+    lon0   = (np.asarray(x_gfs)).tolist()
+    lat0   = (np.asarray(y_gfs)).tolist()
+#    print(lon0)
+#    print(lat0)
+    x_sat  = x_sat+x_pc
+    y_sat  = y_sat-y_pc
+    tropT2 = ndimage.gaussian_filter(interpn((lat0, lon0), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan), sigma)                        #Linear interpolation of points (K)
+    return(tropT2)
+
   
 def main():
   rdr_sat_utils_jwc()
