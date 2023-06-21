@@ -334,6 +334,9 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                  gcs_bucket = og_bucket_name2,
                                                                  del_local  = False,
                                                                  verbose    = False)
+      date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
+      if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
+        og_dir = og_dir[:-1]
     else:
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data

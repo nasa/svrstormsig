@@ -353,6 +353,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                       gcs_bucket = og_bucket_name2,
                                                       del_local  = False,
                                                       verbose    = verbose)
+    
   else:  
     if no_download == False:
       og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = date1, date2 = date2,                                                                         #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
@@ -363,6 +364,9 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                  gcs_bucket = og_bucket_name2,
                                                                  del_local  = False,
                                                                  verbose    = False)
+      date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
+      if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
+        og_dir = og_dir[:-1]
     else:
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
