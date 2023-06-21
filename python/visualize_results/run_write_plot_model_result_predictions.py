@@ -299,7 +299,7 @@ def run_write_plot_model_result_predictions(inroot         = os.path.join('..', 
     
     if no_night == True:
       df_night.dropna(subset = ['vis_files'], inplace = True)                                                                                                                   #Remove night time scans
-    
+      df_night = df_night.reset_index().drop(columns = ['index'])
     nc_names  = [nc_names[x] for x in df_night['ir_index'].astype(int)]
     counter   = 0
     im_names2 = []
