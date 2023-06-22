@@ -573,7 +573,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         plane_df = pd.DataFrame()
         pdates   = []
     
-    pool     = mp.Pool(3)                                                                                                                      #Set up multiprocessing threads
+    pool     = mp.Pool(3, maxtasksperchild = 5)                                                                                                #Set up multiprocessing threads
     results  = [pool.apply_async(create_image_from_three_modalities_parallel, args=(row, ir_files, vis_files, 
                                                                                     glm_in_dir, glm_out_dir, layered_dir,
                                                                                     img_out_dir, no_plot_glm, no_plot, 
@@ -597,7 +597,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
             rerun_vfiles = find_images_not_created(fnames, ir_files[start_index:end_index+1])                                                  #Find vis data files that were not created        
         print('VIS/IR image files not created', rerun_vfiles)
         rerun_ifiles = [ir_files[vis_files.index(rv)] for rv in rerun_vfiles]                                                                  #Find ir files corresponding to vis files
-        pool         = mp.Pool(3)                                                                                                              #Set up multiprocessing threads
+        pool         = mp.Pool(3, maxtasksperchild =5)                                                                                        #Set up multiprocessing threads
         results      = [pool.apply_async(create_image_from_three_modalities_parallel, args=(row, rerun_ifiles, rerun_vfiles, 
                                                                                             glm_in_dir, glm_out_dir, layered_dir,
                                                                                             img_out_dir, no_plot_glm, no_plot, 
