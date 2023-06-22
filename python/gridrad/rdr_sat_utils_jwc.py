@@ -1907,12 +1907,12 @@ def extract_goeseast_lat_lon_region_parallax_correction(region):
         exit()
     return(pc)
 
-def gfs_interpolate_gridrad_tropT_to_goes_grid(tropT, x_gfs, y_gfs, x_sat, y_sat, 
-                                               no_parallax = True, 
-                                               x_pc        = [],
-                                               y_pc        = [],
-                                               sigma       = 36,
-                                               verbose     = True):
+def gfs_interpolate_tropT_to_goes_grid(tropT, x_gfs, y_gfs, x_sat, y_sat, 
+                                       no_parallax = True, 
+                                       x_pc        = [],
+                                       y_pc        = [],
+                                       sigma       = 36,
+                                       verbose     = True):
     '''
     Interpolates tropopause temperatures from GFS onto a satellite data grid
     Args:
@@ -1930,8 +1930,7 @@ def gfs_interpolate_gridrad_tropT_to_goes_grid(tropT, x_gfs, y_gfs, x_sat, y_sat
       verbose     : BOOL keyword to specify whether or not to print verbose informational messages.
                     DEFAULT = True which implies to print verbose informational messages
     Returns:
-      z_e : Array of echo-top altitudes (in km) on the GOES data grid
-      z_t : Array of tropopause altitudes (in km) on the GOES data grid
+      tropT : Array of tropopause temperatures on the GOES satellite grid
     '''
 
     if no_parallax == True:
