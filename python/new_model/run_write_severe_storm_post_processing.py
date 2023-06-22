@@ -312,7 +312,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                                                                sigma       = sigma,
                                                                                verbose     = verbose)
                                     grbs.close()
-                                    
+                                    print(np.nanmax(tropT))
                         append_combined_ncdf_with_model_post_processing(nc_file, ot_id, btd, tropT, data.attrs, anv_p, pthresh = pthresh, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
 
 def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tropT, mod_attrs, resolution, pthresh = None, rewrite = True, percent_omit = 20, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
@@ -367,6 +367,8 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
           f[vname + '_anvilmean_brightness_temperature_difference'][0, :, :] = btd
           if pthresh != None:
             f[vname + '_anvilmean_brightness_temperature_difference'].likelihood_threshold = pthresh
+
+   #       f['tropopause_temperature'][0, :, :] = tropT
       else:
         lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                        #Read latitude from combined netCDF file to make sure it is the same shape as the model results
         lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                       #Read longitude from combined netCDF file to make sure it is the same shape as the model results
@@ -425,7 +427,7 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
           var_mod3.set_auto_maskandscale( False )
           var_mod3.long_name      = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
           var_mod3.standard_name  = "GFS Tropopause"
-          var_mod3.valid_range    = [160.0, 310.0]
+     #     var_mod3.valid_range    = [160.0, 310.0]
           var_mod3.missing_value  = np.nan
           var_mod3.units          = 'K'
           var_mod3.coordinates    = 'longitude latitude time'
@@ -474,7 +476,6 @@ def download_gfs_analysis_files(date_str1, date_str2,
     Author and history:
         John W. Cooney           2023-06-14
     '''  
-
     date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
@@ -485,6 +486,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
     if verbose == True:
         print('Downloading GFS files to extract tropopause temperatures.')
         print(files)
+        print(os.path.realpath(outroot))
     for file in files:
         idx = file.rfind("/")
         if (idx > 0):
@@ -499,8 +501,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
                 os.makedirs(outdir, exist_ok = True)
                 with open(os.path.join(outdir, ofile), "wb") as f:
                     f.write(response.content)
-#             else:
-#                 print('No GFS files found to calculate tropopause temperature for post-processing')
+            else:
+                print('No GFS files found to calculate tropopause temperature for post-processing')
             
 def gfs_nearest_time(date, dt, ROUND = 'round'):
     '''
