@@ -41,11 +41,11 @@
 #                       SHALL BE THE IMMEDIATE, UNILATERAL TERMINATION OF THIS AGREEMENT.
 # Author and history:
 #     John W. Cooney           2022-05-05.
-#                              2022-06-05. MAJOR REVISIONS. 1) Added post-processing function that yields object ID numbers of OTs and AACPs as well as
+#                              2023-06-05. MAJOR REVISIONS. 1) Added post-processing function that yields object ID numbers of OTs and AACPs as well as
 #                                          OT IR-anvil brightness temperature differences. 2) Fixed issue that occurred in full disk and CONUS scanned
 #                                          model runs. The issue occurred at the very edge of the domain where the satellite view is off in to space on the
 #                                          edge of Earth. This issue was fixed prior to release for OTs but AACPs needed to be fixed in a unique way.
-#                              2022-06-13. MINOR REVISIONS. 1) Fixed issue where user wants to correct the model inputs or model type and not everything 
+#                              2023-06-13. MINOR REVISIONS. 1) Fixed issue where user wants to correct the model inputs or model type and not everything 
 #                                          like the correct optimal model to be called followed with it. 2) Pass optimal_threshold for a given model to be written
 #                                          to output netCDF file rather than whatever is chosen by user for post-processing and plotting. The one chosen by
 #                                          the user is still passed into the subroutines for plotting and post-processing and is referred to as the likelihood_threshold
@@ -53,6 +53,9 @@
 #                                          identify objects in post-processing by specifying their own likelihood thresholds, rather than being forced to use the
 #                                          optimal thresholds found for a particular model. 3) Decrease size of files by improving compression by setting 
 #                                          least_significant_digits keyword when creating the variables.
+#                              2023-06-22. MAJOR REVISIONS. 1) Added tropopause temperature to post-processing functionality for OT model runs. This software downloads
+#                                          GFS data from NCAR and then interpolates and smooths the tropopause temperature onto the satellite data grid before writing
+#                                          the output to the netCDF files.
 #
 #-
 
@@ -104,8 +107,9 @@ import argparse
 import warnings
 from multiprocessing import freeze_support
 import multiprocessing as mp
+import pygrib
 #import metpy
-#import xarray
+import xarray
 import sys 
 #sys.path.insert(1, '../')
 sys.path.insert(1, os.path.dirname(__file__))
@@ -124,7 +128,7 @@ from new_model.gcs_processing import write_to_gcs, download_model_chk_file, list
 from new_model.run_tf_1_channel_plume_updraft_day_predict import run_tf_1_channel_plume_updraft_day_predict
 from new_model.run_tf_2_channel_plume_updraft_day_predict import run_tf_2_channel_plume_updraft_day_predict
 from new_model.run_tf_3_channel_plume_updraft_day_predict import run_tf_3_channel_plume_updraft_day_predict
-from new_model.run_write_severe_storm_post_processing import run_write_severe_storm_post_processing
+from new_model.run_write_severe_storm_post_processing import run_write_severe_storm_post_processing, download_gfs_analysis_files
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data import *
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data_parallel import *
 from glm_gridder.run_create_image_from_three_modalities2 import *
@@ -2364,7 +2368,9 @@ def run_all_plume_updraft_model_predict(verbose              = False,
   if nhours == None:
     tstart = int(''.join(re.split('-', d_str1))[0:8])                                                                              #Extract start date of job for real-time post processing
     tend   = int(''.join(re.split('-', d_str2))[0:8])                                                                              #Extract end date of job for real-time post processing
-    t0 = time.strftime("%Y-%m-%d %H:%M:%S")
+    ts     = d_str1
+    te     = d_str2
+    t0     = time.strftime("%Y-%m-%d %H:%M:%S")
     if d_str2 > t0:
       print('Waiting until end date to start archived model run.')
       print('End date chosen = ' + d_str2)
@@ -2481,6 +2487,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
     t_sec = sat_time_intervals(sat, sector = sector)                                                                               #Extract time interval between satellite sector scan files (sec)
     while datetime.utcnow().second < 5:
         sleep(1)                                                                                                                   #Wait until time has elapsed for new satellite scan file to be available
+    ts     = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")                                                                       #Extract start date of job for post processing
     tstart = int(datetime.utcnow().strftime("%Y%m%d"))                                                                             #Extract start date of job for post processing
     t0     = time.time()                                                                                                           #Start clock to time the run job process
     tdiff  = 0.0                                                                                                                   #Initialize variable to calulate the amount of time that has passed
@@ -2605,6 +2612,7 @@ def run_all_plume_updraft_model_predict(verbose              = False,
       tdiff = time.time() - t0
     
     tend = int(datetime.utcnow().strftime("%Y%m%d"))                                                                               #Extract end date of job for real-time post processing
+    te   = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")                                                                         #Extract end date of job for post processing
     
   
   object_type = 'OT' if use_updraft == True else 'AACP'
@@ -2614,8 +2622,16 @@ def run_all_plume_updraft_model_predict(verbose              = False,
   print('Starting post-processing of ' + object_type + ' ' + mod_type + ' job')
   if nhours != None:
     time.sleep(2)
+  
+  if object_type == 'OT':
+    download_gfs_analysis_files(ts, te,
+                                GFS_ANALYSIS_DT = 21600,
+                                write_gcs       = run_gcs,
+                                del_local       = del_local,
+                                verbose         = verbose)
+
   for u in range(tstart, tend+1): 
-    run_write_severe_storm_post_processing(inroot = os.path.join(raw_data_root, 'combined_nc_dir', str(u)), 
+    run_write_severe_storm_post_processing(inroot        = os.path.join(raw_data_root, 'combined_nc_dir', str(u)), 
                                            use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
                                            c_bucket_name = 'ir-vis-sandwhich',
                                            object_type   = object_type,
