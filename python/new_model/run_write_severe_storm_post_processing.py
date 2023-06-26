@@ -287,31 +287,31 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                             
                                         btd[inds2] = min_bt0 - anvil_bt_mean                                                                           #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
                                     
-                            if len(gfs_files) > 0 and object_type.lower() == 'ot':
-                                near_date = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'round')                                                   #Find nearest date to satellite scan
-                                nd_str    = near_date.strftime("%Y%m%d%H")                                                                             #Extract nearest date to satellite scan as a string
-                                no_f = 0
-                                try:
-                                    gfs_file = gfs_files[nd_str.index(nd_str)]                                                                         #Find file that matches date string
-                                except:
-                                    no_f = 1
-                                if no_f == 0:
-                                    grbs  = pygrib.open( gfs_file )                                                                                    #Open Grib file to read
-                                    grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                               #Extract tropopause temperatures from the GRIB file
-                                    tropT = grb.values
-                                    lats, lons = grb.latlons()                                                                                         #Extract GFS latitudes and longitudes
-                                    x_sat = convert_longitude(x_sat, to_model = True)                                                                  #Convert longitudes to be 0-360 degrees
-                                    tropT = np.flip(tropT, axis = 0)                                                                                   #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                                    lats = np.flip(lats[:, 0])                                                                                         #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                                    lons = convert_longitude(lons[0, :], to_model = True)
-                                    x_sat = convert_longitude(x_sat, to_model = True)                                                                  #Convert longitudes to be 0-360 degrees
-                                    tropT = gfs_interpolate_tropT_to_goes_grid(tropT, lons, lats, x_sat, y_sat,                                        #Interpolate tropopause temperatures to GOES satellite grid points
-                                                                               no_parallax = True, 
-                                                                               x_pc        = [],
-                                                                               y_pc        = [],
-                                                                               sigma       = sigma,
-                                                                               verbose     = verbose)
-                                    grbs.close()
+                        if len(gfs_files) > 0 and object_type.lower() == 'ot' and 'tropopause_temperature' not in var_keys:
+                            near_date = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'round')                                                       #Find nearest date to satellite scan
+                            nd_str    = near_date.strftime("%Y%m%d%H")                                                                                 #Extract nearest date to satellite scan as a string
+                            no_f = 0
+                            try:
+                                gfs_file = gfs_files[nd_str.index(nd_str)]                                                                             #Find file that matches date string
+                            except:
+                                no_f = 1
+                            if no_f == 0:
+                                grbs  = pygrib.open( gfs_file )                                                                                        #Open Grib file to read
+                                grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                   #Extract tropopause temperatures from the GRIB file
+                                tropT = grb.values
+                                lats, lons = grb.latlons()                                                                                             #Extract GFS latitudes and longitudes
+                                x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
+                                tropT = np.flip(tropT, axis = 0)                                                                                       #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                                lats = np.flip(lats[:, 0])                                                                                             #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                                lons = convert_longitude(lons[0, :], to_model = True)
+                                x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
+                                tropT = gfs_interpolate_tropT_to_goes_grid(tropT, lons, lats, x_sat, y_sat,                                            #Interpolate tropopause temperatures to GOES satellite grid points
+                                                                           no_parallax = True, 
+                                                                           x_pc        = [],
+                                                                           y_pc        = [],
+                                                                           sigma       = sigma,
+                                                                           verbose     = verbose)
+                                grbs.close()
                         append_combined_ncdf_with_model_post_processing(nc_file, ot_id, btd, tropT, data.attrs, anv_p, pthresh = pthresh, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
 
 def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tropT, mod_attrs, resolution, pthresh = None, rewrite = True, percent_omit = 20, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
@@ -349,7 +349,6 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
   Output:
       Appends the combined netCDF data files with post-processing data
   '''  
-
   with Dataset(nc_file, 'a', format="NETCDF4") as f:                                                                                                   #Open combined netCDF file to append with model results
     chan0  = re.split('_', mod_attrs['standard_name'])[0].upper()                                                                                      #Extract satellite channels input into model
     vname  = chan0.replace('+', '_').lower() + '_' + re.split('_', mod_attrs['standard_name'])[1].lower()                                              #Extract model info to create variable name
@@ -366,8 +365,15 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
           f[vname + '_anvilmean_brightness_temperature_difference'][0, :, :] = btd
           if pthresh != None:
             f[vname + '_anvilmean_brightness_temperature_difference'].likelihood_threshold = pthresh
-
-   #       f['tropopause_temperature'][0, :, :] = tropT
+          if 'tropopause_temperature' not in vnames and np.sum(np.isfinite(tropT)) > 0:
+            var_mod3 = f.createVariable('tropopause_temperature', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
+            var_mod3.set_auto_maskandscale( False )
+            var_mod3.long_name      = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
+            var_mod3.standard_name  = "GFS Tropopause"
+            var_mod3.missing_value  = np.nan
+            var_mod3.units          = 'K'
+            var_mod3.coordinates    = 'longitude latitude time'
+            var_mod3[0, :, :]       = np.copy(tropT)
       else:
         lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                        #Read latitude from combined netCDF file to make sure it is the same shape as the model results
         lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                       #Read longitude from combined netCDF file to make sure it is the same shape as the model results
@@ -420,28 +426,28 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
 #           var_mod2[0, :, :]      = data2
 #           var_mod2.add_offset    = offset_btd                                                                                                        #Write the data offset to the combined netCDF file
 #           var_mod2.scale_factor  = scale_btd                                                                                                         #Write the data scale factor to the combined netCDF file
-
-#          Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                           #Extract data scaling and offset ability for np.int32
-          var_mod3 = f.createVariable('tropopause_temperature', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
-          var_mod3.set_auto_maskandscale( False )
-          var_mod3.long_name      = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
-          var_mod3.standard_name  = "GFS Tropopause"
-     #     var_mod3.valid_range    = [160.0, 310.0]
-          var_mod3.missing_value  = np.nan
-          var_mod3.units          = 'K'
-          var_mod3.coordinates    = 'longitude latitude time'
- #         var_mod3.description    = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest " + str(percent_omit) + "% of anvil BT pixels are removed prior to anvil mean calulcation." 
-          var_mod3[0, :, :]       = np.copy(tropT)
-#           data2, scale_btd, offset_btd = Scaler.scaleData(btd)                                                                                       #Extract BTD data, scale factor and offsets that is scaled from Float to short
-#           var_mod2.add_offset    = offset_btd                                                                                                        #Write the data offset to the combined netCDF file
-#           var_mod2.scale_factor  = scale_btd                                                                                                         #Write the data scale factor to the combined netCDF file
-#           var_mod2[0, :, :]      = data2
-#           var_mod2.add_offset    = offset_btd                                                                                                        #Write the data offset to the combined netCDF file
-#           var_mod2.scale_factor  = scale_btd                                                                                                         #Write the data scale factor to the combined netCDF file
+          if np.sum(np.isfinite(tropT)) > 0:
+#            Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                         #Extract data scaling and offset ability for np.int32
+            var_mod3 = f.createVariable('tropopause_temperature', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
+            var_mod3.set_auto_maskandscale( False )
+            var_mod3.long_name      = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
+            var_mod3.standard_name  = "GFS Tropopause"
+     #       var_mod3.valid_range    = [160.0, 310.0]
+            var_mod3.missing_value  = np.nan
+            var_mod3.units          = 'K'
+            var_mod3.coordinates    = 'longitude latitude time'
+ #           var_mod3.description    = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest " + str(percent_omit) + "% of anvil BT pixels are removed prior to anvil mean calulcation." 
+            var_mod3[0, :, :]       = np.copy(tropT)
+#             data2, scale_btd, offset_btd = Scaler.scaleData(btd)                                                                                     #Extract BTD data, scale factor and offsets that is scaled from Float to short
+#             var_mod2.add_offset    = offset_btd                                                                                                      #Write the data offset to the combined netCDF file
+#             var_mod2.scale_factor  = scale_btd                                                                                                       #Write the data scale factor to the combined netCDF file
+#             var_mod2[0, :, :]      = data2
+#             var_mod2.add_offset    = offset_btd                                                                                                      #Write the data offset to the combined netCDF file
+#             var_mod2.scale_factor  = scale_btd                                                                                                       #Write the data scale factor to the combined netCDF file
   
     if verbose == True:
         print('Post-processing model output netCDF file name = ' + nc_file)
-#   f.close()                                                                                                                                            #Close combined netCDF file once finished appending
+#   f.close()                                                                                                                                          #Close combined netCDF file once finished appending
   return()
 
 def download_gfs_analysis_files(date_str1, date_str2,
