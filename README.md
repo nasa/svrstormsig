@@ -1,5 +1,5 @@
 # svrstormsig
-Please read README_goes_aacp_ot_python_model_run_description.pdf for instructions on install process as well as how to run the software
+Please read README_goes_aacp_ot_python_model_run_description.pdf for instructions on install process as well as how to run the software.
 
 This software was produced through collaborative work between John W. Cooney, Kristopher M. Bedka, and Charles A. Liles at NASA Langley Research Center.
 
