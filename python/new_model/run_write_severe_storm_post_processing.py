@@ -214,7 +214,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                     xyres = '2km at nadir'
             bt = f['ir_brightness_temperature']
         
-        xyres0 = np.float(re.split('km', xyres)[0])
+        xyres0 = np.float64(re.split('km', xyres)[0])
         anv_p  = int((15.0/xyres0)*2.0)                                                                                                                #Calculate number of pixels to be included as part of the anvil
         sigma  = int(36.0/(xyres0*2.0))                                                                                                                #Calculate the standard deviation for Gaussian kernel for smoothing tropopause temperatures on the satellite grid
         keys0  = list(nc_dct.keys())                                                                                                                   #Extract keys 
