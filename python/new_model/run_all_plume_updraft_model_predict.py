@@ -193,10 +193,12 @@ def run_all_plume_updraft_model_predict(verbose              = False,
   Output:
       Model run output files
   '''  
+  if sys.path[0] != '':
+    os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
 
-  os.chdir(sys.path[0])                                                                                                            #Change directory to the system path of file 
   use_native_ir = False                                                                                                            #Constant set up but will change to True if IR only model is being use
   if config_file == None:
+    percent_omit = 20
     mod_check2 = 0
     counter2   = 0
     while mod_check2 == 0:
