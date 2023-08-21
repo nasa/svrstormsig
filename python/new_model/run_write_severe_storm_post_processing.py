@@ -249,7 +249,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                         if np.nanmax(res) < pthresh0:
                             btd   = res*np.nan                                                                                                         #Set values to 0 if no objects detected for time step
                             tropT = res*np.nan                                                                                                         #Set values to 0 if no objects detected for time step
-                            ot_id = (res*0).astype('uint16')                                                                                           #Set values to 0 if no objects detected for time step
+                            ot_id = np.full_like(res, 0).astype('uint16')                                                                              #Set values to 0 if no objects detected for time step
                         else:
                             labeled_array2, num_updrafts2 = label(res >= pthresh0, structure = s)                                                      #Extract labels for each updraft location (make sure points at diagonals are part of same updrafts)
                             anvil_mask = (labeled_array2 <= 0)                                                                                         #Find all pixels that are not part of an OT/AACP object
@@ -349,6 +349,7 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
   Output:
       Appends the combined netCDF data files with post-processing data
   '''  
+
   with Dataset(nc_file, 'a', format="NETCDF4") as f:                                                                                                   #Open combined netCDF file to append with model results
     chan0  = re.split('_', mod_attrs['standard_name'])[0].upper()                                                                                      #Extract satellite channels input into model
     vname  = chan0.replace('+', '_').lower() + '_' + re.split('_', mod_attrs['standard_name'])[1].lower()                                              #Extract model info to create variable name
