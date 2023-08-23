@@ -378,11 +378,11 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
       use_night = True
       res_dir = os.path.join(outroot, 'aacp_results', mod1, mod_pat, pat, d_str)  
     else:
-      if len(re.split(os.path.join('model_checkpoints', 'ir'), use_chkpnt)) > 1:                      
+      if os.path.join('model_checkpoints', 'ir') in use_chkpnt:                      
         mod0      = 'IR'
         mod1      = 'ir'
         if use_night == None: use_night = True
-      elif len(re.split(os.path.join('model_checkpoints', 'vis'), use_chkpnt)) > 1:                                                                                                 
+      elif os.path.join('model_checkpoints', 'vis') in use_chkpnt:                                                                                                 
         mod0      = 'VIS'
         mod1      = 'vis'
         if use_night == None: use_night = False        
@@ -390,7 +390,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
           print('How can we run a vis model if the no_write_vis keyword is set???')
           print('Please set no_write_vis == False in order to run model using visible data checkpoints.')
           exit()
-      elif len(re.split(os.path.join('model_checkpoints', 'glm'), use_chkpnt)) > 1:                                                                                                 
+      elif os.path.join('model_checkpoints', 'glm') in use_chkpnt:                                                                                                 
         mod0      = 'GLM'
         mod1      = 'glm'
         if use_night == None: use_night = True 
@@ -887,15 +887,15 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   else:
     indir   = os.path.realpath(os.path.dirname(use_chkpnt))                                                                                                                 #Real path to the checkpoint file 
     outdir  = os.path.realpath(os.path.dirname(use_chkpnt))                                                                                                                 #Location of the checkpoint file to be downloaded to 
-    if len(re.split(os.path.join('model_checkpoints', 'vis'), use_chkpnt)) > 1:
+    if os.path.join('model_checkpoints', 'vis') in use_chkpnt:
       mod0      = 'VIS'
       mod1      = 'vis'
       use_night = False
-    elif len(re.split(os.path.join('model_checkpoints', 'glm'), use_chkpnt)) > 1:
+    elif os.path.join('model_checkpoints', 'glm') in use_chkpnt:
       mod0 = 'GLM'
       mod1 = 'glm'
       if use_night == None: use_night = True 
-    elif len(re.split(os.path.join('model_checkpoints', 'ir'), use_chkpnt)) > 1:
+    elif os.path.join('model_checkpoints', 'ir') in use_chkpnt:
       mod0 = 'IR'
       mod1 = 'ir'
       if use_night == None: use_night = True 
