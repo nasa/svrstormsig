@@ -1,0 +1,36 @@
+name: svrstormsig
+channels:
+- conda-forge
+- defaults
+dependencies:
+- python=3.8
+- hdf5
+- numpy
+- pandas
+- pip
+- pyclipper
+- matplotlib>=3.3.2
+- Cython>=0.29.21
+- scikit-learn==0.23.2
+- pillow==8.0.1
+- xarray>=0.16.1
+- google-cloud-storage>=1.37.1
+- google-cloud-vision>=2.3.1
+- pyproj>=3.3.0
+- psutil
+- keras==2.7.0
+- geopy>=2.2.0
+- scipy==1.10.1
+- shapely==1.8.0
+- imageio
+- pip:
+  - open-fonts==0.1
+  - pynimbus
+  - proj==0.2.0
+  - git+https://github.com/deeplycloudy/lmatools.git
+  - opencv-python
+  - suncalc
+  - pyshp
+  - metpy>=1.1.0
+  - requests
+  - netcdf4>=1.5.3
