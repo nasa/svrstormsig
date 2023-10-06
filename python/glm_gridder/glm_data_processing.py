@@ -84,12 +84,14 @@ def fetch_glm_to_match_ir(_ir_dataset, _glm_dataset, _northern_hemisphere=True, 
 
 def get_ref_from_rad(_vis_dataset):
     raw_img = np.copy(np.asarray(_vis_dataset.variables['Rad'][:,:]))
-    Esun_Ch_01 = 726.721072
-    Esun_Ch_02 = 663.274497
-    Esun_Ch_03 = 441.868715
-    d2 = 0.3
-    # Apply the formula to convert radiance to reflectance
-    ref_img = (raw_img * np.pi * d2) / Esun_Ch_02
+#     Esun_Ch_01 = 726.721072#AACP master
+#     Esun_Ch_02 = 663.274497
+#     Esun_Ch_03 = 441.868715
+#     d2 = 0.3
+#     # Apply the formula to convert radiance to reflectance
+#     ref_img = (raw_img * np.pi * d2) / Esun_Ch_02
+    kappa_factor = np.copy(np.asarray(_vis_dataset.variables['kappa0'][:]))
+    ref_img = kappa_factor * raw_img
     return(ref_img)
     
     
