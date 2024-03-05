@@ -137,6 +137,8 @@ from EDA.MultiResUnet_new_UPsampling import MultiResUnet_new_UPsampling
 from EDA.create_vis_ir_numpy_arrays_from_netcdf_files2 import *
 #from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
+from new_model.run_write_severe_storm_post_processing import download_gfs_analysis_files_from_gcloud, download_gfs_analysis_files
+from new_model.run_write_gfs_trop_temp_to_combined_ncdf import run_write_gfs_trop_temp_to_combined_ncdf
 backend.clear_session()
 
 def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = None, 
@@ -279,12 +281,29 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
   if use_chkpnt != None:                                                                                                                                                    #Get information about model from model check point filenames and paths                                                                                                                                                    #Get information about model from model check point filenames and paths
     if len(re.split('glm', use_chkpnt)) != 1:
       use_glm = True
-    if len(re.split('_vis', use_chkpnt)) != 1:
+    if len(re.split('_vis', use_chkpnt)) != 1 and len(re.split('_snowice', use_chkpnt)) != 1 and len(re.split('_cirrus', use_chkpnt)) != 1 and len(re.split('vis_', use_chkpnt)) != 1:
       use_night = False
-    if len(re.split('_irdiff', use_chkpnt)) != 1:
-      no_irdiff = True
+    if len(re.split('_wvirdiff', use_chkpnt)) != 1:
+      no_irdiff = False
     else:
       no_irdiff = True
+    if len(re.split('_dirtyirdiff', use_chkpnt)) != 1:
+      no_dirtyirdiff = False
+    else:
+      no_dirtyirdiff = True
+    if len(re.split('tropdiff', use_chkpnt)) != 1:
+      no_tropdiff = False
+    else:
+      no_tropdiff = True
+    if len(re.split('_snowice', use_chkpnt)) != 1:
+      no_snowice = False
+    else:
+      no_snowice = True
+    if len(re.split('_cirrus', use_chkpnt)) != 1:
+      no_cirrus = False
+    else:
+      no_cirrus = True
+    
     if len(re.split('updraft_day_model', use_chkpnt)) != 1:
       use_updraft = True
       mod_pat     = 'updraft_day_model'    
@@ -294,14 +313,18 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
       mod_pat     = 'plume_day_model'
       mod00       = ' AACP Detection'
   else:
-    no_irdiff = True
+    no_irdiff      = True
+    no_dirtyirdiff = True
+    no_tropdiff    = True
+    no_cirrus      = True
+    no_snowice     = True
     if use_updraft == True:
       mod_pat = 'updraft_day_model'
       mod00   = ' OT Detection'
     else:
       mod_pat = 'plume_day_model'
       mod00   = ' AACP Detection'
-  
+
   if use_native_ir == True:
     no_vis = True
   else:
@@ -321,28 +344,56 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
   else:  
     og_bucket_name2 = None
   if rt == True:
-    og_dir = run_download_goes_ir_vis_l1b_glm_l2_data(date1      = date1, date2 = date2,                                                                                    #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
-                                                      outroot    = outroot, 
-                                                      sat        = sat, 
-                                                      sector     = sector, 
-                                                      no_glm     = not use_glm, 
-                                                      no_vis     = no_vis, 
-                                                      no_irdiff  = True, 
-                                                      gcs_bucket = og_bucket_name2,
-                                                      del_local  = False,
-                                                      verbose    = verbose)
+    og_dir = run_download_goes_ir_vis_l1b_glm_l2_data(date1          = date1, date2 = date2,                                                                                #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
+                                                      outroot        = outroot, 
+                                                      sat            = sat, 
+                                                      sector         = sector, 
+                                                      no_glm         = not use_glm, 
+                                                      no_vis         = no_vis, 
+                                                      no_irdiff      = no_irdiff, 
+                                                      no_dirtyir     = no_dirtyirdiff, 
+                                                      no_cirrus      = no_cirrus, 
+                                                      no_snowice     = no_snowice,
+                                                      gcs_bucket     = og_bucket_name2,
+                                                      del_local      = False,
+                                                      verbose        = verbose)
+    
+    #Download GFS tropopause grib files if needed to run model
+    if no_tropdiff == False:
+      download_gfs_analysis_files_from_gcloud(date.strftime("%Y-%m-%d %H:%M:%S"), 
+                                              outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                              gfs_bucket_name = 'global-forecast-system', 
+                                              write_gcs       = False,
+                                              del_local       = True,
+                                              verbose         = verbose)
+    
+    
   else:  
     if no_download == False:
-      og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = date1, date2 = date2,                                                                         #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
-                                                                 outroot    = outroot, 
-                                                                 sat        = sat, 
-                                                                 sector     = sector, 
-                                                                 no_glm     = not use_glm, 
-                                                                 no_vis     = no_vis, 
-                                                                 no_irdiff  = True, 
-                                                                 gcs_bucket = og_bucket_name2,
-                                                                 del_local  = False,
-                                                                 verbose    = False)
+      og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1          = date1, date2 = date2,                                                                     #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
+                                                                 outroot        = outroot, 
+                                                                 sat            = sat, 
+                                                                 sector         = sector, 
+                                                                 no_glm         = not use_glm, 
+                                                                 no_vis         = no_vis, 
+                                                                 no_irdiff      = no_irdiff, 
+                                                                 no_dirtyir     = no_dirtyirdiff, 
+                                                                 no_cirrus      = no_cirrus, 
+                                                                 no_snowice     = no_snowice,
+                                                                 gcs_bucket     = og_bucket_name2,
+                                                                 del_local      = False,
+                                                                 verbose        = verbose)
+      #Download GFS tropopause grib files if needed to run model
+      if no_tropdiff == False:
+        download_gfs_analysis_files(date1, date2,
+                                    GFS_ANALYSIS_DT = 21600,
+                                    outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                    c_bucket_name   = 'ir-vis-sandwhich',
+                                    write_gcs       = False,
+                                    del_local       = True,
+                                    verbose         = verbose)
+
+
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
         og_dir = og_dir[:-1]
@@ -397,59 +448,111 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
           mod0      = 'VIS+GLM'
           mod1      = 'vis_glm'
           use_night = False
-        elif len(re.split('ir_irdiff', use_chkpnt)) > 1:                                                                                                 
-          mod0      = 'IR+IR_Diff'
-          mod1      = 'ir_irdiff'
-          if use_night == None: use_night = True        
         elif len(re.split('ir_glm', use_chkpnt)) > 1:                                                                                                 
           mod0      = 'IR+GLM'
           mod1      = 'ir_glm'
+          if use_night == None: use_night = True 
+        elif len(re.split('tropdiff_glm', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'TROPDIFF+GLM'
+          mod1      = 'tropdiff_glm'
           if use_night == None: use_night = True 
         else:
             print('Not set up to handle model specified.')
             exit()
       else:
-        mod0      = 'IR+VIS'
-        mod1      = 'ir_vis'
-        use_night = False
+        if len(re.split('ir_vis', use_chkpnt)) > 1:
+          mod0      = 'IR+VIS'
+          mod1      = 'ir_vis'
+          use_night = False
+        elif len(re.split('ir_wvirdiff', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'IR+WVIRDiff'
+          mod1      = 'ir_wvirdiff'
+          if use_night == None: use_night = True        
+        elif len(re.split('ir_dirtyirdiff', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'IR+DIRTYIRDIFF'
+          mod1      = 'ir_dirtyirdiff'
+          if use_night == None: use_night = True        
+        elif len(re.split('ir_cirrus', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'IR+CIRRUS'
+          mod1      = 'ir_cirrus'
+          use_night = False        
+        elif len(re.split('ir_snowice', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'IR+SNOWICE'
+          mod1      = 'ir_snowice'
+          use_night = False        
+        elif len(re.split('ir_tropdiff', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'IR+TROPDIFF'
+          mod1      = 'ir_tropdiff'
+          if use_night == None: use_night = True        
+        elif len(re.split('tropdiff_dirtyirdiff', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'TROPDIFF+DIRTYIRDIFF'
+          mod1      = 'tropdiff_dirtyirdiff'
+          if use_night == None: use_night = True        
+        elif len(re.split('vis_tropdiff', use_chkpnt)) > 1:                                                                                                 
+          mod0      = 'VIS+TROPDIFF'
+          mod1      = 'vis_tropdiff'
+          use_night = False        
+        else:
+            print('Not set up to handle model specified.')
+            exit()
+      
       res_dir = os.path.join(outroot, 'aacp_results', mod1, mod_pat, pat, d_str)                                                                                            #Location of the results predictions and blob_results_positioning.csv file
       
     t00 = time.time()                                                                                                                                                       #Start clock to time how long the following process takes
     if rt == True:
-      img_names, nc_names, proj, p = run_create_image_from_three_modalities(inroot             = o,                                                                         #Create combined netCDF file (do not create image)
-                                                                            glm_out_dir        = os.path.join(outroot, 'out_dir'), 
-                                                                            layered_dir        = os.path.join(outroot, 'combined_nc_dir'), 
-                                                                            img_out_dir        = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, d_str2, str(sector00)),
-                                                                            no_plot            = no_plot, grid_data = grid_data,  
-                                                                            no_write_glm       = not use_glm, 
-                                                                            no_write_vis       = use_native_ir, 
-                                                                            meso_sector        = m_sector, 
-                                                                            domain_sector      = sector0, 
-                                                                            run_gcs            = run_gcs, 
-                                                                            write_combined_gcs = False, 
-                                                                            region             = region, xy_bounds = xy_bounds, 
-                                                                            real_time          = rt, del_local = False, 
-                                                                            plt_model          = os.path.join(res_dir, d_str2, str(sector00)), 
-                                                                            model              = mod0 + mod00, 
-                                                                            pthresh            = pthresh, 
-                                                                            in_bucket_name     = og_bucket_name, out_bucket_name = c_bucket_name,
-                                                                            verbose            = verbose)
+      img_names, nc_names, proj, p = run_create_image_from_three_modalities(inroot               = o,                                                                       #Create combined netCDF file (do not create image)
+                                                                            glm_out_dir          = os.path.join(outroot, 'out_dir'), 
+                                                                            layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
+                                                                            img_out_dir          = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, d_str2, str(sector00)),
+                                                                            no_plot              = no_plot, grid_data = grid_data,  
+                                                                            no_write_glm         = not use_glm, 
+                                                                            no_write_vis         = use_native_ir, 
+                                                                            no_write_irdiff      = no_irdiff, 
+                                                                            no_write_cirrus      = no_cirrus, 
+                                                                            no_write_snowice     = no_snowice, 
+                                                                            no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                            meso_sector          = m_sector, 
+                                                                            domain_sector        = sector0, 
+                                                                            run_gcs              = run_gcs, 
+                                                                            write_combined_gcs   = False, 
+                                                                            append_nc            = True, 
+                                                                            region               = region, xy_bounds = xy_bounds, 
+                                                                            real_time            = rt, del_local = False, 
+                                                                            plt_model            = os.path.join(res_dir, d_str2, str(sector00)), 
+                                                                            model                = mod0 + mod00, 
+                                                                            pthresh              = pthresh, 
+                                                                            in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
+                                                                            verbose              = verbose)
     else:
-      img_names, nc_names, proj = run_create_image_from_three_modalities2(inroot             = o,                                                                           #Create combined netCDF file (do not create image)
-                                                                          glm_out_dir        = os.path.join(outroot, 'out_dir'), 
-                                                                          layered_dir        = os.path.join(outroot, 'combined_nc_dir'), 
-                                                                          date_range         = date_range,
-                                                                          no_plot            = True, grid_data = grid_data,  
-                                                                          no_write_glm       = not use_glm, 
-                                                                          no_write_vis       = use_native_ir, 
-                                                                          meso_sector        = m_sector, 
-                                                                          domain_sector      = sector0, 
-                                                                          run_gcs            = run_gcs, 
-                                                                          write_combined_gcs = False, 
-                                                                          region             = region, xy_bounds = xy_bounds,  
-                                                                          real_time          = rt, del_local = False, 
-                                                                          in_bucket_name     = og_bucket_name, out_bucket_name = c_bucket_name,
-                                                                          verbose            = verbose)
+      img_names, nc_names, proj = run_create_image_from_three_modalities2(inroot               = o,                                                                         #Create combined netCDF file (do not create image)
+                                                                          glm_out_dir          = os.path.join(outroot, 'out_dir'), 
+                                                                          layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
+                                                                          date_range           = date_range,
+                                                                          no_plot              = True, grid_data = grid_data,  
+                                                                          no_write_glm         = not use_glm, 
+                                                                          no_write_vis         = use_native_ir, 
+                                                                          no_write_irdiff      = no_irdiff, 
+                                                                          no_write_cirrus      = no_cirrus, 
+                                                                          no_write_snowice     = no_snowice, 
+                                                                          no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                          meso_sector          = m_sector, 
+                                                                          domain_sector        = sector0, 
+                                                                          run_gcs              = run_gcs, 
+                                                                          write_combined_gcs   = False, 
+                                                                          append_nc            = True, 
+                                                                          region               = region, xy_bounds = xy_bounds,  
+                                                                          real_time            = rt, del_local = False, 
+                                                                          in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
+                                                                          verbose              = verbose)
+   
+    if no_tropdiff == False:
+      run_write_gfs_trop_temp_to_combined_ncdf(inroot        = os.path.join(outroot, 'combined_nc_dir', os.path.basename(o)), 
+                                               gfs_root      = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                               use_local     = True, write_gcs = run_gcs, del_local = del_local,
+                                               c_bucket_name = c_bucket_name,
+                                               real_time     = rt,
+                                               verbose       = verbose)
+    
     if len(img_names) > 0:
       nc_files.extend(sorted(nc_names))
       if verbose == True: 
@@ -460,20 +563,25 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
         print('Creating numpy files for date ' + os.path.basename(o))
       #Create VIS/IR/GLM numpy files (EDA)
       t00 = time.time()                                                                                                                                                     #Start clock to time how long the following process takes
-      ir_file0, dims = create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = o,                                                                                  #Create VIS, IR, GLM and solar zenith angle numpy arrays. (returns ir.npy file name and path as well as image dimensions)
-                                                                     layered_root     = os.path.join(outroot, 'combined_nc_dir'),
-                                                                     outroot          = os.path.join(outroot, 'labelled', pat),
-                                                                     json_root        = os.path.join(outroot, 'labelled'),  
-                                                                     date_range       = date_range, 
-                                                                     meso_sector      = m_sector, 
-                                                                     domain_sector    = sector0, 
-                                                                     no_write_glm     = not use_glm, 
-                                                                     no_write_vis     = use_native_ir, 
-                                                                     run_gcs          = run_gcs, real_time = rt, del_local = del_local, use_local = True,
-                                                                     og_bucket_name   = og_bucket_name, 
-                                                                     comb_bucket_name = c_bucket_name, 
-                                                                     proc_bucket_name = p_bucket_name, 
-                                                                     verbose          = verbose)
+      ir_file0, dims = create_vis_ir_numpy_arrays_from_netcdf_files2(inroot               = o,                                                                              #Create VIS, IR, GLM and solar zenith angle numpy arrays. (returns ir.npy file name and path as well as image dimensions)
+                                                                     layered_root         = os.path.join(outroot, 'combined_nc_dir'),
+                                                                     outroot              = os.path.join(outroot, 'labelled', pat),
+                                                                     json_root            = os.path.join(outroot, 'labelled'),  
+                                                                     date_range           = date_range, 
+                                                                     meso_sector          = m_sector, 
+                                                                     domain_sector        = sector0, 
+                                                                     no_write_glm         = not use_glm, 
+                                                                     no_write_vis         = use_native_ir, 
+                                                                     no_write_irdiff      = no_irdiff, 
+                                                                     no_write_cirrus      = no_cirrus, 
+                                                                     no_write_snowice     = no_snowice, 
+                                                                     no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                     no_write_trop        = no_tropdiff, 
+                                                                     run_gcs              = run_gcs, real_time = rt, del_local = del_local, use_local = True,
+                                                                     og_bucket_name       = og_bucket_name, 
+                                                                     comb_bucket_name     = c_bucket_name, 
+                                                                     proc_bucket_name     = p_bucket_name, 
+                                                                     verbose              = verbose)
       
       ir_files.append(ir_file0)                                                                                                                                             #Append array storing IR file names
       if verbose == True: 
@@ -505,6 +613,7 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                     use_night     = use_night,
                                                                     rewrite_model = rewrite_model, 
                                                                     use_native_ir = use_native_ir,
+                                                                    no_write_npy  = no_plot, 
                                                                     verbose       = verbose)
                                        
       res_dirs.append(outdir)
@@ -784,6 +893,7 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                            rewrite_model  = False, 
                                            chk_day_night  = {}, 
                                            use_native_ir  = False, 
+                                           no_write_npy   = False, 
                                            verbose        = True):
   '''
   This is a function to predict the 2-channel updraft or plume model based on the most recent previous model run results checkpoint weights. 
@@ -839,11 +949,14 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                        DEFAULT = {} -> do not use day_night transition                 
       use_native_ir  : IF keyword set (True), run model at the native IR data resolution.
     	                   DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
+      no_write_npy   : IF keyword set (True), do not write numpy results files. Only append the combined netCDF files
+    	                 DEFAULT = False -> write the numpy results files
       verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
                        DEFAULT = True which implies to print verbose informational messages
   Returns:
       Numpy files with the model results for real time date or specified date range.
   '''  
+  backend.clear_session()
   if night_only == True:
     use_night = True
   if d_str == None: d_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -908,16 +1021,54 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         mod1      = 'vis_glm'
         use_night = False
       elif len(re.split('ir_glm', use_chkpnt)) > 1:                                                                                                 
-        mod0 = 'IR+GLM'
-        mod1 = 'ir_glm'
+        mod0      = 'IR+GLM'
+        mod1      = 'ir_glm'
+        if use_night == None: use_night = True 
+      elif len(re.split('tropdiff_glm', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'TROPDIFF+GLM'
+        mod1      = 'tropdiff_glm'
         if use_night == None: use_night = True 
       else:
           print('Not set up to handle model specified.')
+          print(use_chkpnt)
           exit()
     else:
-      mod0      = 'IR+VIS'
-      mod1      = 'ir_vis'
-      use_night = False
+      if len(re.split('ir_vis', use_chkpnt)) > 1:
+        mod0      = 'IR+VIS'
+        mod1      = 'ir_vis'
+        use_night = False
+      elif len(re.split('ir_wvirdiff', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'IR+WVIRDIFF'
+        mod1      = 'ir_wvirdiff'
+        if use_night == None: use_night = True        
+      elif len(re.split('ir_dirtyirdiff', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'IR+DIRTYIRDIFF'
+        mod1      = 'ir_dirtyirdiff'
+        if use_night == None: use_night = True        
+      elif len(re.split('ir_cirrus', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'IR+CIRRUS'
+        mod1      = 'ir_cirrus'
+        use_night = False        
+      elif len(re.split('ir_snowice', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'IR+SNOWICE'
+        mod1      = 'ir_snowice'
+        use_night = False        
+      elif len(re.split('ir_tropdiff', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'IR+TROPDIFF'
+        mod1      = 'ir_tropdiff'
+        if use_night == None: use_night = True        
+      elif len(re.split('tropdiff_dirtyirdiff', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'TROPDIFF+DIRTYIRDIFF'
+        mod1      = 'tropdiff_dirtyirdiff'
+        if use_night == None: use_night = True        
+      elif len(re.split('vis_tropdiff', use_chkpnt)) > 1:                                                                                                 
+        mod0      = 'VIS+TROPDIFF'
+        mod1      = 'vis_tropdiff'
+        use_night = False        
+      else:
+          print('Not set up to handle model specified.')
+          print(use_chkpnt)
+          exit()
     if len(chk_day_night) == 0:
       outdir0 = os.path.join(outroot, 'aacp_results', mod1, mod_pat, pat, d_str)                                                                                            #Location of the results predictions and blob_results_positioning.csv file
     else:
@@ -1053,7 +1204,7 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       [os.remove(c) for c in chk_files]
           
   os.makedirs(os.path.join(outdir0, d_str2, str(sector)), exist_ok = True)                                                                                                  #Create output directory to send model results files, if necessary
-  if 'day_night_optimal' in outdir0:
+  if 'day_night_optimal' not in outdir0:
     pref = os.path.join(os.path.relpath(outdir0, re.split(mod1, outdir0)[0]), d_str2, str(sector))
   else:
     pref = os.path.join(os.path.relpath(outdir0, re.split('day_night_optimal', outdir0)[0]), d_str2, str(sector))
@@ -1095,12 +1246,45 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         if mod1 == 'vis_glm':     
           imgs = build_imgs(df.loc[d].to_frame().T, [('vis_index',os.path.join(dir_path, 'vis', d_str0 + '_vis.npy')),                                                      #Build tensor array that will be subsetted
                                                      ('glm_index',os.path.join(dir_path, 'glm', d_str0 + '_glm.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)     
-        else:
+        elif mod1 == 'ir_glm':                                                                                                 
           imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
                                                      ('glm_index',os.path.join(dir_path, 'glm', d_str0 + '_glm.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'tropdiff_glm':                                                                                                 
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'tropdiff', d_str0 + '_tropdiff.npy')),
+                                                     ('glm_index',os.path.join(dir_path, 'glm', d_str0 + '_glm.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        else:
+          print('Not set up to handle model inputs')
+          print(mod1)
+          exit()
       else:
-        imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
-                                                   ('vis_index',os.path.join(dir_path, 'vis', d_str0 + '_vis.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        if mod1 == 'ir_vis':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
+                                                     ('vis_index',os.path.join(dir_path, 'vis', d_str0 + '_vis.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'ir_wvirdiff':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
+                                                     ('ir_index', os.path.join(dir_path, 'ir_diff', d_str0 + '_ir_diff.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'ir_dirtyirdiff':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
+                                                     ('ir_index', os.path.join(dir_path, 'dirtyirdiff', d_str0 + '_dirtyirdiff.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'ir_cirrus':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
+                                                     ('vis_index',os.path.join(dir_path, 'cirrus', d_str0 + '_cirrus.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'ir_snowice':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
+                                                     ('vis_index',os.path.join(dir_path, 'snowice', d_str0 + '_snowice.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'ir_tropdiff':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),
+                                                     ('ir_index', os.path.join(dir_path, 'tropdiff', d_str0 + '_tropdiff.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'tropdiff_dirtyirdiff':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'tropdiff', d_str0 + '_tropdiff.npy')),
+                                                     ('ir_index', os.path.join(dir_path, 'dirtyirdiff', d_str0 + '_dirtyirdiff.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        elif mod1 == 'vis_tropdiff':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('vis_index', os.path.join(dir_path, 'vis', d_str0 + '_vis.npy')),
+                                                     ('ir_index', os.path.join(dir_path, 'tropdiff', d_str0 + '_tropdiff.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)
+        else:
+          print('Not set up to handle model inputs')
+          print(mod1)
+          exit()
       
       na  = (imgs[:, :, :, 0] < 0)                                                                                                                                          #Find instances in which the IR data are NaNs so they can be removed from results
       na2 = (imgs[:, :, :, 0] <= 0)
@@ -1173,6 +1357,11 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           results = results[:, 5:-7, 5:-7, :]
         else:
 #          results = reconstruct_tensor_from_subset(results, dims[1], dims[2])                                                                                               #Reconstruct tensor back to original shape
+          if mod_type.lower() == 'multiresunet':  
+            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
+            results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
+            results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
+            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0  
           if len(rem[0]) > 0:
             results2 = np.zeros((imgs.shape[0], imgs.shape[1], imgs.shape[2], results.shape[3]))
             results2[rem[0], :, :, :] = results
@@ -1203,18 +1392,19 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           results[na2, 0] = 0
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', results.shape[1]) + '_results.npy')                                      #Save file path and name in case want to write results to google cloud storage bucket
       results[results < 0.02] = 0
-      np.save(fname, results)                                                                                                                                               #Save model results to numpy file in local storage
-      if verbose == True:
-        print('Prediction file output file path/name = ' + fname)
-      if run_gcs == True:  
-        if rt == True:
-          write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), fname, del_local = False)
-        else:  
-          t = Thread(target = write_to_gcs, args = (f_bucket_name, os.path.join('Cooney_testing', pref), fname), kwargs = {'del_local' : del_local})                        #Write results to Google Cloud Storage Bucket
-          t.start()
-#       if counter != 0:
-#         t2.join()
-#         t2.close()
+      if no_write_npy == False:
+        np.save(fname, results)                                                                                                                                             #Save model results to numpy file in local storage
+        if verbose == True:
+          print('Prediction file output file path/name = ' + fname)
+        if run_gcs == True:  
+          if rt == True:
+            write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), fname, del_local = False)
+          else:  
+            t = Thread(target = write_to_gcs, args = (f_bucket_name, os.path.join('Cooney_testing', pref), fname), kwargs = {'del_local' : del_local})                      #Write results to Google Cloud Storage Bucket
+            t.start()
+      if counter != 0:
+        t2.join()
+#        t2.close()
       if len(chk_day_night) != 0:
         dn     = df['day_night'][d]
         if dn.lower() == 'night':
@@ -1231,6 +1421,22 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'optimal_thresh' : opt_pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'verbose': verbose})     #Write results to combined netCDF file
       t2.start()
       counter = counter+1
+#Clear memory
+  results2 = None
+  dataset  = None
+  imgs     = None
+  imgs2    = None
+  model    = None
+  na       = None
+  na2      = None
+  r0       = None
+  mnval    = None
+  mxval    = None
+  if counter > 1:
+    print('Waiting for output netCDF file to close')
+    print(t2)
+    t2.join()
+#    t2.close()
 #     t2.join()
 #     t2.close()
   return(os.path.join(outdir0, d_str2, str(sector)), pthresh, df)

@@ -38,6 +38,7 @@ import re
 import os
 import matplotlib.patches as patches
 import cv2
+import warnings
 #from pysolar.solar import *
 #import cartopy.crs as ccrs
 
@@ -101,7 +102,9 @@ def get_ir_bt_from_rad(_ir_dataset):
     planck_bc1 = np.copy(np.asarray(_ir_dataset.variables['planck_bc1'][:]))
     planck_bc2 = np.copy(np.asarray(_ir_dataset.variables['planck_bc2'][:]))
     raw_img    = np.copy(np.asarray(_ir_dataset.variables['Rad'][:,:]))
-    bt         = (planck_fk2 / (np.log( (planck_fk1/raw_img)+1 )) - planck_bc1) / planck_bc2
+    with warnings.catch_warnings():
+      warnings.simplefilter("ignore", category=RuntimeWarning)
+      bt       = (planck_fk2 / (np.log( (planck_fk1/raw_img)+1 )) - planck_bc1) / planck_bc2
     return(bt)
 
 # def get_lat_lon_from_vis2(_vis_dataset, extract_proj_coordinates = False, verbose = True):    

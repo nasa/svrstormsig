@@ -19,98 +19,107 @@
 #     Creates netCDF file for GLM data gridded on GOES VIS grid, combined VIS, IR, and GLM netCDF file and
 #     image file that gets put into labelme software to identify overshoot plumes.
 # Keywords:
-#     inroot            : STRING path to GLM, GOES visible and GOES IR data directories
-#                         DEFAULT = '../../../goes-data/20200513-14/'
-#     glm_out_dir       : STRING path to output GLM data directory containing GLM data gridded on same grid as VIS data
-#                         DEFAULT = '../../../goes-data/out_dir/'
-#     layered_dir       : STRING output directory path for netCDF file containing combined IR, VIS, and GLM data
-#                         DEFAULT = '../../../goes-data/combined_nc_dir/'
-#     img_out_dir       : Output directory for the IR, GLM, VIS data plot that is input into labelme software.
-#                         DEFAULT = '../../../goes-data/layered_img_dir/'
-#     plane_inroot      : STRING specifying directory path to airplane csv file. ONLY matters if plt_plane keyword is set. 
-#                         DEFAULT = '../../../misc-data0/DCOTSS/aircraft/'
-#     no_plot_glm       : IF keyword set, do not plot the GLM data. Setting this keyword = True makes you plot only the VIS
-#                         and IR data. DEFAULT is to set this keyword to True and only plot the VIS and IR data.
-#     no_write_vis      : IF keyword set, do not write the VIS data to the combined modality netCDF file. Setting this 
-#                         keyword = True makes you write only the IR and GLM data. 
-#                         DEFAULT = False. True -> only write the IR and GLM data.
-#     no_write_glm      : IF keyword set, do not write the GLM data to the combined modality netCDF file. Setting this 
-#                         keyword = True makes you plot only the VIS and IR data. 
-#                         DEFAULT = False. True -> only write the VIS and IR data.
-#     no_write_irdiff   : IF keyword set, write the difference between 10.3 micron and 6.2 micron to file.  
-#                         DEFAULT = True -> only write the VIS, IR, and glm data.
-#     no_plot           : IF keyword set (True), do not plot the IR/VIS data. DEFAULT = False (plots the IR/VIS data)
-#     xy_bounds         : ARRAY of floating point values giving the domain boundaries the user wants to restrict the combined netCDF and output image to
-#                         [x0, y0, x1, y1]
-#                         DEFAULT = [] -> write combined netCDF data for full scan region.
-#     domain_sector     : STRING specifying the domain sector to use to create maps (= 'conus' or 'full'). DEFAULT = None -> use meso_sector
-#     meso_sector       : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)
-#     del_combined_nc   : IF keyword set (True), delete combined netCDF file AFTER 3 modalities image is created. This keyword saves much needed space.
-#                         DEFAULT = False -> does not deletes the IR/VIS/GLM combined netCDF file.
-#     universal_file    : IF keyword set (True), write combined netCDF file that can be read universally. GLM and IR data resampled onto VIS data grid. 
-#                         DEFAULT = False
-#     ir_min_value      : LONG keyword to specify minimum IR temperature value to clip IR data image (K).
-#                         DEFAULT = 170 
-#     ir_max_value      : LONG keyword to specify maximum IR temperature value to clip IR data image (K).
-#                         DEFAULT = 230 
-#     grid_data         : If keyword set (True), grid the data onto latitude and longitude domain. If not set,
-#                         grid the data by number of lat_pixels x number of lon_pixels.
-#                         DEFAULT = False (grid pixel by pixel and do not grid data onto latitude and longitude domain)
-#     start_index       : Index which to start looping over the vis and IR files at. This can be used if for some reason
-#                         script crashes midway through running so you do not have to restart running program. DEFAULT = 0
-#     date_range        : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
-#                         DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
-#     colorblind        : IF keyword set (True), use colorblind friendly color table.
-#                         DEFAULT = True (use colorblind friendly table)
-#     plt_img_name      : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
-#                         plot image name on this figure. Used for creating videos.
-#     plt_cbar          : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
-#                         plot color bar on the figure. Used for creating videos.
-#     subset            : [x0, y0, x1, y1] array to give subset of image domain desired to be plotted. Array could contain pixel indices or lat/lon indices
-#                         DEFAULT is to plot the entire domain. Y-axis is plotted from top down so y0 index is from the top!!!!
-#     xy_bounds         : ARRAY of floating point values giving the domain boundaries the user wants to restrict the combined netCDF and output image to.
-#                         [x0, y0, x1, y1]
-#                         DEFAULT = [] -> write combined netCDF data for full scan region.
-#                         NOTE: If region keyword is set/specified then it supersedes this for the image creation but not the combined netCDF.
-#     region            : State or sector of US to plot data around. 
-#                         DEFAULT = None -> plot for full domain.
-#     run_gcs           : IF keyword set (True), read and write everything directly from the google cloud platform.
-#                         DEFAULT = False
-#     write_combined_gcs: IF keyword set (True), write combined netCDF files to the google cloud platform. 
-#                         NOTE: run_gcs keyword MUST BE True for this keyword to matter
-#                         DEFAULT = True.
-#     real_time         : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write.
-#                         DEFAULT = False
-#     del_local         : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
-#                         DEFAULT = False
-#     pthresh           : FLOAT keyword to specify probability threshold to use. 
-#                         DEFAULT = 0.0
-#     plt_plane         : IF keyword set (True), plot airplane location on IR+VIS maps.
-#                         DEFAULT = False
-#     plt_traj          : IF keyword set (True), plot parcel back trajectory on images.
-#                         DEFAULT = False
-#     plt_model         : 1) If real_time == False -> Numpy array of model results (values 0-1) to plot on the image.
-#                         2) If real_time == True  -> String specifying name and file path of model file to load and plot
-#                         DEFAULT = None -> do not plot model results on image.
-#     model             : Name of model being plotted (ex. IR+VIS)
-#                         DEFAULT = None.
-#     chk_day_night     : Structure containing day and night model data information in order to make seemless transition in predictions of the 2.
-#                         DEFAULT = {} -> do not use day_night transition                 
-#     in_bucket_name    : Google cloud storage bucket to read raw IR/GLM/VIS files.
-#                         DEFAULT = 'goes-data'
-#     out_bucket_name   : Google cloud storage bucket to write intermediate netCDF files (IR, VIS, and GLM data on same grid) as well as IR+VIS sandwich images.
-#                         DEFAULT = 'ir-vis-sandwhich'
-#     plane_bucket_name : Google cloud storage bucket to read airplane csv data from
-#                         DEFAULT = 'misc-data0'
-#     replot_img        : IF keyword set (True), plot the IR/VIS sandwich image again
-#                         DEFAULT = True
-#     rewrite_nc        : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
-#                         DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
-#     verbose           : BOOL keyword to specify whether or not to print verbose informational messages.
-#                         DEFAULT = True which implies to print verbose informational messages
+#     inroot               : STRING path to GLM, GOES visible and GOES IR data directories
+#                            DEFAULT = '../../../goes-data/20200513-14/'
+#     glm_out_dir          : STRING path to output GLM data directory containing GLM data gridded on same grid as VIS data
+#                            DEFAULT = '../../../goes-data/out_dir/'
+#     layered_dir          : STRING output directory path for netCDF file containing combined IR, VIS, and GLM data
+#                            DEFAULT = '../../../goes-data/combined_nc_dir/'
+#     img_out_dir          : Output directory for the IR, GLM, VIS data plot that is input into labelme software.
+#                            DEFAULT = '../../../goes-data/layered_img_dir/'
+#     plane_inroot         : STRING specifying directory path to airplane csv file. ONLY matters if plt_plane keyword is set. 
+#                            DEFAULT = '../../../misc-data0/DCOTSS/aircraft/'
+#     no_plot_glm          : IF keyword set, do not plot the GLM data. Setting this keyword = True makes you plot only the VIS
+#                            and IR data. DEFAULT is to set this keyword to True and only plot the VIS and IR data.
+#     no_plot              : IF keyword set (True), do not plot the IR/VIS data. DEFAULT = True (do not plot the IR/VIS data)
+#     no_write_glm         : IF keyword set, do not write the GLM data to the combined modality netCDF file. Setting this 
+#                            keyword = True makes you plot only the VIS and IR data. 
+#                            DEFAULT = False. True -> only write the VIS and IR data.
+#     no_write_vis         : IF keyword set, do not write the VIS data to the combined modality netCDF file. Setting this 
+#                            keyword = True makes you write only the IR and GLM data. 
+#                            DEFAULT = False. True -> only write the IR and GLM data.
+#     no_write_irdiff      : IF keyword set, write the difference between 10.3 micron and 6.2 micron to file.  
+#                            DEFAULT = True -> only write the VIS and IR and glm data.
+#     no_write_cirrus      : IF keyword set, write the difference between 1.37 micron to file.  
+#                            DEFAULT = True -> only write the VIS and IR and glm data.
+#     no_write_snowice     : IF keyword set, write the difference between 1.6 micron to file.  
+#                            DEFAULT = True -> only write the VIS and IR and glm data.
+#     no_write_dirtyirdiff : IF keyword set, write the difference between 12-10 micron to file.  
+#                            DEFAULT = True -> only write the VIS and IR and glm data.
+#     xy_bounds            : ARRAY of floating point values giving the domain boundaries the user wants to restrict the combined netCDF and output image to
+#                            [x0, y0, x1, y1]
+#                            DEFAULT = [] -> write combined netCDF data for full scan region.
+#     domain_sector        : STRING specifying the domain sector to use to create maps (= 'conus' or 'full'). DEFAULT = None -> use meso_sector
+#     meso_sector          : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)
+#     del_combined_nc      : IF keyword set (True), delete combined netCDF file AFTER 3 modalities image is created. This keyword saves much needed space.
+#                            DEFAULT = False -> does not deletes the IR/VIS/GLM combined netCDF file.
+#     universal_file       : IF keyword set (True), write combined netCDF file that can be read universally. GLM and IR data resampled onto VIS data grid. 
+#                            DEFAULT = False
+#     ir_min_value         : LONG keyword to specify minimum IR temperature value to clip IR data image (K).
+#                            DEFAULT = 170 
+#     ir_max_value         : LONG keyword to specify maximum IR temperature value to clip IR data image (K).
+#                            DEFAULT = 230 
+#     grid_data            : If keyword set (True), grid the data onto latitude and longitude domain. If not set,
+#                            grid the data by number of lat_pixels x number of lon_pixels.
+#                            DEFAULT = False (grid pixel by pixel and do not grid data onto latitude and longitude domain)
+#     start_index          : Index which to start looping over the vis and IR files at. This can be used if for some reason
+#                            script crashes midway through running so you do not have to restart running program. DEFAULT = 0
+#     date_range           : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
+#                            DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
+#     colorblind           : IF keyword set (True), use colorblind friendly color table.
+#                            DEFAULT = True (use colorblind friendly table)
+#     plt_img_name         : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
+#                            plot image name on this figure. Used for creating videos.
+#     plt_cbar             : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
+#                            plot color bar on the figure. Used for creating videos.
+#     subset               : [x0, y0, x1, y1] array to give subset of image domain desired to be plotted. Array could contain pixel indices or lat/lon indices
+#                            DEFAULT is to plot the entire domain. Y-axis is plotted from top down so y0 index is from the top!!!!
+#     xy_bounds            : ARRAY of floating point values giving the domain boundaries the user wants to restrict the combined netCDF and output image to.
+#                            [x0, y0, x1, y1]
+#                            DEFAULT = [] -> write combined netCDF data for full scan region.
+#                            NOTE: If region keyword is set/specified then it supersedes this for the image creation but not the combined netCDF.
+#     region               : State or sector of US to plot data around. 
+#                            DEFAULT = None -> plot for full domain.
+#     run_gcs              : IF keyword set (True), read and write everything directly from the google cloud platform.
+#                            DEFAULT = False
+#     write_combined_gcs   : IF keyword set (True), write combined netCDF files to the google cloud platform. 
+#                            NOTE: run_gcs keyword MUST BE True for this keyword to matter
+#                            DEFAULT = True.
+#     real_time            : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write.
+#                            DEFAULT = False
+#     del_local            : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
+#                            DEFAULT = False
+#     pthresh              : FLOAT keyword to specify probability threshold to use. 
+#                            DEFAULT = 0.0
+#     plt_plane            : IF keyword set (True), plot airplane location on IR+VIS maps.
+#                            DEFAULT = False
+#     plt_traj             : IF keyword set (True), plot parcel back trajectory on images.
+#                            DEFAULT = False
+#     plt_model            : 1) If real_time == False -> Numpy array of model results (values 0-1) to plot on the image.
+#                            2) If real_time == True  -> String specifying name and file path of model file to load and plot
+#                            DEFAULT = None -> do not plot model results on image.
+#     model                : Name of model being plotted (ex. IR+VIS)
+#                            DEFAULT = None.
+#     chk_day_night        : Structure containing day and night model data information in order to make seemless transition in predictions of the 2.
+#                            DEFAULT = {} -> do not use day_night transition                 
+#     in_bucket_name       : Google cloud storage bucket to read raw IR/GLM/VIS files.
+#                            DEFAULT = 'goes-data'
+#     out_bucket_name      : Google cloud storage bucket to write intermediate netCDF files (IR, VIS, and GLM data on same grid) as well as IR+VIS sandwich images.
+#                            DEFAULT = 'ir-vis-sandwhich'
+#     plane_bucket_name    : Google cloud storage bucket to read airplane csv data from
+#                            DEFAULT = 'misc-data0'
+#     replot_img           : IF keyword set (True), plot the IR/VIS sandwich image again
+#                            DEFAULT = True
+#     rewrite_nc           : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
+#                            DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
+#     append_nc            : IF keyword set (True), append the combined ir/vis/glm netCDF file.
+#                            DEFAULT = True-> Append existing netCDF file
+#     verbose              : BOOL keyword to specify whether or not to print verbose informational messages.
+#                            DEFAULT = True which implies to print verbose informational messages
 # Author and history:
 #     John W. Cooney           2020-09-03.
 #                              2020-09-24. (Added rewrite_nc keyword and fixed bug with range for loop end index)
+#                              2024-02-15. (Added no_write_cirrus, no_write_dirtyirdiff, no_write_snowice)
 #
 #-
 
@@ -147,7 +156,8 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                                            layered_dir        = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
                                            img_out_dir        = os.path.join('..', '..', '..', 'goes-data', 'layered_img_dir'), 
                                            plane_inroot       = os.path.join('..', '..', '..', 'misc-data0', 'DCOTSS', 'aircraft'),
-                                           no_plot_glm        = True, no_write_vis = False, no_write_glm = False, no_write_irdiff = True, no_plot = False, 
+                                           no_plot_glm        = True, no_plot = True, 
+                                           no_write_glm       = False, no_write_vis = False, no_write_irdiff = True, no_write_cirrus = True, no_write_snowice = True, no_write_dirtyirdiff = True, 
                                            xy_bounds          = [], 
                                            domain_sector      = None, 
                                            meso_sector        = 2, del_combined_nc = False, universal_file = True, 
@@ -162,7 +172,7 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                                            plt_model          = None, model = None, 
                                            chk_day_night      = {}, 
                                            in_bucket_name     = 'goes-data', out_bucket_name = 'ir-vis-sandwhich', plane_bucket_name = 'misc-data0',
-                                           replot_img         = True, rewrite_nc = False, verbose = True):
+                                           replot_img         = True, rewrite_nc = False, append_nc = True, verbose = True):
     '''
     Name:
         run_create_image_from_three_modalities.py
@@ -184,92 +194,100 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
         Creates netCDF file for GLM data gridded on GOES VIS grid, combined VIS, IR, and GLM netCDF file and
         image file that gets put into labelme software to identify overshoot plumes.
     Keywords:
-        inroot            : STRING path to GLM, GOES visible and GOES IR data directories
-                            DEFAULT = '../../../goes-data/20200513-14/'
-        glm_out_dir       : STRING path to output GLM data directory containing GLM data gridded on same grid as VIS data
-                            DEFAULT = '../../../goes-data/out_dir/'
-        layered_dir       : STRING output directory path for netCDF file containing combined IR, VIS, and GLM data
-                            DEFAULT = '../../../goes-data/combined_nc_dir/'
-        img_out_dir       : Output directory for the IR, GLM, VIS data plot that is input into labelme software.
-                            DEFAULT = '../../../goes-data/layered_img_dir/'
-        plane_inroot      : STRING specifying directory path to airplane csv file. ONLY matters if plt_plane keyword is set. 
-                            DEFAULT = '../../../misc-data0/DCOTSS/aircraft/'
-        no_plot_glm       : IF keyword set, do not plot the GLM data. Setting this keyword = True makes you plot only the VIS
-                            and IR data. DEFAULT is to set this keyword to True and only plot the VIS and IR data.
-        no_write_vis      : IF keyword set, do not write the VIS data to the combined modality netCDF file. Setting this 
-                            keyword = True makes you write only the IR and GLM data. 
-                            DEFAULT = False. True -> only write the IR and GLM data.
-        no_write_glm      : IF keyword set, do not write the GLM data to the combined modality netCDF file. Setting this 
-                            keyword = True makes you plot only the VIS and IR data. 
-                            DEFAULT = False. True -> only write the VIS and IR data.
-        no_write_irdiff   : IF keyword set, write the difference between 10.3 micron and 6.2 micron to file.  
-                            DEFAULT = True -> only write the VIS and IR and glm data.
-        no_plot           : IF keyword set (True), do not plot the IR/VIS data. DEFAULT = False (plots the IR/VIS data)
-        domain_sector     : STRING specifying the domain sector to use to create maps (= 'conus' or 'full'). DEFAULT = None -> use meso_sector
-        meso_sector       : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)
-        del_combined_nc   : IF keyword set (True), delete combined netCDF file AFTER 3 modalities image is created. This keyword saves much needed space.
-                            DEFAULT = False -> does not deletes the IR/VIS/GLM combined netCDF file.
-        universal_file    : IF keyword set (True), write combined netCDF file that can be read universally. GLM and IR data resampled onto VIS data grid. 
-                            DEFAULT = False
-        ir_min_value      : LONG keyword to specify minimum IR temperature value to clip IR data image (K).
-                            DEFAULT = 170 
-        ir_max_value      : LONG keyword to specify maximum IR temperature value to clip IR data image (K).
-                            DEFAULT = 230 
-        grid_data         : If keyword set (True), grid the data onto latitude and longitude domain. If not set,
-                            grid the data by number of lat_pixels x number of lon_pixels.
-                            DEFAULT = False (grid pixel by pixel and do not grid data onto latitude and longitude domain)
-        start_index       : Index which to start looping over the vis and IR files at. This can be used if for some reason
-                            script crashes midway through running so you do not have to restart running program. DEFAULT = 0
-        date_range        : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
-                            DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
-        colorblind        : IF keyword set (True), use colorblind friendly color table.
-                            DEFAULT = True (use colorblind friendly table)
-        plt_img_name      : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
-                            plot image name on this figure. Used for creating videos.
-        plt_cbar          : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
-                            plot color bar on the figure. Used for creating videos.
-        subset            : [x0, y0, x1, y1] array to give subset of image domain desired to be plotted. Array could contain pixel indices or lat/lon indices
-                            DEFAULT is to plot the entire domain. Y-axis is plotted from top down so y0 index is from the top!!!!
-        xy_bounds         : ARRAY of floating point values giving the domain boundaries the user wants to restrict the combined netCDF and output image to.
-                            [x0, y0, x1, y1]
-                            DEFAULT = [] -> write combined netCDF data for full scan region.
-                            NOTE: If region keyword is set/specified then it supersedes this for the image creation but not the combined netCDF.
-        region            : State or sector of US to plot data around. 
-                            DEFAULT = None -> plot for full domain.
-        run_gcs           : IF keyword set (True), read and write everything directly from the google cloud platform.
-                            DEFAULT = False
-        write_combined_gcs: IF keyword set (True), write combined netCDF files to the google cloud platform. 
-                            NOTE: run_gcs keyword MUST BE True for this keyword to matter
-                            DEFAULT = True.
-        real_time         : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write.
-                            DEFAULT = False
-        del_local         : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
-                            DEFAULT = False
-        pthresh           : FLOAT keyword to specify probability threshold to use. 
-                            DEFAULT = 0.0
-        plt_plane         : IF keyword set (True), plot airplane location on IR+VIS maps.
-                            DEFAULT = False
-        plt_traj          : IF keyword set (True), plot parcel back trajectory on images.
-                            DEFAULT = False
-        plt_model         : 1) If real_time == False -> Numpy array of model results (values 0-1) to plot on the image.
-                            2) If real_time == True  -> String specifying name and file path of model file to load and plot
-                            DEFAULT = None -> do not plot model results on image.
-        model             : Name of model being plotted (ex. IR+VIS)
-                            DEFAULT = None.
-        chk_day_night     : Structure containing day and night model data information in order to make seemless transition in predictions of the 2.
-                            DEFAULT = {} -> do not use day_night transition                 
-        in_bucket_name    : Google cloud storage bucket to read raw IR/GLM/VIS files.
-                            DEFAULT = 'goes-data'
-        out_bucket_name   : Google cloud storage bucket to write intermediate netCDF files (IR, VIS, and GLM data on same grid) as well as IR+VIS sandwich images.
-                            DEFAULT = 'ir-vis-sandwhich'
-        plane_bucket_name : Google cloud storage bucket to read airplane csv data from
-                            DEFAULT = 'misc-data0'
-        replot_img        : IF keyword set (True), plot the IR/VIS sandwich image again
-                            DEFAULT = True
-        rewrite_nc        : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
-                            DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
-        verbose           : BOOL keyword to specify whether or not to print verbose informational messages.
-                            DEFAULT = True which implies to print verbose informational messages
+        inroot               : STRING path to GLM, GOES visible and GOES IR data directories
+                               DEFAULT = '../../../goes-data/20200513-14/'
+        glm_out_dir          : STRING path to output GLM data directory containing GLM data gridded on same grid as VIS data
+                               DEFAULT = '../../../goes-data/out_dir/'
+        layered_dir          : STRING output directory path for netCDF file containing combined IR, VIS, and GLM data
+                               DEFAULT = '../../../goes-data/combined_nc_dir/'
+        img_out_dir          : Output directory for the IR, GLM, VIS data plot that is input into labelme software.
+                               DEFAULT = '../../../goes-data/layered_img_dir/'
+        plane_inroot         : STRING specifying directory path to airplane csv file. ONLY matters if plt_plane keyword is set. 
+                               DEFAULT = '../../../misc-data0/DCOTSS/aircraft/'
+        no_plot_glm          : IF keyword set, do not plot the GLM data. Setting this keyword = True makes you plot only the VIS
+                               and IR data. DEFAULT is to set this keyword to True and only plot the VIS and IR data.
+        no_plot              : IF keyword set (True), do not plot the IR/VIS data. DEFAULT = True (do not plot the IR/VIS data)
+        no_write_vis         : IF keyword set, do not write the VIS data to the combined modality netCDF file. Setting this 
+                               keyword = True makes you write only the IR and GLM data. 
+                               DEFAULT = False. True -> only write the IR and GLM data.
+        no_write_glm         : IF keyword set, do not write the GLM data to the combined modality netCDF file. Setting this 
+                               keyword = True makes you plot only the VIS and IR data. 
+                               DEFAULT = False. True -> only write the VIS and IR data.
+        no_write_irdiff      : IF keyword set, write the difference between 10.3 micron and 6.2 micron to file.  
+                               DEFAULT = True -> only write the VIS and IR and glm data.
+        no_write_cirrus      : IF keyword set, write the difference between 1.37 micron to file.  
+                               DEFAULT = True -> only write the VIS and IR and glm data.
+        no_write_snowice     : IF keyword set, write the difference between 1.6 micron to file.  
+                               DEFAULT = True -> only write the VIS and IR and glm data.
+        no_write_dirtyirdiff : IF keyword set, write the difference between 12-10 micron to file.  
+                               DEFAULT = True -> only write the VIS and IR and glm data.
+        domain_sector        : STRING specifying the domain sector to use to create maps (= 'conus' or 'full'). DEFAULT = None -> use meso_sector
+        meso_sector          : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)
+        del_combined_nc      : IF keyword set (True), delete combined netCDF file AFTER 3 modalities image is created. This keyword saves much needed space.
+                               DEFAULT = False -> does not deletes the IR/VIS/GLM combined netCDF file.
+        universal_file       : IF keyword set (True), write combined netCDF file that can be read universally. GLM and IR data resampled onto VIS data grid. 
+                               DEFAULT = False
+        ir_min_value         : LONG keyword to specify minimum IR temperature value to clip IR data image (K).
+                               DEFAULT = 170 
+        ir_max_value         : LONG keyword to specify maximum IR temperature value to clip IR data image (K).
+                               DEFAULT = 230 
+        grid_data            : If keyword set (True), grid the data onto latitude and longitude domain. If not set,
+                               grid the data by number of lat_pixels x number of lon_pixels.
+                               DEFAULT = False (grid pixel by pixel and do not grid data onto latitude and longitude domain)
+        start_index          : Index which to start looping over the vis and IR files at. This can be used if for some reason
+                               script crashes midway through running so you do not have to restart running program. DEFAULT = 0
+        date_range           : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
+                               DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
+        colorblind           : IF keyword set (True), use colorblind friendly color table.
+                               DEFAULT = True (use colorblind friendly table)
+        plt_img_name         : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
+                               plot image name on this figure. Used for creating videos.
+        plt_cbar             : IF keyword set (True), do not create 1:1 plot of lat/lon pixels and output image pixels. Instead
+                               plot color bar on the figure. Used for creating videos.
+        subset               : [x0, y0, x1, y1] array to give subset of image domain desired to be plotted. Array could contain pixel indices or lat/lon indices
+                               DEFAULT is to plot the entire domain. Y-axis is plotted from top down so y0 index is from the top!!!!
+        xy_bounds            : ARRAY of floating point values giving the domain boundaries the user wants to restrict the combined netCDF and output image to.
+                               [x0, y0, x1, y1]
+                               DEFAULT = [] -> write combined netCDF data for full scan region.
+                               NOTE: If region keyword is set/specified then it supersedes this for the image creation but not the combined netCDF.
+        region               : State or sector of US to plot data around. 
+                               DEFAULT = None -> plot for full domain.
+        run_gcs              : IF keyword set (True), read and write everything directly from the google cloud platform.
+                               DEFAULT = False
+        write_combined_gcs   : IF keyword set (True), write combined netCDF files to the google cloud platform. 
+                               NOTE: run_gcs keyword MUST BE True for this keyword to matter
+                               DEFAULT = True.
+        real_time            : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write.
+                               DEFAULT = False
+        del_local            : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
+                               DEFAULT = False
+        pthresh              : FLOAT keyword to specify probability threshold to use. 
+                               DEFAULT = 0.0
+        plt_plane            : IF keyword set (True), plot airplane location on IR+VIS maps.
+                               DEFAULT = False
+        plt_traj             : IF keyword set (True), plot parcel back trajectory on images.
+                               DEFAULT = False
+        plt_model            : 1) If real_time == False -> Numpy array of model results (values 0-1) to plot on the image.
+                               2) If real_time == True  -> String specifying name and file path of model file to load and plot
+                               DEFAULT = None -> do not plot model results on image.
+        model                : Name of model being plotted (ex. IR+VIS)
+                               DEFAULT = None.
+        chk_day_night        : Structure containing day and night model data information in order to make seemless transition in predictions of the 2.
+                               DEFAULT = {} -> do not use day_night transition                 
+        in_bucket_name       : Google cloud storage bucket to read raw IR/GLM/VIS files.
+                               DEFAULT = 'goes-data'
+        out_bucket_name      : Google cloud storage bucket to write intermediate netCDF files (IR, VIS, and GLM data on same grid) as well as IR+VIS sandwich images.
+                               DEFAULT = 'ir-vis-sandwhich'
+        plane_bucket_name    : Google cloud storage bucket to read airplane csv data from
+                               DEFAULT = 'misc-data0'
+        replot_img           : IF keyword set (True), plot the IR/VIS sandwich image again
+                               DEFAULT = True
+        rewrite_nc           : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
+                               DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
+        append_nc            : IF keyword set (True), append the combined ir/vis/glm netCDF file.
+                               DEFAULT = True-> Append existing netCDF file
+        verbose              : BOOL keyword to specify whether or not to print verbose informational messages.
+                               DEFAULT = True which implies to print verbose informational messages
     Author and history:
         John W. Cooney           2020-09-03.
                                  2020-09-24. (Added rewrite_nc keyword and fixed bug with range for loop end index)
@@ -292,17 +310,27 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
 
     vis_dir    = os.path.join(inroot, 'vis')                                                                                                   #Path to GOES Visible data files
     glm_in_dir = os.path.join(inroot, 'glm')                                                                                                   #Path to GLM data file
-    irdiff_dir = os.path.join(inroot, 'ir_diff')                                                                                               #Path to GOES IR 6.2 micron data files
     ir_dir     = os.path.join(inroot, 'ir')                                                                                                    #Path to GOES IR data files
     os.makedirs(ir_dir,      exist_ok = True)
-    if no_write_irdiff == False:
-        os.makedirs(irdiff_dir,  exist_ok = True)
+    os.makedirs(layered_dir, exist_ok = True)                                                                                                  #Create output VIS/IR/GLM directory file path if does not already exist
+    if no_write_vis == False:
+        os.makedirs(vis_dir,     exist_ok = True)
     if no_write_glm == False:
         os.makedirs(glm_in_dir,  exist_ok = True)
         os.makedirs(glm_out_dir, exist_ok = True)
-    if no_write_vis == True:
-        os.makedirs(vis_dir,     exist_ok = True)
-    os.makedirs(layered_dir, exist_ok = True)                                                                                                  #Create output VIS/IR/GLM directory file path if does not already exist
+    if no_write_irdiff == False:
+        irdiff_dir = os.path.join(inroot, 'ir_diff')                                                                                           #Path to GOES IR 6.2 micron data files
+        os.makedirs(irdiff_dir,  exist_ok = True)
+    if no_write_cirrus == False:
+        cirrus_dir = os.path.join(inroot, 'cirrus')                                                                                            #Path to GOES IR 1.37 micron data files
+        os.makedirs(cirrus_dir,  exist_ok = True)
+    if no_write_snowice == False:
+        snowice_dir = os.path.join(inroot, 'snowice')                                                                                          #Path to GOES IR 1.6 micron data files
+        os.makedirs(snowice_dir,  exist_ok = True)
+    if no_write_dirtyirdiff == False:
+        dirtyir_dir = os.path.join(inroot, 'dirtyir')                                                                                          #Path to GOES IR 12.3 micron data files
+        os.makedirs(dirtyir_dir,  exist_ok = True)
+    
     if plt_img_name == True:   
         nam = 'plt_img_name'
     else:
@@ -338,10 +366,16 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
         if no_write_vis == False:
             vis_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'vis'), ['-Rad' + sector + '-']))                                #Extract names of all of the GOES visible data files from the google cloud
         ir_files  = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'ir'), ['-Rad' + sector + '-']))                                     #Extract names of all of the GOES infrared data files from the google cloud
-        if rewrite_nc == False:
+        if rewrite_nc == False or append_nc == True:
             com_files = sorted(list_gcs(out_bucket_name, os.path.join('combined_nc_dir', f_dates), ['_COMBINED_', '_' + sector + '_']))        #Extract names of all of the GOES infrared data files from the google cloud
         if no_write_irdiff == False:
             ird_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'ir_diff'), ['-Rad' + sector + '-']))                            #Extract names of all of the GOES 6.2 micron infrared data files from the google cloud
+        if no_write_cirrus == False:
+            c_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'cirrus'), ['-Rad' + sector + '-']))                               #Extract names of all of the GOES 6.2 micron infrared data files from the google cloud
+        if no_write_snowice == False:
+            s_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'snowice'), ['-Rad' + sector + '-']))                              #Extract names of all of the GOES 6.2 micron infrared data files from the google cloud
+        if no_write_dirtyirdiff == False:
+            dird_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'dirtyir'), ['-Rad' + sector + '-']))                           #Extract names of all of the GOES 6.2 micron infrared data files from the google cloud
         if no_write_glm == False:                                                                                                              #Must download GLM files to local storage
             glm_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'glm'), ['-LCFA', 'GLM']))                                       #Extract names of all of the GOES GLM data files from the google cloud
             if real_time == True: 
@@ -350,9 +384,15 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
         if real_time == True: 
             ir_files  = [ir_files[-1]]                                                                                                         #Download only the most recent IR files if running code in real time
             if no_write_vis == False:
-                vis_files = [vis_files[-1]]                                                                                                    #Download only the most recent VIS files if running code in real time
+                vis_files  = [vis_files[-1]]                                                                                                   #Download only the most recent VIS files if running code in real time
             if no_write_irdiff == False:
-                ird_files = [ird_files[-1]]                                                                                                    #Download only the most recent IR files if running code in real time
+                ird_files  = [ird_files[-1]]                                                                                                   #Download only the most recent IR files if running code in real time
+            if no_write_cirrus == False:
+                c_files    = [c_files[-1]]                                                                                                     #Download only the most recent IR files if running code in real time
+            if no_write_snowice == False:
+                s_files    = [s_files[-1]]                                                                                                     #Download only the most recent IR files if running code in real time
+            if no_write_dirtyirdiff == False:
+                dird_files = [dird_files[-1]]                                                                                                  #Download only the most recent IR files if running code in real time
         else:
             ir_files2  = sorted(glob.glob(os.path.join(ir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                           #Extract names of all of the GOES IR data files already in local storage
             if len(ir_files2) > 0:                                                                                                             #Only download files that are not already available on the local disk 
@@ -379,7 +419,38 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                     ird_files0 = [ird_files[ff] for ff in range(len(fi)) if fi[ff] not in fi2]                                                 #Find IR channel 8 files not already stored on local disk
                     ird_files  = ird_files0
             for g in ird_files: download_ncdf_gcs(in_bucket_name, g, irdiff_dir)
-        if rewrite_nc == False and real_time != True:
+        
+        if no_write_cirrus == False:
+            if real_time != True:
+                c_files2 = sorted(glob.glob(os.path.join(cirrus_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                     #Extract names of all of the GOES cirrus channel data files
+                if len(c_files2) > 0:
+                    fi  = sorted([os.path.basename(g) for g in c_files])
+                    fi2 = sorted([os.path.basename(g) for g in c_files2])
+                    c_files0 = [c_files[ff] for ff in range(len(fi)) if fi[ff] not in fi2]                                                     #Find cirrus channel files not already stored on local disk
+                    c_files  = c_files0
+            for g in c_files: download_ncdf_gcs(in_bucket_name, g, cirrus_dir)
+
+        if no_write_snowice == False:
+            if real_time != True:
+                s_files2 = sorted(glob.glob(os.path.join(snowice_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                    #Extract names of all of the GOES snowice channel data files
+                if len(s_files2) > 0:
+                    fi  = sorted([os.path.basename(g) for g in s_files])
+                    fi2 = sorted([os.path.basename(g) for g in s_files2])
+                    s_files0 = [s_files[ff] for ff in range(len(fi)) if fi[ff] not in fi2]                                                     #Find snowice files not already stored on local disk
+                    s_files  = s_files0
+            for g in s_files: download_ncdf_gcs(in_bucket_name, g, snowice_dir)
+
+        if no_write_dirtyirdiff == False:
+            if real_time != True:
+                dird_files2 = sorted(glob.glob(os.path.join(dirtyir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                 #Extract names of all of the GOES dirty IR channel data files
+                if len(dird_files2) > 0:
+                    fi  = sorted([os.path.basename(g) for g in dird_files])
+                    fi2 = sorted([os.path.basename(g) for g in dird_files2])
+                    dird_files0 = [dird_files[ff] for ff in range(len(fi)) if fi[ff] not in fi2]                                               #Find dirty IR files not already stored on local disk
+                    dird_files  = dird_files0
+            for g in dird_files: download_ncdf_gcs(in_bucket_name, g, dirtyir_dir)
+        
+        if (rewrite_nc == False or append_nc == True) and real_time != True:
             com_files2 = sorted(glob.glob(os.path.join(layered_dir, '*' + '_' + sector + '_COMBINED_' + '*.nc'), recursive = True))            #Find combined netCDF files not already stored on local disk
             if len(com_files2) > 0:
                 fi  = sorted([os.path.basename(g) for g in com_files])
@@ -568,80 +639,104 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                 t = Thread(target = glm_gridder2, kwargs = {'outfile' : glm_file, 'glm_root' : glm_in_dir, 'no_plot' : no_plot_glm, 'date_str' : date_str3, 'date_range' : [], 'ctr_lon0' : lon_c, 'ctr_lat0' : lat_c, 'sector' : str_sec, 'verbose' : verbose})
                 t.start()
                 if no_write_vis == False:
-                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file        = vis_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
-                                                                     ir_file         = ir_files[f], 
-                                                                     glm_file        = glm_file, 
-                                                                     layered_dir     = layered_dir,
-                                                                     no_write_vis    = no_write_vis,  
-                                                                     no_write_glm    = no_write_glm,  
-                                                                     no_write_irdiff = no_write_irdiff, 
-                                                                     universal_file  = universal_file, 
-                                                                     rewrite_nc      = rewrite_nc, 
-                                                                     xy_bounds       = xy_bounds, 
-                                                                     glm_thread_info = [t], 
-                                                                     verbose         = verbose)
+                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                      #Create netCDF file containing IR, GLM and VIS data
+                                                                     ir_file              = ir_files[f], 
+                                                                     glm_file             = glm_file, 
+                                                                     layered_dir          = layered_dir,
+                                                                     no_write_vis         = no_write_vis,  
+                                                                     no_write_glm         = no_write_glm,  
+                                                                     no_write_irdiff      = no_write_irdiff, 
+                                                                     no_write_cirrus      = no_write_cirrus, 
+                                                                     no_write_snowice     = no_write_snowice, 
+                                                                     no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                     universal_file       = universal_file, 
+                                                                     rewrite_nc           = rewrite_nc, 
+                                                                     append_nc            = append_nc,
+                                                                     xy_bounds            = xy_bounds, 
+                                                                     glm_thread_info      = [t], 
+                                                                     verbose              = verbose)
                 else:    
-                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file        = '',                                                     #Create netCDF file containing IR, GLM data
-                                                                     ir_file         = ir_files[f], 
-                                                                     glm_file        = glm_file, 
-                                                                     layered_dir     = layered_dir,
-                                                                     no_write_vis    = no_write_vis,  
-                                                                     no_write_glm    = no_write_glm,  
-                                                                     no_write_irdiff = no_write_irdiff, 
-                                                                     universal_file  = universal_file, 
-                                                                     rewrite_nc      = rewrite_nc, 
-                                                                     xy_bounds       = xy_bounds, 
-                                                                     glm_thread_info = [t], 
-                                                                     verbose         = verbose)
+                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = '',                                                #Create netCDF file containing IR, GLM data
+                                                                     ir_file              = ir_files[f], 
+                                                                     glm_file             = glm_file, 
+                                                                     layered_dir          = layered_dir,
+                                                                     no_write_vis         = no_write_vis,  
+                                                                     no_write_glm         = no_write_glm,  
+                                                                     no_write_irdiff      = no_write_irdiff, 
+                                                                     no_write_cirrus      = no_write_cirrus, 
+                                                                     no_write_snowice     = no_write_snowice, 
+                                                                     no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                     universal_file       = universal_file, 
+                                                                     rewrite_nc           = rewrite_nc, 
+                                                                     append_nc            = append_nc,
+                                                                     xy_bounds            = xy_bounds, 
+                                                                     glm_thread_info      = [t], 
+                                                                     verbose              = verbose)
             else:    
                 glm_grid = glm_gridder2(outfile = glm_file, glm_root = glm_in_dir, no_plot = no_plot_glm, date_str = date_str3, date_range = d_range, ctr_lon0 = lon_c, ctr_lat0 = lat_c, sector = str_sec, verbose = verbose)
                 if no_write_vis == False:
-                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file        = vis_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
-                                                                     ir_file         = ir_files[f], 
-                                                                     glm_file        = glm_file, 
-                                                                     layered_dir     = layered_dir,
-                                                                     no_write_vis    = no_write_vis,  
-                                                                     no_write_glm    = no_write_glm,  
-                                                                     no_write_irdiff = no_write_irdiff, 
-                                                                     universal_file  = universal_file, 
-                                                                     rewrite_nc      = rewrite_nc, 
-                                                                     xy_bounds       = xy_bounds, 
-                                                                     verbose         = verbose)         
+                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                      #Create netCDF file containing IR, GLM and VIS data
+                                                                     ir_file              = ir_files[f], 
+                                                                     glm_file             = glm_file, 
+                                                                     layered_dir          = layered_dir,
+                                                                     no_write_vis         = no_write_vis,  
+                                                                     no_write_glm         = no_write_glm,  
+                                                                     no_write_irdiff      = no_write_irdiff, 
+                                                                     no_write_cirrus      = no_write_cirrus, 
+                                                                     no_write_snowice     = no_write_snowice, 
+                                                                     no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                     universal_file       = universal_file, 
+                                                                     rewrite_nc           = rewrite_nc, 
+                                                                     append_nc            = append_nc,
+                                                                     xy_bounds            = xy_bounds, 
+                                                                     verbose              = verbose)         
                 else:
-                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file        = '',                                                     #Create netCDF file containing IR, GLM data
-                                                                     ir_file         = ir_files[f], 
-                                                                     glm_file        = glm_file, 
-                                                                     layered_dir     = layered_dir,
-                                                                     no_write_vis    = no_write_vis,  
-                                                                     no_write_glm    = no_write_glm,  
-                                                                     no_write_irdiff = no_write_irdiff, 
-                                                                     universal_file  = universal_file, 
-                                                                     rewrite_nc      = rewrite_nc, 
-                                                                     xy_bounds       = xy_bounds, 
-                                                                     verbose         = verbose)         
+                    combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = '',                                                #Create netCDF file containing IR, GLM data
+                                                                     ir_file              = ir_files[f], 
+                                                                     glm_file             = glm_file, 
+                                                                     layered_dir          = layered_dir,
+                                                                     no_write_vis         = no_write_vis,  
+                                                                     no_write_glm         = no_write_glm,  
+                                                                     no_write_irdiff      = no_write_irdiff, 
+                                                                     no_write_cirrus      = no_write_cirrus, 
+                                                                     no_write_snowice     = no_write_snowice, 
+                                                                     no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                     universal_file       = universal_file, 
+                                                                     rewrite_nc           = rewrite_nc, 
+                                                                     append_nc            = append_nc,
+                                                                     xy_bounds            = xy_bounds, 
+                                                                     verbose              = verbose)         
         else:
             if no_write_vis == False:
-                combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file        = vis_files[f],                                               #Create netCDF file containing IR, GLM and VIS data
-                                                                 ir_file         = ir_files[f], 
-                                                                 layered_dir     = layered_dir,
-                                                                 no_write_vis    = no_write_vis,  
-                                                                 no_write_glm    = no_write_glm,  
-                                                                 no_write_irdiff = no_write_irdiff, 
-                                                                 rewrite_nc      = rewrite_nc, 
-                                                                 universal_file  = universal_file, 
-                                                                 xy_bounds       = xy_bounds, 
-                                                                 verbose         = verbose)
+                combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                          #Create netCDF file containing IR, GLM and VIS data
+                                                                 ir_file              = ir_files[f], 
+                                                                 layered_dir          = layered_dir,
+                                                                 no_write_vis         = no_write_vis,  
+                                                                 no_write_glm         = no_write_glm,  
+                                                                 no_write_irdiff      = no_write_irdiff, 
+                                                                 no_write_cirrus      = no_write_cirrus, 
+                                                                 no_write_snowice     = no_write_snowice, 
+                                                                 no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                 rewrite_nc           = rewrite_nc, 
+                                                                 append_nc            = append_nc,
+                                                                 universal_file       = universal_file, 
+                                                                 xy_bounds            = xy_bounds, 
+                                                                 verbose              = verbose)
             else:
-                combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file        = '',                                                         #Create netCDF file containing IR, GLM data
-                                                                 ir_file         = ir_files[f], 
-                                                                 layered_dir     = layered_dir,
-                                                                 no_write_vis    = no_write_vis,  
-                                                                 no_write_glm    = no_write_glm,  
-                                                                 no_write_irdiff = no_write_irdiff, 
-                                                                 rewrite_nc      = rewrite_nc, 
-                                                                 universal_file  = universal_file, 
-                                                                 xy_bounds       = xy_bounds, 
-                                                                 verbose         = verbose)
+                combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = '',                                                    #Create netCDF file containing IR, GLM data
+                                                                 ir_file              = ir_files[f], 
+                                                                 layered_dir          = layered_dir,
+                                                                 no_write_vis         = no_write_vis,  
+                                                                 no_write_glm         = no_write_glm,  
+                                                                 no_write_irdiff      = no_write_irdiff, 
+                                                                 no_write_cirrus      = no_write_cirrus, 
+                                                                 no_write_snowice     = no_write_snowice, 
+                                                                 no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                 rewrite_nc           = rewrite_nc, 
+                                                                 append_nc            = append_nc,
+                                                                 universal_file       = universal_file, 
+                                                                 xy_bounds            = xy_bounds, 
+                                                                 verbose              = verbose)
         fnames2.append(combined_nc_file)                                                                                                       #Store the names of the images in a list
         
         exist = False                                                                                                                          #Default is to plot image again
@@ -838,8 +933,20 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
             os.rmdir(vis_dir)                                                                                                                  #Remove VIS data directory
         if no_write_irdiff == False:
             ird_files = sorted(glob.glob(os.path.join(irdiff_dir, '**', '*.nc'), recursive = True))
-            [os.remove(x) for x in ird_files]                                                                                                  #Remove all downloaded Ch.8 IR files files
-            os.rmdir(irdiff_dir)                                                                                                               #Remove GLM data directory
+            [os.remove(x) for x in ird_files]                                                                                                  #Remove all downloaded Ch.8 IR files
+            os.rmdir(irdiff_dir)                                                                                                               #Remove WV data directory
+        if no_write_cirrus == False:
+            c_files = sorted(glob.glob(os.path.join(cirrus_dir, '**', '*.nc'), recursive = True))
+            [os.remove(x) for x in c_files]                                                                                                    #Remove all downloaded cirrus files
+            os.rmdir(cirrus_dir)                                                                                                               #Remove GcirrusLM data directory
+        if no_write_snowice == False:
+            s_files = sorted(glob.glob(os.path.join(snowice_dir, '**', '*.nc'), recursive = True))
+            [os.remove(x) for x in s_files]                                                                                                    #Remove all downloaded snowice files
+            os.rmdir(snowice_dir)                                                                                                              #Remove snowice data directory
+        if no_write_dirtyirdiff == False:
+            dird_files = sorted(glob.glob(os.path.join(dirtyir_dir, '**', '*.nc'), recursive = True))
+            [os.remove(x) for x in dird_files]                                                                                                 #Remove all downloaded dirty IR files 
+            os.rmdir(dirtyir_dir)                                                                                                              #Remove dirty IR data directory
 #     
     return(fnames, fnames2, proj, p)
 

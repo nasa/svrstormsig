@@ -51,13 +51,15 @@ import glob
 import os
 import re
 from math import ceil, floor
-from scipy.ndimage import label, generate_binary_structure
+from scipy.ndimage import label, generate_binary_structure, convolve, generic_filter
+from scipy.interpolate import interpn
 import xarray as xr
 from datetime import datetime, timedelta
 import requests
 from netCDF4 import Dataset
 import pandas as pd
 import pygrib
+import warnings
 import sys
 sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.path.dirname(__file__)))
@@ -65,6 +67,8 @@ sys.path.insert(3, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, list_gcs, download_ncdf_gcs
 #from glm_gridder.dataScaler import DataScaler
 from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, convert_longitude
+from new_model.run_write_gfs_trop_temp_to_combined_ncdf import lanczos_kernel, circle_mean_with_offset
+#from visualize_results.gfs_contour_trop_temperature import gfs_contour_trop_temperature
 def run_write_severe_storm_post_processing(inroot          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516'),
                                            gfs_root        = os.path.join('..', '..', '..', 'gfs-data'),
                                            outroot         = None, 
@@ -151,8 +155,11 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         outroot = os.path.realpath(outroot)                                                                                                            #Create link to real path so compatible with Mac
         os.makedirs(outroot, exist_ok = True)                                                                                                          #Create output directory file path if does not already exist
     
-    gfs_files = sorted(glob.glob(os.path.join(gfs_root, yyyy, d_str) + os.sep + '*.grib2'))                                                            #Search for all GFS model files
-
+    if use_local == True:
+        gfs_files = sorted(glob.glob(os.path.join(gfs_root, '**', '**', '*.grib2'), recursive = True))                                                 #Search for all GFS model files
+    else:
+        gfs_files = sorted(list_gcs(m_bucket_name, 'gfs-data', ['.grib2'], delimiter = '*/*'))                                                         #Extract names of all of the GOES visible data files from the google cloud   
+    gdates = [(re.split('\.', os.path.basename(g)))[2] for g in gfs_files]
     sector = ''.join(e for e in sector if e.isalnum())                                                                                                 #Remove any special characters or spaces.
     if sector[0].lower() == 'm':
         try:
@@ -188,6 +195,10 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             print(pref)
         exit()
             
+    x_sat0  = []
+    y_sat0  = []
+    gfsf    = 'kadshbfavbjfv'
+    lanczos_kernel0 = lanczos_kernel(7, 3)                                                                                                             #Define the Lanczos kernel (kernel size = 7x7; cutoff frequency = 3)
     s       = generate_binary_structure(2,2)
     counter = 0
     for l in range(len(nc_files)):
@@ -219,7 +230,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         sigma  = int(36.0/(xyres0*2.0))                                                                                                                #Calculate the standard deviation for Gaussian kernel for smoothing tropopause temperatures on the satellite grid
         keys0  = list(nc_dct.keys())                                                                                                                   #Extract keys 
         if len(keys0) <= 0:
-            print('Object specified not found in combined netCDF file')
+            if verbose == True:
+                print('Anvil mean BT and/or tropoause temperature not found in combined netCDF file. Writing now.')
         else: 
             bt0 = bt.values[0, :, :]
             for k in range(len(keys0)):
@@ -246,15 +258,16 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                     res2[res2 <  res50] = 0                                                                                            #Set pixels with confidence below 50% of max value in object to 0
                                     res2[res2 >= res50] = max_res                                                                                      #Set pixels with confidence ≥ 50% of max value in object to max value in object
                                     res[inds] = np.copy(res2)                                                                                          #Copy updated results array to res
-                        if np.nanmax(res) < pthresh0:
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category=RuntimeWarning)
+                            maxc = np.nanmax(res)
+                        if maxc < pthresh0:
                             btd   = res*np.nan                                                                                                         #Set values to 0 if no objects detected for time step
-                            tropT = res*np.nan                                                                                                         #Set values to 0 if no objects detected for time step
                             ot_id = np.full_like(res, 0).astype('uint16')                                                                              #Set values to 0 if no objects detected for time step
                         else:
                             labeled_array2, num_updrafts2 = label(res >= pthresh0, structure = s)                                                      #Extract labels for each updraft location (make sure points at diagonals are part of same updrafts)
                             anvil_mask = (labeled_array2 <= 0)                                                                                         #Find all pixels that are not part of an OT/AACP object
                             btd   = res*np.nan                                                                                                         #Initialize array to store objects detected data for time step
-                            tropT = res*np.nan                                                                                                         #Set values to 0 if no objects detected for time step
                             ot_id = labeled_array2.astype('uint16')
                             for u in range(num_updrafts2):
                                 inds2 = (labeled_array2 == u+1)                                                                                        #Find locations of detected object region mask
@@ -286,35 +299,79 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                                 exit()
                                             
                                         btd[inds2] = min_bt0 - anvil_bt_mean                                                                           #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
-                                    
+                        files_used = []            
                         if len(gfs_files) > 0 and object_type.lower() == 'ot' and 'tropopause_temperature' not in var_keys:
                             near_date = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'round')                                                       #Find nearest date to satellite scan
                             nd_str    = near_date.strftime("%Y%m%d%H")                                                                                 #Extract nearest date to satellite scan as a string
                             no_f = 0
                             try:
-                                gfs_file = gfs_files[nd_str.index(nd_str)]                                                                             #Find file that matches date string
+                                gfs_file = gfs_files[gdates.index(nd_str)]                                                                             #Find file that matches date string
                             except:
                                 no_f = 1
                             if no_f == 0:
-                                grbs  = pygrib.open( gfs_file )                                                                                        #Open Grib file to read
-                                grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                   #Extract tropopause temperatures from the GRIB file
-                                tropT = grb.values
-                                lats, lons = grb.latlons()                                                                                             #Extract GFS latitudes and longitudes
-                                x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
-                                tropT = np.flip(tropT, axis = 0)                                                                                       #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                                lats = np.flip(lats[:, 0])                                                                                             #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                                lons = convert_longitude(lons[0, :], to_model = True)
-                                x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
-                                tropT = gfs_interpolate_tropT_to_goes_grid(tropT, lons, lats, x_sat, y_sat,                                            #Interpolate tropopause temperatures to GOES satellite grid points
-                                                                           no_parallax = True, 
-                                                                           x_pc        = [],
-                                                                           y_pc        = [],
-                                                                           sigma       = sigma,
-                                                                           verbose     = verbose)
-                                grbs.close()
-                        append_combined_ncdf_with_model_post_processing(nc_file, ot_id, btd, tropT, data.attrs, anv_p, pthresh = pthresh, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
+#OLD METHOD OF INTERPOLATING GFS TROPOPAUSE TEMPERATURES
+#                                 grbs  = pygrib.open( gfs_file )                                                                                        #Open Grib file to read
+#                                 grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                   #Extract tropopause temperatures from the GRIB file
+#                                 tropT = grb.values
+#                                 
+#                                 
+#                                 
+#                                 lats, lons = grb.latlons()                                                                                             #Extract GFS latitudes and longitudes
+#                                 x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
+#                                 tropT = np.flip(tropT, axis = 0)                                                                                       #Put latitudes in ascending order in order to be interpolated onto satellite grid
+#                                 lats = np.flip(lats[:, 0])                                                                                             #Put latitudes in ascending order in order to be interpolated onto satellite grid
+#                                 lons = convert_longitude(lons[0, :], to_model = True)
+#                                 x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
+#                                 tropT = gfs_interpolate_tropT_to_goes_grid(tropT, lons, lats, x_sat, y_sat,                                            #Interpolate tropopause temperatures to GOES satellite grid points
+#                                                                            no_parallax = True, 
+#                                                                            x_pc        = [],
+#                                                                            y_pc        = [],
+#                                                                            sigma       = sigma,
+#                                                                            verbose     = verbose)
+#                                 grbs.close()
 
-def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tropT, mod_attrs, resolution, pthresh = None, rewrite = True, percent_omit = 20, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
+                                x_sat = convert_longitude(x_sat, to_model = True)                                                                      #Convert longitudes to be 0-360 degrees
+                                #Check if already read in this GFS file so do not have to read same file multiple times in a row
+                                if gfs_file != gfsf:
+                                  grbs  = pygrib.open( gfs_file )                                                                                      #Open Grib file to read
+                                  grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                 #Extract tropopause temperatures from the GRIB file
+                                  tropT = np.copy(grb.values)                                                                                          #Copy tropopause temperatures from backward date into array
+                                  lats, lons = grb.latlons()                                                                                           #Extract GFS latitudes and longitudes
+                                  tropT = np.flip(tropT, axis = 0)                                                                                     #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                                  tropT = circle_mean_with_offset(tropT, 10, 0.6)        
+                                  lats  = np.flip(lats[:, 0])                                                                                          #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                                  lons  = convert_longitude(lons[0, :], to_model = True)
+                                  lons  = (np.asarray(lons)).tolist()
+                                  lats  = (np.asarray(lats)).tolist()
+                                  tropT = convolve(tropT, lanczos_kernel0)                                                                             #Apply Lanczos kernel to the interpolated data 
+                                  tropT2 = interpn((lats, lons), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+                                  grbs.close()
+                                  gfsf   = gfs_file
+                                  x_sat0 = x_sat
+                                  y_sat0 = y_sat
+                                else:
+                                  if len(x_sat0) <= 0 or len(y_sat0) <= 0:
+                                    print('I think something had to go wrong here.. why is there no x_sat0 or y_sat0 values??? Should have needed to read in the GFS file first time through loop.')
+                                    print(len(x_sat0))
+                                    print(len(y_sat0))
+                                    exit()
+                                    tropT2 = interpn((lats, lons), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+                                    x_sat0 = x_sat
+                                    y_sat0 = y_sat
+                                  else:
+                                    #If interpolating to different latitudes and longitudes then need to interpolate (if not, use the same TropT2 as previous loop iteration
+                                    if np.nanmax(np.abs(x_sat - x_sat0)) != 0 or np.nanmax(np.abs(y_sat - y_sat0)) != 0:
+                                      tropT2 = interpn((lats, lons), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+                                    
+                                files_used = [gfs_file]
+                            else:
+                                tropT2 = res*np.nan
+                        else:
+                          tropT2 = res*np.nan
+                        
+                        append_combined_ncdf_with_model_post_processing(nc_file, ot_id, btd, tropT2, data.attrs, anv_p, files_used = files_used, pthresh = pthresh, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
+
+def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tropT, mod_attrs, resolution, files_used = [], pthresh = None, rewrite = True, percent_omit = 20, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
   '''
   This is a function to append the combined netCDF files with the model post-processing data. 
   Args:
@@ -325,12 +382,13 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
       mod_attrs  : Attributes of combined netCDF variable
       resolution : FLOAT giving the number of satellite pixels in x and y space of the anvil calculation
   Keywords:
-      rewrite       : BOOL keyword to specify whether or not to rewrite the ID numbers and IR BTD, etc.
-                      DEFAULT = True -> rewrite the post-processed data
+      files_used    : List of grib files used to make the tropopause temperature calculation.
       pthresh       : FLOAT keyword to specify the optimal likelihood value to threshold the outputted model likelihoods in order for object to be OT or AACP
                       DEFAULT = None -> use the default value in file
                       NOTE: day_night optimal runs may require different pthresh scores that yield the best results. It is suggested to keep this as None for those
                       jobs.
+      rewrite       : BOOL keyword to specify whether or not to rewrite the ID numbers and IR BTD, etc.
+                      DEFAULT = True -> rewrite the post-processed data
       percent_omit  : FLOAT keyword specifying the percentage of cold and warm pixels to remove from anvil mean brightness temperature calculation
                       DEFAULT = 20 -> 20% of the warmest and coldest anvil pixel temperatures are removed in order to prevent the contribution of noise to 
                       the OT IR-anvil BTD calculation.
@@ -431,14 +489,15 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
 #            Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                         #Extract data scaling and offset ability for np.int32
             var_mod3 = f.createVariable('tropopause_temperature', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
             var_mod3.set_auto_maskandscale( False )
-            var_mod3.long_name      = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
-            var_mod3.standard_name  = "GFS Tropopause"
-     #       var_mod3.valid_range    = [160.0, 310.0]
-            var_mod3.missing_value  = np.nan
-            var_mod3.units          = 'K'
-            var_mod3.coordinates    = 'longitude latitude time'
- #           var_mod3.description    = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest " + str(percent_omit) + "% of anvil BT pixels are removed prior to anvil mean calulcation." 
-            var_mod3[0, :, :]       = np.copy(tropT)
+            var_mod3.long_name          = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
+            var_mod3.standard_name      = "GFS Tropopause"
+            var_mod3.contributing_files = files_used
+     #       var_mod3.valid_range        = [160.0, 310.0]
+            var_mod3.missing_value      = np.nan
+            var_mod3.units              = 'K'
+            var_mod3.coordinates        = 'longitude latitude time'
+ #           var_mod3.description        = "Minimum brightness temperature within an OT Minus Anvil Brightness Temperature. The anvil is identified as all pixels, not part of an OT, within a " + str(int(resolution)) + "x" + str(int(resolution)) + " pixel region centered on the coldest BT in OT object. Temperatures > 230 K are removed and then the coldest and warmest " + str(percent_omit) + "% of anvil BT pixels are removed prior to anvil mean calulcation." 
+            var_mod3[0, :, :]           = np.copy(tropT)
 #             data2, scale_btd, offset_btd = Scaler.scaleData(btd)                                                                                     #Extract BTD data, scale factor and offsets that is scaled from Float to short
 #             var_mod2.add_offset    = offset_btd                                                                                                      #Write the data offset to the combined netCDF file
 #             var_mod2.scale_factor  = scale_btd                                                                                                       #Write the data scale factor to the combined netCDF file
@@ -509,6 +568,66 @@ def download_gfs_analysis_files(date_str1, date_str2,
                     f.write(response.content)
             else:
                 print('No GFS files found to calculate tropopause temperature for post-processing')
+
+def download_gfs_analysis_files_from_gcloud(date_str, 
+                                            GFS_ANALYSIS_DT = 21600,
+                                            outroot         = os.path.join('..', '..', '..', 'gfs-data'),
+                                            gfs_bucket_name = 'global-forecast-system', 
+                                            write_gcs       = False,
+                                            del_local       = True,
+                                            verbose         = True):
+    '''
+    This is a function to to download the nearest GFS file to the date specified from Google Cloud. Used for real-time model runs
+    Args:
+        date_str : Analysis date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
+    Keywords:
+        GFS_ANALYSIS_DT : FLOAT keyword specifying the time between GFS files in sec. 
+                          DEFAULT = 21600 -> seconds between GFS files
+        write_gcs       : IF keyword set (True), write the output files to the google cloud in addition to local storage.
+                          DEFAULT = False.
+        del_local       : IF keyword set (True) AND run_gcs = True, delete local copy of output file.
+                          DEFAULT = True.
+        outroot         : STRING output directory path for GFS data storage
+                          DEFAULT = os.path.join('..', '..', '..', 'gfs-data')
+        c_bucket_name   : STRING specifying the name of the gcp bucket to write combined IR, VIS, GLM files to As well as 3 modalities figures.
+                          run_gcs needs to be True in order for this to matter.
+                          DEFAULT = 'ir-vis-sandwhich'
+        c_bucket_name   : STRING specifying the GFS gcp bucket to write combined IR, VIS, GLM files to As well as 3 modalities figures.
+                          run_gcs needs to be True in order for this to matter.
+                          DEFAULT = 'ir-vis-sandwhich'
+        verbose         : BOOL keyword to specify whether or not to print verbose informational messages.
+                        DEFAULT = True which implies to print verbose informational messages
+    Output:
+        Downloads GFS data files.
+    Author and history:
+        John W. Cooney           2024-02-20
+    '''  
+    date1 = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")                                                                                           #Convert start date string to datetime structure
+    date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
+    fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
+    file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
+    if len(file) == 0:
+        date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                                                               #Extract minimum time of GFS files required to download to encompass data date range
+        fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
+        file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
+    if len(file) > 1:
+        file.remove(fpath + '.idx')
+    
+    if len(file) == 1:
+        outdir = os.path.join(os.path.realpath(outroot), date1.strftime('%Y'), date1.strftime('%Y%m%d'))
+        if os.path.exists(os.path.join(outdir, os.path.basename(file[0]))):
+            if verbose == True:
+                print('GFS file already exists so do not need to downlaod')
+        else:        
+            os.makedirs(outdir, exist_ok = True)
+            download_ncdf_gcs(gfs_bucket_name, file[0], outdir)
+    else:        
+        print('No GFS file found within 12 hours of date specified')
+        print(date_str)
+        print(fpath)
+        print(gfs_bucket_name)
+        print('File may not be available on Google Cloud??')
+        exit()    
             
 def gfs_nearest_time(date, dt, ROUND = 'round'):
     '''

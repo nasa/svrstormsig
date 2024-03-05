@@ -1,5 +1,5 @@
 import numpy as np
-
+import warnings
 class DataScaler():
 
   def __init__(self, nbytes = 2, signed=True):
@@ -131,7 +131,9 @@ class DataScaler():
     else:
       index = ~np.isfinite( data )                                              # Locate all NaN (i.e., missing values)
     data = np.round( (data - offset) / scale)
-    data = np.clip( data, self._oMin, self._oMax ).astype( self._dtype )        # Clip to range to ensure nothing out-of-bounds and force type
+    with warnings.catch_warnings():
+      warnings.simplefilter("ignore", category=RuntimeWarning)
+      data = np.clip( data, self._oMin, self._oMax ).astype( self._dtype )      # Clip to range to ensure nothing out-of-bounds and force type
     data[index] = self._miss
 
     #if any(index):

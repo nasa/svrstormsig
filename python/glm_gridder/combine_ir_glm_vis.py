@@ -26,6 +26,8 @@
 #                            DEFAULT = False
 #     rewrite_nc           : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
 #                            DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
+#     append_nc            : IF keyword set (True), append the combined ir/vis/glm netCDF file.
+#                            DEFAULT = True-> Append existing netCDF file
 #     no_write_vis         : IF keyword set, do not write the VIS data to the combined modality netCDF file. Setting this 
 #                            keyword = True makes you write only the IR data. 
 #                            DEFAULT = False -> write the IR and VIS data.
@@ -86,6 +88,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                        layered_dir          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
                        universal_file       = False, 
                        rewrite_nc           = False, 
+                       append_nc            = True,
                        no_write_vis         = False,                       
                        no_write_glm         = True,
                        no_write_irdiff      = True,
@@ -108,7 +111,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
     satellite = file_attr[5]
     sat       = satellite[0].lower() + 'oes' + satellite[1:]
     out_nc    = os.path.join(layered_dir, file_attr[0] + '_' + file_attr[1] + '_' + file_attr[2] + '_' + str(file_attr[3].split('Rad')[1]) + '_COMBINED_' + '_'.join(file_attr[6:]))	 #Creates output file name and path for combined ir_glm_vis file
-    if (os.path.isfile(out_nc) == False or rewrite_nc == True):
+    if (os.path.isfile(out_nc) == False or rewrite_nc == True or append_nc == True):
 #        t0 = time.time()
         os.makedirs(os.path.dirname(out_nc), exist_ok = True)                                                                               #Create output file path if does not already exist
         ### Code Execution ### 
@@ -198,93 +201,124 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
         ### NetCDF File Creation ###      
         # file declaration      
         if verbose == True: print('Writing combined VIS/IR/GLM output netCDF ' + out_nc)
-        f = netCDF4.Dataset(out_nc,'w', format='NETCDF4')                                                                                   #'w' stands for write (write netCDF file of combined datasets)
-#        f.set_auto_maskandscale( False )
-#        print('Finished first part = ' + str(time.time() - t0) + 'sec')
-        
-        # latitude and longitude definition
-        x_inds = []
-        y_inds = []
- #       t0 = time.time()
-        if 'RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file):
-            if no_write_vis == False:
-                proj_img = vis.variables['goes_imager_projection']
-            else:
-                proj_img = ir.variables['goes_imager_projection']
-            
-            # Data info
-            proj_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'data', 'sat_projection_files')
-            if sat == 'goes18':
-              sat = 'goes17'
-            if 'RadC' in os.path.basename(ir_file):
-                proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
-#                proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
-                scan_mode = 'conus'
-            else:
-                proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'full_scan_projections.nc')
-#                proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'full_scan_projections.nc')
-                scan_mode = 'full'
-            if len(xy_bounds) > 0 and universal_file == False:
-                print('Not set up to write subset domains if universal file is not set!!!')
-                exit()
-            if len(xy_bounds) > 0:
-                if os.path.exists(proj_file) == False:
-                    print('Satellite projection file for the specified indices not found????')
-                    print(proj_file)
-                    exit()
-                with Dataset(proj_file, 'r') as scan_proj_dataset:
-                    x_inds, y_inds, proj_extent_new, og_shape, lat_arr, lon_arr = get_lat_lon_subset_inds(scan_proj_dataset, xy_bounds, return_lats = True, satellite = sat, use_native_ir = no_write_vis, scan_mode = scan_mode, verbose = verbose)
-#                print('Time to return subset inds = ' + str(time.time() - t0) + 'sec')
-                
-                if lon_arr.shape != og_shape or lat_arr.shape != og_shape:
-                    print('Indexing of file shapes do not match raw data file shapes???')
-                    print('Original shape for subset indices = ' + str(og_shape))
-                    print('Raw data longitude array shape = ' + str(lon_arr.shape))
-                    print('Raw data latitude array shape = ' + str(lat_arr.shape))
-                    exit()
-            else:
-                with Dataset(proj_file, 'r') as scan_proj_dataset:
-                    x_inds, y_inds, proj_extent, og_shape, lat_arr, lon_arr = get_lat_lon_subset_inds(scan_proj_dataset, [], return_lats = True, verbose = verbose)
-#                 lat_rad_1d  = vis.variables['x'][:]
-#                 lon_rad_1d  = vis.variables['y'][:]
-#                 x1          = (lon_rad_1d * proj_img.perspective_point_height).astype('float64')
-#                 y1          = (lat_rad_1d * proj_img.perspective_point_height).astype('float64')
-#                 proj_extent = (np.min(x1), np.max(x1), np.min(y1), np.max(y1))
+        Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                   #Extract data scaling and offset ability for np.int32
+        if os.path.isfile(out_nc) == True and append_nc == True and rewrite_nc == False:
+            f = netCDF4.Dataset(out_nc,'a', format='NETCDF4')                                                                               #'a' stands for append (write netCDF file of combined datasets)        
+            x_inds  = list(f.x_inds)
+            y_inds  = list(f.y_inds)
+            lon_arr = np.copy(np.asarray(f.variables['longitude']))
+            keys0   = f.variables.keys()
+            if ('solar_zenith_angle' not in keys0) and (no_write_vis == False or no_write_cirrus == False or no_write_snowice == False):
+                date   = netCDF4.num2date( ir.variables['t'][:], ir.variables['t'].units)                                                   #Read in date
+                date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
+                lat_arr = np.copy(np.asarray(f.variables['latitude']))
+                with warnings.catch_warnings():
+                  warnings.simplefilter("ignore", category=RuntimeWarning)
+                  zen    = np.radians(90.0)-get_position(date, lon_arr, lat_arr)['altitude']
+                  coszen = np.cos(zen)
+            elif ('solar_zenith_angle' in keys0) and (no_write_vis == False or no_write_cirrus == False or no_write_snowice == False):
+                zen    = np.copy(np.asarray(f.variables['solar_zenith_angle']))[0, :, :]
+                coszen = np.cos(np.deg2rad(zen))
         else:
-            if no_write_vis == False:
-                lon_arr, lat_arr, proj_img, proj_extent = get_lat_lon_from_vis(vis, verbose = verbose)                                      #Extract VIS data longitudes and latitudes (read lats and lons in normal way because no NaN values)
+            keys0 = {}
+            f = netCDF4.Dataset(out_nc,'w', format='NETCDF4')                                                                               #'w' stands for write (write netCDF file of combined datasets)
+#            f.set_auto_maskandscale( False )
+#            print('Finished first part = ' + str(time.time() - t0) + 'sec')
+            
+            # latitude and longitude definition
+            x_inds = []
+            y_inds = []
+ #           t0 = time.time()
+            if 'RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file):
+                if no_write_vis == False:
+                    proj_img = vis.variables['goes_imager_projection']
+                else:
+                    proj_img = ir.variables['goes_imager_projection']
+                
+                # Data info
+                proj_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'data', 'sat_projection_files')
+                if sat == 'goes18':
+                  sat = 'goes17'
+                if 'RadC' in os.path.basename(ir_file):
+                    proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
+#                    proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
+                    scan_mode = 'conus'
+                else:
+                    proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'full_scan_projections.nc')
+#                    proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'full_scan_projections.nc')
+                    scan_mode = 'full'
+                if len(xy_bounds) > 0 and universal_file == False:
+                    print('Not set up to write subset domains if universal file is not set!!!')
+                    exit()
+                if len(xy_bounds) > 0:
+                    if os.path.exists(proj_file) == False:
+                        print('Satellite projection file for the specified indices not found????')
+                        print(proj_file)
+                        exit()
+                    with Dataset(proj_file, 'r') as scan_proj_dataset:
+                        x_inds, y_inds, proj_extent_new, og_shape, lat_arr, lon_arr = get_lat_lon_subset_inds(scan_proj_dataset, xy_bounds, return_lats = True, satellite = sat, use_native_ir = no_write_vis, scan_mode = scan_mode, verbose = verbose)
+#                    print('Time to return subset inds = ' + str(time.time() - t0) + 'sec')
+                    
+                    if lon_arr.shape != og_shape or lat_arr.shape != og_shape:
+                        print('Indexing of file shapes do not match raw data file shapes???')
+                        print('Original shape for subset indices = ' + str(og_shape))
+                        print('Raw data longitude array shape = ' + str(lon_arr.shape))
+                        print('Raw data latitude array shape = ' + str(lat_arr.shape))
+                        exit()
+                else:
+                    with Dataset(proj_file, 'r') as scan_proj_dataset:
+                        x_inds, y_inds, proj_extent, og_shape, lat_arr, lon_arr = get_lat_lon_subset_inds(scan_proj_dataset, [], return_lats = True, verbose = verbose)
+#                     lat_rad_1d  = vis.variables['x'][:]
+#                     lon_rad_1d  = vis.variables['y'][:]
+#                     x1          = (lon_rad_1d * proj_img.perspective_point_height).astype('float64')
+#                     y1          = (lat_rad_1d * proj_img.perspective_point_height).astype('float64')
+#                     proj_extent = (np.min(x1), np.max(x1), np.min(y1), np.max(y1))
             else:
-                lon_arr, lat_arr, proj_img, proj_extent = get_lat_lon_from_vis(ir, verbose = verbose)                                       #Extract IR data longitudes and latitudes (read lats and lons in normal way because no NaN values)
-#        print('Lon/lat extraction = ' + str(time.time() - t0) + 'sec')
-        
-        ### Normalize VIS Data by solar zenith angle ###
-        
-        date   = netCDF4.num2date( ir.variables['t'][:], ir.variables['t'].units)                                                           #Read in date
-        date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
-        if len(xy_bounds) > 0 and ('RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file)):
-            lon_arr = lon_arr[np.min(x_inds):np.max(x_inds), np.min(y_inds):np.max(y_inds)]
-            lat_arr = lat_arr[np.min(x_inds):np.max(x_inds), np.min(y_inds):np.max(y_inds)]
-#            zen     = zen[np.min(x_inds):np.max(x_inds), np.min(y_inds):np.max(y_inds)]
-#        print('Calculating solar zenith angle')
-#        t0 = time.time()
-        
-        with warnings.catch_warnings():
-          warnings.simplefilter("ignore", category=RuntimeWarning)
-#           zen    = astronomy.sun_zenith_angle(date, lon_arr, lat_arr)                                                         #Returns zenith angle (radians)
-#           print('yep')
-#           print(type(zen))
-#           print(zen)
-          zen   = np.radians(90.0)-get_position(date, lon_arr, lat_arr)['altitude']
-#           print()
-#           print(zen2)
-#           print()
-#           print(np.max(np.abs(zen-np.degrees(zen2))))
-#           zen    = np.radians(astronomy.sun_zenith_angle(date, lon_arr, lat_arr))                                                         #Returns zenith angle (radians)
-          coszen = np.cos(zen)
-#           coszen2 = np.cos(zen2)
-#           print(np.max(np.abs(coszen-coszen2)))
-#           exit()
-#        print('sun_zenith_angle calc = ' + str(time.time() - t0) + 'sec')
+                if no_write_vis == False:
+                    lon_arr, lat_arr, proj_img, proj_extent = get_lat_lon_from_vis(vis, verbose = verbose)                                      #Extract VIS data longitudes and latitudes (read lats and lons in normal way because no NaN values)
+                else:
+                    lon_arr, lat_arr, proj_img, proj_extent = get_lat_lon_from_vis(ir, verbose = verbose)                                       #Extract IR data longitudes and latitudes (read lats and lons in normal way because no NaN values)
+#            print('Lon/lat extraction = ' + str(time.time() - t0) + 'sec')
+            
+            ### Normalize VIS Data by solar zenith angle ###
+            
+            date   = netCDF4.num2date( ir.variables['t'][:], ir.variables['t'].units)                                                           #Read in date
+            date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
+            if len(xy_bounds) > 0 and ('RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file)):
+                lon_arr = lon_arr[np.min(x_inds):np.max(x_inds), np.min(y_inds):np.max(y_inds)]
+                lat_arr = lat_arr[np.min(x_inds):np.max(x_inds), np.min(y_inds):np.max(y_inds)]
+#                zen     = zen[np.min(x_inds):np.max(x_inds), np.min(y_inds):np.max(y_inds)]
+#            print('Calculating solar zenith angle')
+#            t0 = time.time()
+            
+            with warnings.catch_warnings():
+              warnings.simplefilter("ignore", category=RuntimeWarning)
+#               zen    = astronomy.sun_zenith_angle(date, lon_arr, lat_arr)                                                         #Returns zenith angle (radians)
+#               print('yep')
+#               print(type(zen))
+#               print(zen)
+              zen   = np.radians(90.0)-get_position(date, lon_arr, lat_arr)['altitude']
+#               print()
+#               print(zen2)
+#               print()
+#               print(np.max(np.abs(zen-np.degrees(zen2))))
+#               zen    = np.radians(astronomy.sun_zenith_angle(date, lon_arr, lat_arr))                                                         #Returns zenith angle (radians)
+              coszen = np.cos(zen)
+#               coszen2 = np.cos(zen2)
+#               print(np.max(np.abs(coszen-coszen2)))
+#               exit()
+#            print('sun_zenith_angle calc = ' + str(time.time() - t0) + 'sec')
+    
+#             t0 = time.time()
+#             zen1     = math.radians(astronomy.sun_zenith_angle(date, lon_arr, lat_arr))
+#             print(str(time.time() - t0) + 'sec')
+#             t0 = time.time()
+#             zen     = calc_solar_zenith_angle(lon_arr, lat_arr, date)                                                                           #Returns zenith angle (radians)
+#             print(str(time.time() - t0) + 'sec')
+#             print(np.max(abs(zen1 - zen)))
+#             coszen = np.cos(zen)
+#             coszen1 = np.cos(zen1)
+#             print(np.max(abs(coszen1 - coszen)))
 
 #         t0 = time.time()
 #         zen1     = math.radians(astronomy.sun_zenith_angle(date, lon_arr, lat_arr))
@@ -297,93 +331,91 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
 #         coszen1 = np.cos(zen1)
 #         print(np.max(abs(coszen1 - coszen)))
 
-        Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                   #Extract data scaling and offset ability for np.int32
-
-        # dimension declaration
-        f.createDimension('Y',     lon_arr.shape[0])
-        f.createDimension('X',     lat_arr.shape[1])
-        if universal_file == False:
-            f.createDimension('IR_Y',   ir_raw_img.shape[0])
-            f.createDimension('IR_X',   ir_raw_img.shape[1])
-            # Define GLM images      
-            if no_write_glm == False:
-                if verbose == True:
-                    print('Waiting for gridded GLM data file')
-                while not os.path.isfile(glm_file):
-                    time.sleep(0.50)                                                                                                         #Wait until file exists, then load it as numpy array as soon as it does
-                glm_data = Dataset(glm_file, "r", "NETCDF4")                                                                                #Read GLM data file
-                glm_raw_img, rect = fetch_glm_to_match_ir(ir, glm_data, _rect_color='r', _label='M1')      
-#                glm_raw_img, rect = fetch_glm_to_match_ir(ir, glm_data, _rect_color='r', _label='M2')      
-                glm_data.close()
-                f.createDimension('GLM_Y', glm_raw_img.shape[0])
-                f.createDimension('GLM_X', glm_raw_img.shape[1])
-        f.createDimension('time',      1)
-        
-        # variable declaration for output file
-        var_lon  = f.createVariable('longitude', 'f4', ('Y','X',), zlib = True, least_significant_digit = 3)
-        var_lon.long_name     = 'longitude -180 to 180 degrees east'
-        var_lon.standard_name = 'longitude'
-        var_lon.units         = 'degrees_east'
-  
-        var_lat  = f.createVariable('latitude', 'f4', ('Y', 'X',), zlib = True, least_significant_digit = 3)
-        var_lat.long_name     = 'latitude -90 to 90 degrees north'
-        var_lat.standard_name = 'latitude'
-        var_lat.units         = 'degrees_north'
-        
-        var_t    = f.createVariable('time', 'f4', ('time',))
-        var_t.long_name       = ir.variables['t'].long_name
-        var_t.standard_name   = ir.variables['t'].standard_name
-        var_t.units           = ir.variables['t'].units
-        if no_write_vis == False:
-            var_vis  = f.createVariable('visible_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
-            var_vis.set_auto_maskandscale( False )
-            var_vis.long_name     = 'Visible Reflectance Normalized by Solar Zenith Angle'
-            var_vis.standard_name = 'Visible_Reflectance'
-            var_vis.units         = 'reflectance_normalized_by_solar_zenith_angle'
-            var_vis.coordinates   = 'longitude latitude time'
-            
-            var_zen  = f.createVariable('solar_zenith_angle', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 2)
-            var_zen.set_auto_maskandscale( False )
-            var_zen.long_name     = 'Solar Zenith Angle'
-            var_zen.standard_name = 'solar_zenith_angle'
-            var_zen.units         = 'degrees'
-        
-        image_projection = f.createVariable('imager_projection', np.int32, zlib = True)        
-        image_projection.long_name                      = proj_img.long_name
-        image_projection.satellite_name                 = satellite
-        image_projection.grid_mapping_name              = proj_img.grid_mapping_name
-        image_projection.perspective_point_height       = proj_img.perspective_point_height
-        image_projection.semi_major_axis                = proj_img.semi_major_axis
-        image_projection.semi_minor_axis                = proj_img.semi_minor_axis
-        image_projection.inverse_flattening             = proj_img.inverse_flattening
-        image_projection.latitude_of_projection_origin  = proj_img.latitude_of_projection_origin
-        image_projection.longitude_of_projection_origin = proj_img.longitude_of_projection_origin
-        image_projection.sweep_angle_axis               = proj_img.sweep_angle_axis
-        
-        # NetCDF File Description
-        f.Conventions = 'CF-1.8'                                                                                                            #Write netCDF conventions attribute
-        if os.path.isfile(glm_file) == True and no_write_glm == False: 
+            # dimension declaration
+            f.createDimension('Y',     lon_arr.shape[0])
+            f.createDimension('X',     lat_arr.shape[1])
             if universal_file == False:
-                f.description = "This file combines unscaled IR data, Visible data, and GLM data into one NetCDF file. The VIS data is normalized by the solar zenith angle. The GLM data is resampled onto the IR grid using glmtools for files ±2.5 min from VIS/IR analysis time. x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
+                f.createDimension('IR_Y',   ir_raw_img.shape[0])
+                f.createDimension('IR_X',   ir_raw_img.shape[1])
+                # Define GLM images      
+                if no_write_glm == False:
+                    if verbose == True:
+                        print('Waiting for gridded GLM data file')
+                    while not os.path.isfile(glm_file):
+                        time.sleep(0.50)                                                                                                         #Wait until file exists, then load it as numpy array as soon as it does
+                    with Dataset(glm_file, "r", "NETCDF4") as glm_data:                                                                          #Read GLM data file
+                        glm_raw_img, rect = fetch_glm_to_match_ir(ir, glm_data, _rect_color='r', _label='M1')      
+#                        glm_raw_img, rect = fetch_glm_to_match_ir(ir, glm_data, _rect_color='r', _label='M2')      
+                    f.createDimension('GLM_Y', glm_raw_img.shape[0])
+                    f.createDimension('GLM_X', glm_raw_img.shape[1])
+            f.createDimension('time',      1)
+            
+            # variable declaration for output file
+            var_lon  = f.createVariable('longitude', 'f4', ('Y','X',), zlib = True, least_significant_digit = 3)
+            var_lon.long_name     = 'longitude -180 to 180 degrees east'
+            var_lon.standard_name = 'longitude'
+            var_lon.units         = 'degrees_east'
+      
+            var_lat  = f.createVariable('latitude', 'f4', ('Y', 'X',), zlib = True, least_significant_digit = 3)
+            var_lat.long_name     = 'latitude -90 to 90 degrees north'
+            var_lat.standard_name = 'latitude'
+            var_lat.units         = 'degrees_north'
+            
+            var_t    = f.createVariable('time', 'f4', ('time',))
+            var_t.long_name       = ir.variables['t'].long_name
+            var_t.standard_name   = ir.variables['t'].standard_name
+            var_t.units           = ir.variables['t'].units
+        if no_write_vis == False:
+            if 'visible_reflectance' not in keys0:
+                var_vis  = f.createVariable('visible_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
+                var_vis.set_auto_maskandscale( False )
+                var_vis.long_name     = 'Visible Reflectance Normalized by Solar Zenith Angle'
+                var_vis.standard_name = 'Visible_Reflectance'
+                var_vis.units         = 'reflectance_normalized_by_solar_zenith_angle'
+                var_vis.coordinates   = 'longitude latitude time'
+            if 'solar_zenith_angle' not in keys0:
+                var_zen  = f.createVariable('solar_zenith_angle', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 2)
+                var_zen.set_auto_maskandscale( False )
+                var_zen.long_name     = 'Solar Zenith Angle'
+                var_zen.standard_name = 'solar_zenith_angle'
+                var_zen.units         = 'degrees'
+        if len(keys0) <= 0:
+            image_projection = f.createVariable('imager_projection', np.int32, zlib = True)        
+            image_projection.long_name                      = proj_img.long_name
+            image_projection.satellite_name                 = satellite
+            image_projection.grid_mapping_name              = proj_img.grid_mapping_name
+            image_projection.perspective_point_height       = proj_img.perspective_point_height
+            image_projection.semi_major_axis                = proj_img.semi_major_axis
+            image_projection.semi_minor_axis                = proj_img.semi_minor_axis
+            image_projection.inverse_flattening             = proj_img.inverse_flattening
+            image_projection.latitude_of_projection_origin  = proj_img.latitude_of_projection_origin
+            image_projection.longitude_of_projection_origin = proj_img.longitude_of_projection_origin
+            image_projection.sweep_angle_axis               = proj_img.sweep_angle_axis
+        
+            # NetCDF File Description
+            f.Conventions = 'CF-1.8'                                                                                                            #Write netCDF conventions attribute
+            if os.path.isfile(glm_file) == True and no_write_glm == False: 
+                if universal_file == False:
+                    f.description = "This file combines unscaled IR data, Visible data, and GLM data into one NetCDF file. The VIS data is normalized by the solar zenith angle. The GLM data is resampled onto the IR grid using glmtools for files ±2.5 min from VIS/IR analysis time. x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
+                else:
+                    f.description = "This file combines unscaled IR data, Visible data, and GLM data into one NetCDF file. The VIS data is on its original grid but is normalized by the solar zenith angle. The GLM data is resampled onto the IR grid using glmtools for files ±2.5 min from VIS/IR analysis time. The IR and GLM data are then upscaled onto the VIS grid using cv2.resize with interpolation set as cv2.INTER_NEAREST. Lastly, the GLM data is smoothed by ndimage.gaussian_filter(glm_data, sigma=1.0, order=0). x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
             else:
-                f.description = "This file combines unscaled IR data, Visible data, and GLM data into one NetCDF file. The VIS data is on its original grid but is normalized by the solar zenith angle. The GLM data is resampled onto the IR grid using glmtools for files ±2.5 min from VIS/IR analysis time. The IR and GLM data are then upscaled onto the VIS grid using cv2.resize with interpolation set as cv2.INTER_NEAREST. Lastly, the GLM data is smoothed by ndimage.gaussian_filter(glm_data, sigma=1.0, order=0). x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
-        else:
-            f.description = "This file combines unscaled IR data and Visible data but no GLM data into one NetCDF file. The VIS data is normalized by the solar zenith angle. x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
-        
-        f.geospatial_lat_min  = str(np.nanmin(lat_arr))                                                                                     #Write min latitude as global variable
-        f.geospatial_lat_max  = str(np.nanmax(lat_arr))                                                                                     #Write max latitude as global variable
-        f.geospatial_lon_min  = str(np.nanmin(lon_arr))                                                                                     #Write min longitude as global variable
-        f.geospatial_lon_max  = str(np.nanmax(lon_arr))                                                                                     #Write max longitude as global variable
-
-        f.x_inds  = x_inds                                                                                                                  #Write min latitude as global variable
-        f.y_inds  = y_inds                                                                                                                  #Write max latitude as global variable
-        f.spatial_resolution = xyres                                                                                                        #Write satellite spatial resolution to the file
-        
-        if len(xy_bounds) > 0  and ('RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file)):
-            image_projection.bounds = str(proj_extent_new[0]) + ',' + str(proj_extent_new[1]) + ',' + str(proj_extent_new[2]) + ',' + str(proj_extent_new[3])
-        else:
-            image_projection.bounds = str(proj_extent[0]) + ',' + str(proj_extent[1]) + ',' + str(proj_extent[2]) + ',' + str(proj_extent[3])
-        image_projection.bounds_units = 'm'
+                f.description = "This file combines unscaled IR data and Visible data but no GLM data into one NetCDF file. The VIS data is normalized by the solar zenith angle. x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
+            
+            f.geospatial_lat_min  = str(np.nanmin(lat_arr))                                                                                     #Write min latitude as global variable
+            f.geospatial_lat_max  = str(np.nanmax(lat_arr))                                                                                     #Write max latitude as global variable
+            f.geospatial_lon_min  = str(np.nanmin(lon_arr))                                                                                     #Write min longitude as global variable
+            f.geospatial_lon_max  = str(np.nanmax(lon_arr))                                                                                     #Write max longitude as global variable
+    
+            f.x_inds  = x_inds                                                                                                                  #Write min latitude as global variable
+            f.y_inds  = y_inds                                                                                                                  #Write max latitude as global variable
+            f.spatial_resolution = xyres                                                                                                        #Write satellite spatial resolution to the file
+            
+            if len(xy_bounds) > 0  and ('RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file)):
+                image_projection.bounds = str(proj_extent_new[0]) + ',' + str(proj_extent_new[1]) + ',' + str(proj_extent_new[2]) + ',' + str(proj_extent_new[3])
+            else:
+                image_projection.bounds = str(proj_extent[0]) + ',' + str(proj_extent[1]) + ',' + str(proj_extent[2]) + ',' + str(proj_extent[3])
+            image_projection.bounds_units = 'm'
        
         if universal_file == False:
             var_ir   = f.createVariable('ir_brightness_temperature', np.int32, ('time', 'IR_Y', 'IR_X',), zlib = True, fill_value = Scaler._FillValue)
@@ -411,37 +443,38 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             else:
                 pat  = ' resampled onto IR data grid'
             pat2 = ''
-            var_ir   = f.createVariable('ir_brightness_temperature', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
-            var_ir.set_auto_maskandscale( False )
-            if no_write_irdiff == False: 
+            if 'ir_brightness_temperature' not in keys0:
+                var_ir   = f.createVariable('ir_brightness_temperature', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
+                var_ir.set_auto_maskandscale( False )
+            if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys0: 
                 var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir2.set_auto_maskandscale( False )
                 var_ir2.long_name      = '6.2 - 10.3 micron Infrared Brightness Temperature Image' + pat
                 var_ir2.standard_name  = 'IR_brightness_temperature_difference'
                 var_ir2.units          = 'kelvin'
                 var_ir2.coordinates    = 'longitude latitude time'
-            if no_write_cirrus == False: 
+            if no_write_cirrus == False and 'cirrus_reflectance' not in keys0: 
                 var_cirrus   = f.createVariable('cirrus_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_cirrus.set_auto_maskandscale( False )
                 var_cirrus.long_name      = '1.37 micron Near-Infrared Reflectance Image' + pat
                 var_cirrus.standard_name  = 'Cirrus_Band_Reflectance'
                 var_cirrus.units          = 'reflectance_normalized_by_solar_zenith_angle'
                 var_cirrus.coordinates    = 'longitude latitude time'
-            if no_write_snowice == False: 
+            if no_write_snowice == False and 'snowice_reflectance' not in keys0: 
                 var_snowice   = f.createVariable('snowice_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_snowice.set_auto_maskandscale( False )
                 var_snowice.long_name      = '1.6 micron Near-Infrared Reflectance Image' + pat
                 var_snowice.standard_name  = 'Snow_Ice_Band_Reflectance'
                 var_snowice.units          = 'reflectance_normalized_by_solar_zenith_angle'
                 var_snowice.coordinates    = 'longitude latitude time'
-            if no_write_dirtyirdiff == False: 
+            if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys0: 
                 var_ir3   = f.createVariable('dirtyir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir3.set_auto_maskandscale( False )
                 var_ir3.long_name      = '12.3 - 10.3 micron Dirty Infrared Brightness Temperature Difference Image' + pat
                 var_ir3.standard_name  = 'Dirty_IR_brightness_temperature_difference'
                 var_ir3.units          = 'kelvin'
                 var_ir3.coordinates    = 'longitude latitude time'
-            if no_write_glm == False:
+            if no_write_glm == False and 'glm_flash_extent_density' not in keys0:
                 pat2 = ' and then smoothed using Gaussian filter'
                 long_name = str('Flash extent density within +/- 2.5 min of time variable' + pat + pat2)
                 var_glm  = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)
@@ -455,9 +488,8 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 if len(glm_thread_info) > 0:
                     glm_thread_info[0].join()
                 
-                glm_data = Dataset(glm_file, "r", "NETCDF4")                                                                                #Read GLM data file
-                glm_raw_img, rect = fetch_glm_to_match_ir(ir, glm_data, _rect_color='r', _label='M1')      
-                glm_data.close()
+                with Dataset(glm_file, "r", "NETCDF4") as glm_data:                                                                          #Read GLM data file
+                    glm_raw_img, rect = fetch_glm_to_match_ir(ir, glm_data, _rect_color='r', _label='M1')      
             else:
                glm_raw_img = []    
             
@@ -491,85 +523,93 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                   if len(snowice_img) > 0:
 #                      print(np.max(snowice_img))
                       snowice_img = snowice_img/coszen                                                                                      #Calculate reflectance by normalizing by solar zenith angle
-        if no_write_vis == False:
+        if no_write_vis == False and 'visible_reflectance' not in keys0:
             with warnings.catch_warnings():
               warnings.simplefilter("ignore", category=RuntimeWarning)
               vis_img = vis_img/coszen                                                                                                      #Calculate reflectance by normalizing by solar zenith angle
             vis_img[vis_img > 2] = 2                                                                                                        #Set maximum visible reflectance normalized by solar zenith angle to be 2
             vis_img[vis_img < 0] = 0                                                                                                        #Set minimum visible reflectance normalized by solar zenith angle to be 0
-            
-        var_ir.long_name      = 'Infrared Brightness Temperature Image' + pat
-        var_ir.standard_name  = 'IR_brightness_temperature'
-        var_ir.units          = 'kelvin'
-        var_ir.coordinates    = 'longitude latitude time'
+        if 'ir_brightness_temperature' not in keys0:    
+            var_ir.long_name      = 'Infrared Brightness Temperature Image' + pat
+            var_ir.standard_name  = 'IR_brightness_temperature'
+            var_ir.units          = 'kelvin'
+            var_ir.coordinates    = 'longitude latitude time'
         # variable assignment
-        var_lon[:]  = np.copy(np.asarray(lon_arr))
-        var_lat[:]  = np.copy(np.asarray(lat_arr))
-        var_t[:]    = np.copy(np.asarray(ir.variables['t'][:]))
-        bt          = np.copy(np.asarray(bt))
+        if len(keys0) <= 0:
+            var_lon[:]  = np.copy(np.asarray(lon_arr))
+            var_lat[:]  = np.copy(np.asarray(lat_arr))
+            var_t[:]    = np.copy(np.asarray(ir.variables['t'][:]))
+        bt      = np.copy(np.asarray(bt))
         rm_inds = ((bt < 163.0) | (np.isnan(bt)) | (bt > 500.0))
-        if no_write_irdiff == False: 
+        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys0: 
             bt2 = np.copy(np.asarray(bt2))
             bt2[rm_inds]   = -500.0                                                                                                         #Remove likely untrue values by setting them to -500 K
 #            bt2[bt < 163.0]   = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
 #            bt2[np.isnan(bt)] = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
-        if no_write_dirtyirdiff == False: 
+        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys0: 
             bt3 = np.copy(np.asarray(bt3))
             bt3[rm_inds]   = 500.0                                                                                                          #Remove likely untrue values by setting them to -500 K
 #            bt2[np.isnan(bt)] = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
-        bt[rm_inds]   = np.nan                                                                                                                #Remove likely untrue values by setting them to 500 K
-#        bt[rm_inds]   = 500.0                                                                                                                #Remove likely untrue values by setting them to 500 K
-#        bt[np.isnan(bt)] = 500.0                                                                                                           #Remove NaN values by setting them to 500 K
-#        t0 = time.time()
-        data, scale_ir, offset_ir = Scaler.scaleData(bt)                                                                                    #Extract data, scale factor and offsets that is scaled from Float to short
-        var_ir[0, :, :]   = data
-        if no_write_vis == False:
+        if 'ir_brightness_temperature' not in keys0:
+            bt[rm_inds]   = np.nan                                                                                                            #Remove likely untrue values by setting them to 500 K
+#            bt[rm_inds]   = 500.0                                                                                                            #Remove likely untrue values by setting them to 500 K
+#            bt[np.isnan(bt)] = 500.0                                                                                                       #Remove NaN values by setting them to 500 K
+#            t0 = time.time()
+            data, scale_ir, offset_ir = Scaler.scaleData(bt)                                                                                #Extract data, scale factor and offsets that is scaled from Float to short
+            var_ir[0, :, :]   = data
+        if no_write_vis == False and 'visible_reflectance' not in keys0:
             data, scale_vis, offset_vis = Scaler.scaleData(np.copy(np.asarray(vis_img)))                                                    #Extract data, scale factor and offsets that is scaled from Float to short
             var_vis[0, :, :]  = data
             var_vis.add_offset    = offset_vis
             var_vis.scale_factor  = scale_vis
             vis.close()
-        
-            data, scale_zen, offset_zen = Scaler.scaleData(np.copy(np.asarray(np.rad2deg(zen))))                                            #Extract data, scale factor and offsets that is scaled from Float to short
-            var_zen[0, :, :]  = data
-            var_zen.add_offset    = offset_zen
-            var_zen.scale_factor  = scale_zen
-        
-        if no_write_glm == False:
+            if 'solar_zenith_angle' not in keys0:
+                data, scale_zen, offset_zen = Scaler.scaleData(np.copy(np.asarray(np.rad2deg(zen))))                                            #Extract data, scale factor and offsets that is scaled from Float to short
+                var_zen[0, :, :]  = data
+                var_zen.add_offset    = offset_zen
+                var_zen.scale_factor  = scale_zen
+        elif no_write_vis == False:
+            vis.close()
+        if no_write_glm == False and 'glm_flash_extent_density' not in keys0:
             data, scale_glm, offset_glm = Scaler.scaleData(glm_raw_img)
             var_glm[0, :, :]     = data    
             var_glm.add_offset   = offset_glm
             var_glm.scale_factor = scale_glm
-        if no_write_irdiff == False: 
+        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys0: 
             data, scale_ir2, offset_ir2 = Scaler.scaleData(bt2)
             var_ir2[0, :, :]     = data    
             var_ir2.add_offset   = offset_ir2
             var_ir2.scale_factor = scale_ir2
-        if no_write_dirtyirdiff == False: 
+        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys0: 
             data, scale_ir3, offset_ir3 = Scaler.scaleData(bt3)
             var_ir3[0, :, :]     = data    
             var_ir3.add_offset   = offset_ir3
             var_ir3.scale_factor = scale_ir3
-        if no_write_cirrus == False: 
+        if no_write_cirrus == False and 'cirrus_reflectance' not in keys0: 
             data, scale_cirrus, offset_cirrus = Scaler.scaleData(cirrus_img)
             var_cirrus[0, :, :]     = data    
             var_cirrus.add_offset   = offset_cirrus
             var_cirrus.scale_factor = scale_cirrus
-        if no_write_snowice == False: 
+        if no_write_snowice == False and 'snowice_reflectance' not in keys0: 
             data, scale_snowice, offset_snowice = Scaler.scaleData(snowice_img)
             var_snowice[0, :, :]     = data    
             var_snowice.add_offset   = offset_snowice
             var_snowice.scale_factor = scale_snowice
 #        print('Time to scale and offset the data = '+ str(time.time() -t0) + 'sec')
-        
-        var_ir.add_offset     = offset_ir
-        var_ir.scale_factor   = scale_ir
+        if 'ir_brightness_temperature' not in keys0:
+            var_ir.add_offset     = offset_ir
+            var_ir.scale_factor   = scale_ir
 
 
         shape_arr = lon_arr.shape[0]
 #        t0 = time.time()
         ir.close()
         f.close()                                                                                                                           #Close output netCDF file
+        ir     = None
+        vis    = None
+        f      = None
+        zen    = None
+        coszen = None
 #        print('Files closed = ' + str(time.time() - t0) + 'sec')
 #        if verbose == True: print('Combined model input written to netCDF file')
 #        print('Time to run = ' + str(time.time() - t00) + 'sec')

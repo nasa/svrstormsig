@@ -18,30 +18,38 @@
 #     This means that the function will download the nearest IR and VIS files to the current time and will also download 15 nearest GLM files.
 #     The 15 nearest GLM files are downloaded because they are often available at a higher frequency that IR/VIS.
 # Keywords:
-#     date1      : Start date. List containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
-#                  DEFAULT = None -> download nearest to IR/VIS file to current time and nearest 5 GLM files. (ex. '2017-04-29 00:00:00)
-#     date2      : End date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to end downloading 
-#                  DEFAULT = None -> download only files nearest to date1. (ex. '2017-04-29 00:00:00)
-#     outroot    : STRING specifying output root directory to save the downloaded GOES files
-#                  DEFAULT = '../../../goes-data/'
-#     sat        : STRING specifying GOES satellite to download data for. 
-#                  DEFAULT = 'goes-16.
-#     sector     : STRING specifying GOES sector to download. (ex. 'meso', 'conus', 'full')
-#                  DEFAULT = 'meso'
-#     no_glm     : IF keyword set (True), use do not download GLM data files. 
-#                  DEFAULT = False -> download GLM data files for date range. 
-#     no_vis     : IF keyword set (True), use do not download VIS data files. 
-#                  DEFAULT = False -> download VIS data files for date range. 
-#     no_ir      : IF keyword set (True), use do not download IR data files. 
-#                  DEFAULT = False -> download IR data files for date range. 
-#     no_irdiff  : IF keyword set (True), use do not download IR data files. 
-#                  DEFAULT = True -> do not download 6.2 µm IR data files for date range. 
-#     gcs_bucket : STRING google cloud storage bucket name to write downloaded files to in addition to local storage.
-#                  DEFAULT = None -> Do not write to a google cloud storage bucket.
-#     del_local  : IF keyword set (True) AND gcs_bucket != None, delete local copy of output file.
-#                  DEFAULT = False.
-#     verbose    : BOOL keyword to specify whether or not to print verbose informational messages.
-#                  DEFAULT = True which implies to print verbose informational messages
+#     date1        : Start date. List containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
+#                    DEFAULT = None -> download nearest to IR/VIS file to current time and nearest 5 GLM files. (ex. '2017-04-29 00:00:00)
+#     date2        : End date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to end downloading 
+#                    DEFAULT = None -> download only files nearest to date1. (ex. '2017-04-29 00:00:00)
+#     outroot      : STRING specifying output root directory to save the downloaded GOES files
+#                    DEFAULT = '../../../goes-data/'
+#     sat          : STRING specifying GOES satellite to download data for. 
+#                    DEFAULT = 'goes-16.
+#     sector       : STRING specifying GOES sector to download. (ex. 'meso', 'conus', 'full')
+#                    DEFAULT = 'meso'
+#     no_glm       : IF keyword set (True), use do not download GLM data files. 
+#                    DEFAULT = False -> download GLM data files for date range. 
+#     no_vis       : IF keyword set (True), use do not download VIS data files. 
+#                    DEFAULT = False -> download VIS data files for date range. 
+#     no_ir        : IF keyword set (True), use do not download IR data files. 
+#                    DEFAULT = False -> download IR data files for date range. 
+#     no_irdiff    : IF keyword set (True), use do not download IR data files. 
+#                    DEFAULT = True -> do not download 6.2 µm IR data files for date range. 
+#     no_cirrus    : IF keyword set (True), use do not download 1.37 micron channel data files.           
+#                    DEFAULT = True -> do not download 1.37 micron data files for date range.  (channel 4)
+#     no_snowice   : IF keyword set (True), use do not download 1.6 micron channel data files.           
+#                    DEFAULT = True -> do not download 1.6 micron data files for date range.  (channel 5)
+#     no_dirtyir   : IF keyword set (True), use do not download 12.3 micron channel data files.           
+#                    DEFAULT = True -> do not download 12.3 micron data files for date range.  (channel 15)
+#     no_shortwave : IF keyword set (True), use do not download 3.9 micron channel data files.           
+#                    DEFAULT = True -> do not download 3.9 micron data files for date range.  (channel 7)
+#     gcs_bucket   : STRING google cloud storage bucket name to write downloaded files to in addition to local storage.
+#                    DEFAULT = None -> Do not write to a google cloud storage bucket.
+#     del_local    : IF keyword set (True) AND gcs_bucket != None, delete local copy of output file.
+#                    DEFAULT = False.
+#     verbose      : BOOL keyword to specify whether or not to print verbose informational messages.
+#                    DEFAULT = True which implies to print verbose informational messages
 # Author and history:
 #     John W. Cooney           2021-04-14. 
 #
@@ -60,17 +68,21 @@ sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, download_gcp_parallel, copy_blob_gcs
 
-def run_download_goes_ir_vis_l1b_glm_l2_data(date1      = None, date2 = None, 
-                                             outroot    = '../../../goes-data/', 
-                                             sat        = 'goes-16', 
-                                             sector     = 'meso2', 
-                                             no_glm     = False, 
-                                             no_vis     = False, 
-                                             no_ir      = False,
-                                             no_irdiff  = True, 
-                                             gcs_bucket = None,
-                                             del_local  = False,
-                                             verbose    = True):
+def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None, 
+                                             outroot      = '../../../goes-data/', 
+                                             sat          = 'goes-16', 
+                                             sector       = 'meso2', 
+                                             no_glm       = False, 
+                                             no_vis       = False, 
+                                             no_ir        = False,
+                                             no_irdiff    = True, 
+                                             no_cirrus    = True, 
+                                             no_snowice   = True, 
+                                             no_dirtyir   = True, 
+                                             no_shortwave = True, 
+                                             gcs_bucket   = None,
+                                             del_local    = False,
+                                             verbose      = True):
                                              
     '''
     Name:
@@ -92,30 +104,38 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1      = None, date2 = None,
         This means that the function will download the nearest IR and VIS files to the current time and will also download 15 nearest GLM files.
         The 15 nearest GLM files are downloaded because they are often available at a higher frequency that IR/VIS.
     Keywords:
-        date1      : Start date. List containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
-                     DEFAULT = None -> download nearest to IR/VIS file to current time and nearest 5 GLM files. (ex. '2017-04-29 00:00:00)
-        date2      : End date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to end downloading 
-                     DEFAULT = None -> download only files nearest to date1. (ex. '2017-04-29 00:00:00)
-        outroot    : STRING specifying output root directory to save the downloaded GOES files
-                     DEFAULT = '../../../goes-data/'
-        sat        : STRING specifying GOES satellite to download data for. 
-                     DEFAULT = 'goes-16.
-        sector     : STRING specifying GOES sector to download. (ex. 'meso', 'conus', 'full')
-                     DEFAULT = 'meso2'
-        no_glm     : IF keyword set (True), use do not download GLM data files. 
-                     DEFAULT = False -> download GLM data files for date range. 
-        no_vis     : IF keyword set (True), use do not download VIS data files. 
-                     DEFAULT = False -> download VIS data files for date range. 
-        no_ir      : IF keyword set (True), use do not download IR data files. 
-                     DEFAULT = False -> download IR data files for date range. 
-        no_irdiff  : IF keyword set (True), use do not download 6.2 micron IR data files. 
-                     DEFAULT = True -> do not download 6.2 micron IR data files for date range. 
-        gcs_bucket : STRING google cloud storage bucket name to write downloaded files to in addition to local storage.
-                     DEFAULT = None -> Do not write to a google cloud storage bucket.
-        del_local  : IF keyword set (True) AND gcs_bucket != None, delete local copy of output file.
-                     DEFAULT = False.
-        verbose    : BOOL keyword to specify whether or not to print verbose informational messages.
-                     DEFAULT = True which implies to print verbose informational messages
+        date1        : Start date. List containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
+                       DEFAULT = None -> download nearest to IR/VIS file to current time and nearest 5 GLM files. (ex. '2017-04-29 00:00:00)
+        date2        : End date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to end downloading 
+                       DEFAULT = None -> download only files nearest to date1. (ex. '2017-04-29 00:00:00)
+        outroot      : STRING specifying output root directory to save the downloaded GOES files
+                       DEFAULT = '../../../goes-data/'
+        sat          : STRING specifying GOES satellite to download data for. 
+                       DEFAULT = 'goes-16.
+        sector       : STRING specifying GOES sector to download. (ex. 'meso', 'conus', 'full')
+                       DEFAULT = 'meso2'
+        no_glm       : IF keyword set (True), use do not download GLM data files. 
+                       DEFAULT = False -> download GLM data files for date range. 
+        no_vis       : IF keyword set (True), use do not download VIS data files. 
+                       DEFAULT = False -> download VIS data files for date range. 
+        no_ir        : IF keyword set (True), use do not download IR data files. 
+                       DEFAULT = False -> download IR data files for date range. 
+        no_irdiff    : IF keyword set (True), use do not download 6.2 micron IR data files. 
+                       DEFAULT = True -> do not download 6.2 micron IR data files for date range. 
+        no_cirrus    : IF keyword set (True), use do not download 1.37 micron channel data files.           
+                       DEFAULT = True -> do not download 1.37 micron data files for date range.  (channel 4)
+        no_snowice   : IF keyword set (True), use do not download 1.6 micron channel data files.           
+                       DEFAULT = True -> do not download 1.6 micron data files for date range.  (channel 5)
+        no_dirtyir   : IF keyword set (True), use do not download 12.3 micron channel data files.           
+                       DEFAULT = True -> do not download 12.3 micron data files for date range.  (channel 15)
+        no_shortwave : IF keyword set (True), use do not download 3.9 micron channel data files.           
+                       DEFAULT = True -> do not download 3.9 micron data files for date range.  (channel 7)
+        gcs_bucket   : STRING google cloud storage bucket name to write downloaded files to in addition to local storage.
+                       DEFAULT = None -> Do not write to a google cloud storage bucket.
+        del_local    : IF keyword set (True) AND gcs_bucket != None, delete local copy of output file.
+                       DEFAULT = False.
+        verbose      : BOOL keyword to specify whether or not to print verbose informational messages.
+                       DEFAULT = True which implies to print verbose informational messages
     Author and history:
         John W. Cooney           2021-04-14. 
     '''
@@ -214,6 +234,106 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1      = None, date2 = None,
             else:
                 print('No VIS files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
         
+        if no_dirtyir == False:    
+            if rt == True and no_ir == False:
+                fb     = re.split('_s|_', os.path.basename(files[0]))[3]
+                files  = list_gcs(bucket_name, iv_prefix, ['C15', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                                    #Extract list of dirtyIR files that match product and date
+                if len(files) == 0:    
+                    print('Waiting for Dirty IR C15 files to be available online')
+                    while True:    
+                        files  = list_gcs(bucket_name, iv_prefix, ['C15', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                            #Extract list of dirtyIR files that match product and date
+                        if len(files) > 0:    
+                            break    
+            else:    
+                files  = list_gcs(bucket_name, iv_prefix, ['C15', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                        #Extract list of dirtyIR files that match product and date
+            if len(files) > 0:    
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'dirtyir')     
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: files = [files[-1]]                                                                                                                          #Download only the last dirtyIR file
+                for i in files:    
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download dirtyIR file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'dirtyir')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+            else:    
+                print('No Dirty IR C15 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
+   
+        if no_snowice == False:    
+            if rt == True and no_ir == False:
+                fb     = re.split('_s|_', os.path.basename(files[0]))[3]
+                files  = list_gcs(bucket_name, iv_prefix, ['C05', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                                    #Extract list of IR files that match product and date
+                if len(files) == 0:    
+                    print('Waiting for Snow/Ice C05 files to be available online')
+                    while True:    
+                        files  = list_gcs(bucket_name, iv_prefix, ['C05', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                            #Extract list of snowice files that match product and date
+                        if len(files) > 0:    
+                            break    
+            else:    
+                files  = list_gcs(bucket_name, iv_prefix, ['C05', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                        #Extract list of snowice files that match product and date
+            if len(files) > 0:    
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'snowice')     
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: files = [files[-1]]
+                for i in files:    
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download snowice file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'snowice')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+            else:    
+                print('No Snow/Ice C05 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
+   
+        if no_cirrus == False:    
+            if rt == True and no_ir == False:
+                fb     = re.split('_s|_', os.path.basename(files[0]))[3]
+                files  = list_gcs(bucket_name, iv_prefix, ['C04', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                                    #Extract list of cirrus files that match product and date
+                if len(files) == 0:    
+                    print('Waiting for Cirrus C04 files to be available online')
+                    while True:    
+                        files  = list_gcs(bucket_name, iv_prefix, ['C04', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                            #Extract list of cirrus files that match product and date
+                        if len(files) > 0:    
+                            break    
+            else:    
+                files  = list_gcs(bucket_name, iv_prefix, ['C04', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                        #Extract list of cirrus files that match product and date
+            if len(files) > 0:    
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'cirrus')     
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: files = [files[-1]]
+                for i in files:    
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download cirrus file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'cirrus')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+            else:    
+                print('No Cirrus C04 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))    
+        
+        if no_shortwave == False:
+            if rt == True and no_ir == False:
+                fb     = re.split('_s|_', os.path.basename(files[0]))[3]
+                files  = list_gcs(bucket_name, iv_prefix, ['C07', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                                    #Extract list of 3.9 micron files that match product and date
+                if len(files) == 0:    
+                    print('Waiting for 3.9 micron C07 files to be available online')
+                    while True:    
+                        files  = list_gcs(bucket_name, iv_prefix, ['C07', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                            #Extract list of cirrus files that match product and date
+                        if len(files) > 0:    
+                            break    
+            else:
+                files  = list_gcs(bucket_name, iv_prefix, ['C07', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                        #Extract list of 3.9 micron files that match product and date
+            if len(files) > 0:
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'shortwave') 
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: files = [files[-1]]
+                for i in files:
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download shortwave file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'shortwave')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+            else:
+                print('No 3.9 micron C07 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
+
         if no_irdiff == False:
             if rt == True and no_ir == False:
                 fb     = re.split('_s|_', os.path.basename(files[0]))[3]

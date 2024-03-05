@@ -117,6 +117,38 @@ def fetch_convert_ir(_combined_nc, lon_shape, lat_shape, min_value = 180.0, max_
    
     return(ir_dat)
 
+def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, min_value = -15.0, max_value = 20.0):
+    '''
+    Reads the combined VIS/IR/GLM netCDF file. Clips edges of temperature data in degrees kelvin from min_value to max_value". 
+    Values closer to min_value are masked closer to 1.
+  
+    Args:
+      _combined_nc: Numpy file contents
+      lon_shape   : Shape of numpy 2D longitude array
+      lat_shape   : Shape of numpy 2D latitude array
+    Keywords:
+      min_value: Minimum temperature value to cut off for input BT-tropT data. All BT - tropT < min_value = min_value. DEFAULT = -15.0
+      max_value: Maximum temperature value to cut off for input BT-tropT data. All BT - tropT > max_value = max_value. DEFAULT = 20.0   
+    Returns:    
+      ir_dat: 2000 x 2000 IR data numpy array after IR range conversion. Array is resized using cv2.resize with cv2.INTER_NEAREST interpolation
+    '''
+    ir_dat = np.copy(np.asarray(_combined_nc.variables['ir_brightness_temperature'][:], dtype = np.float32))[0, :, :]                          #Copy IR data into a numpy array                        
+    tr_dat = np.copy(np.asarray(_combined_nc.variables['tropopause_temperature'][:], dtype = np.float32))[0, :, :]                             #Copy tropopapuse data into a numpy array                        
+    if ir_dat.shape[0] != lon_shape[0] or ir_dat.shape[1] != lon_shape[1]:
+        ir_dat = cv2.resize(ir_dat, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)                                             #Upscale the ir data array to VIS resolution
+        tr_dat = cv2.resize(tr_dat, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)                                             #Upscale the ir data array to VIS resolution
+    d_dat = ir_dat - tr_dat
+    na = (ir_dat < 0)
+    d_dat[d_dat < min_value] = min_value                                                                                                       #Clip all BT-tropT below min value to min value
+    d_dat[d_dat > max_value] = max_value                                                                                                       #Clip all BT-tropT above max value to max value
+    d_dat = np.true_divide(d_dat - min_value, min_value - max_value)                                                                           #Normalize the IR BT-tropT data by the max and min values
+    d_dat += 1
+    if (np.amax(d_dat) > 1 or np.amin(d_dat) < 0):                                                                                             #Check to make sure IR-tropT data is properly normalized between 0 and 1
+        print('IR data is not normalized properly between 0 and 1??')
+        exit()
+    d_dat[na] = -1                                                                                                                             #Set NaN values to -1 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
+    return(d_dat)
+
 def fetch_convert_vis(_combined_nc, min_value = 0.0, max_value = 1.0, no_write_vis = False):
     '''
     Reads the combined VIS/IR/GLM netCDF file. Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle.
@@ -134,12 +166,13 @@ def fetch_convert_vis(_combined_nc, min_value = 0.0, max_value = 1.0, no_write_v
     '''
     if no_write_vis == False:
         vis_dat = np.copy(np.asarray(_combined_nc.variables['visible_reflectance'][:], dtype = np.float32))[0, :, :]                           #Copy VIS data into a numpy array                        
-    zen     = np.copy(np.asarray(_combined_nc.variables['solar_zenith_angle'][:], dtype = np.float32))[0, :, :]                                #Copy VIS zenith angle into variable
+    zen = np.copy(np.asarray(_combined_nc.variables['solar_zenith_angle'][:], dtype = np.float32))[0, :, :]                                    #Copy solar zenith angle into variable
     if _combined_nc.variables['solar_zenith_angle'].units == 'radians': 
-        zen     = math.degrees(zen)                                                                                                            #Calculate solar zenith angle in degrees
+        zen = math.degrees(zen)                                                                                                                #Calculate solar zenith angle in degrees
     
 #    mid_zen = zen[int(vis_dat.shape[0]/2), int(vis_dat.shape[1]/2)]                                                                           #Calculate solar zenith angle for mid point of domain (degrees)
-    mid_zen = np.nanmax(zen)                                                                                                                   #Find maximum solar zenith angle within domain. Needed to set up this way due to huge conus and full disk regions.
+#    mid_zen = np.nanmax(zen)                                                                                                                   #Find maximum solar zenith angle within domain. Needed to set up this way due to huge conus and full disk regions.
+    mid_zen = np.sum(zen > 85.0)/(zen.shape[0]*zen.shape[1])
     if no_write_vis == False:
         vis_dat[vis_dat < min_value] = min_value                                                                                               #Clip all reflectance below min value to min value
         vis_dat[vis_dat > max_value] = max_value                                                                                               #Clip all reflectance above max value to max value
@@ -153,9 +186,85 @@ def fetch_convert_vis(_combined_nc, min_value = 0.0, max_value = 1.0, no_write_v
             exit()
     else:
         vis_dat = zen*0.0
-    tod = 'day' if (mid_zen < 85.0) else 'night'                                                                                               #Set tod variable to night or day depending on the zenith angle in the middle of the scene
-    
+#    tod = 'day' if (mid_zen < 85.0) else 'night'                                                                                              #Set tod variable to night or day depending on the zenith angle in the middle of the scene
+    tod = 'day' if (mid_zen < 0.05) else 'night'                                                                                               #Set tod variable to night or day depending on the zenith angle in the middle of the scene
     return(vis_dat, tod, zen)
+
+def fetch_convert_snowice(_combined_nc, min_value = 0.0, max_value = 1.0):
+    '''
+    Reads the combined VIS/IR/GLM netCDF file. Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle.
+  
+    Args:
+      _combined_nc: Numpy file contents
+    Keywords:
+      min_value: Minimum reflectance value to cut off for input snow/ice channel data. All reflectance < min_value = min_value. DEFAULT = 0.0  
+      max_value: Maximum reflectance value to cut off for input snow/ice channel data. All reflectance > max_value = max_value. DEFAULT = 1.0   
+    Returns:    
+      snowice_dat: 2000 x 2000 VIS data numpy array
+      tod       : STRING specifying if the file is considered a night time file or day time file
+      zen       : 2000 x 2000 solar zenith angle data numpy arrayy
+    '''
+    snowice_dat = np.copy(np.asarray(_combined_nc.variables['snowice_reflectance'][:], dtype = np.float32))[0, :, :]                           #Copy snowice data into a numpy array                        
+    snowice_dat[snowice_dat < min_value] = min_value                                                                                           #Clip all reflectance below min value to min value
+    snowice_dat[snowice_dat > max_value] = max_value                                                                                           #Clip all reflectance above max value to max value
+    if (np.amax(snowice_dat) > 1 or np.amin(snowice_dat) < 0):                                                                                 #Check to make sure snow/ice channel data is properly normalized between 0 and 1
+        print('snowice data is not normalized properly between 0 and 1??')
+        exit()
+#    tod = 'day' if (mid_zen < 85.0) else 'night'                                                                                               #Set tod variable to night or day depending on the zenith angle in the middle of the scene
+#    tod = 'day' if (np.nanmax(zen) < 85.0) else 'night'                                                                                       #Set tod variable to night or day depending on the zenith angle in the middle of the scene
+
+    return(snowice_dat)#, tod, zen)
+
+def fetch_convert_cirrus(_combined_nc, min_value = 0.0, max_value = 1.0):
+    '''
+    Reads the combined VIS/IR/GLM netCDF file. Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle.
+  
+    Args:
+      _combined_nc: Numpy file contents
+    Keywords:
+      min_value: Minimum reflectance value to cut off for input snow/ice channel data. All reflectance < min_value = min_value. DEFAULT = 0.0  
+      max_value: Maximum reflectance value to cut off for input snow/ice channel data. All reflectance > max_value = max_value. DEFAULT = 1.0   
+    Returns:    
+      snowice_dat: 2000 x 2000 VIS data numpy array
+      tod       : STRING specifying if the file is considered a night time file or day time file
+      zen       : 2000 x 2000 solar zenith angle data numpy arrayy
+    '''
+    cirrus_dat = np.copy(np.asarray(_combined_nc.variables['cirrus_reflectance'][:], dtype = np.float32))[0, :, :]                             #Copy cirrus data into a numpy array                        
+    cirrus_dat[cirrus_dat < min_value] = min_value                                                                                             #Clip all reflectance below min value to min value
+    cirrus_dat[cirrus_dat > max_value] = max_value                                                                                             #Clip all reflectance above max value to max value
+    if (np.amax(cirrus_dat) > 1 or np.amin(cirrus_dat) < 0):                                                                                   #Check to make sure cirrus channel data is properly normalized between 0 and 1
+        print('cirrus data is not normalized properly between 0 and 1??')
+        exit()
+#    tod = 'day' if (mid_zen < 85.0) else 'night'                                                                                               #Set tod variable to night or day depending on the zenith angle in the middle of the scene
+#    tod = 'day' if (np.nanmax(zen) < 85.0) else 'night'                                                                                       #Set tod variable to night or day depending on the zenith angle in the middle of the scene
+
+    return(cirrus_dat)#, tod, zen)
+
+def fetch_convert_dirtyirdiff(_combined_nc, lon_shape, lat_shape, min_value = -1.0, max_value = 2.0):
+    '''
+    Reads the combined VIS/IR/GLM netCDF file. Clips edges of temperature data in degrees kelvin from min_value to max_value". 
+    Values closer to min_value are masked closer to 0.
+  
+    Args:
+      _combined_nc: Numpy file contents
+      lon_shape   : Shape of numpy 2D longitude array
+      lat_shape   : Shape of numpy 2D latitude array
+    Keywords:
+      min_value: Minimum temperature value to cut off for input BT data. All BT < min_value = min_value. DEFAULT = -1.0  
+      max_value: Maximum temperature value to cut off for input BT data. All BT > max_value = max_value. DEFAULT = 2.0   
+    Returns:    
+      ir_dat: 2000 x 2000 IR data numpy array after IR range conversion. Array is resized using cv2.resize with cv2.INTER_NEAREST interpolation
+    '''
+    ir_dat = np.copy(np.asarray(_combined_nc.variables['dirtyir_brightness_temperature_diff'][:], dtype = np.float32))[0, :, :]                #Copy IR data into a numpy array                        
+    if ir_dat.shape[0] != lon_shape[0] or ir_dat.shape[1] != lon_shape[1]:
+        ir_dat = cv2.resize(ir_dat, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)                                             #Upscale the ir data array to VIS resolution
+    ir_dat[ir_dat < min_value] = min_value                                                                                                     #Clip all BT below min value to min value
+    ir_dat[ir_dat > max_value] = max_value                                                                                                     #Clip all BT above max value to max value
+    ir_dat = np.true_divide(ir_dat - min_value, max_value - min_value)                                                                         #Normalize the IR BT data by the max and min values
+    if (np.amax(ir_dat) > 1 or np.amin(ir_dat) < 0):                                                                                           #Check to make sure IR data is properly normalized between 0 and 1
+        print('IR data is not normalized properly between 0 and 1??')
+        exit()
+    return(ir_dat)
 
 def fetch_convert_glm(_combined_nc, lon_shape, lat_shape, min_value = 0.0, max_value = 20.0):
     '''
@@ -299,6 +408,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                                                   ir_min_value     = 180, ir_max_value   = 230, 
                                                   no_write_ir      = False, no_write_vis = False, no_write_irdiff = True, 
                                                   no_write_glm     = False, no_write_sza = False, no_write_csv = False,
+                                                  no_write_cirrus  = True, no_write_snowice = True, no_write_dirtyirdiff = True, no_write_trop = True, 
                                                   run_gcs          = False, use_local = False, real_time = False, del_local = False,
                                                   og_bucket_name   = 'goes-data', comb_bucket_name = 'ir-vis-sandwhich', proc_bucket_name = 'aacp-proc-data', 
                                                   use_native_ir    = False, 
@@ -324,44 +434,48 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
         Creates netCDF file for GLM data gridded on GOES VIS grid, combined VIS, IR, and GLM netCDF file and
         image file that gets put into labelme software to identify overshoot plumes.
     Keywords:
-         inroot           : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
-                            DEFAULT = '../../../goes-data/20190517-18/'
-         layered_root     : STRING specifying directory containing the combined IR/VIS/GLM netCDF file (created by combine_ir_glm_vis.py)
-                            DEFAULT = '../../../goes-data/combined_nc_dir/'
-         outroot          : STRING specifying directory to send the VIS, IR, and GLM numpy files as well as corresponding csv files
-                            DEFAULT = '../../../goes-data/labelled/'
-         json_root        : STRING specifying root directory to read the json labeled mask csv file (created by labelme_seg_mask2.py)
-                            DEFAULT = '../../../goes-data/labelled/'
-         date_range       : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
-                            DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
-         meso_sector      : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)                
-         domain_sector    : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
-         ir_min_value     : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
-         ir_max_value     : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
-         no_write_ir      : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
-         no_write_vis     : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
-         no_write_irdiff  : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
-         no_write_glm     : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
-         no_write_csv     : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
-         no_write_sza     : IF keyword set (True), do not write the Solar zenith angle numpy data arrays (degrees). DEFAULT = False.
-         run_gcs          : IF keyword set (True), read and write everything directly from the google cloud platform.
-                            DEFAULT = False
-         use_local        : IF keyword set (True), read locally stored files.                  
-                            DEFAULT = False (read from GCP.)
-         real_time        : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write. 
-                            Files are also output to a real time directory.
-                            DEFAULT = False
-         del_local        : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
-                            DEFAULT = False
-         og_bucket_name   : Google cloud storage bucket to read raw IR/GLM/VIS files.
-                            DEFAULT = 'goes-data'
-         comb_bucket_name : Google cloud storage bucket to read raw IR/GLM/VIS files.
-                            DEFAULT = 'ir-vis-sandwhich'
-         proc_bucket_name : Google cloud storage bucket to read raw IR/GLM/VIS files.
-                            DEFAULT = 'aacp-proc-data'
-         use_native_ir    : IF keyword set (True), write files for native IR satellite resolution.
-                            DEFAULT = False -> use satellite VIS resolution
-         verbose          : IF keyword set (True), print verbose informational messages to terminal.
+         inroot               : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
+                                DEFAULT = '../../../goes-data/20190517-18/'
+         layered_root         : STRING specifying directory containing the combined IR/VIS/GLM netCDF file (created by combine_ir_glm_vis.py)
+                                DEFAULT = '../../../goes-data/combined_nc_dir/'
+         outroot              : STRING specifying directory to send the VIS, IR, and GLM numpy files as well as corresponding csv files
+                                DEFAULT = '../../../goes-data/labelled/'
+         json_root            : STRING specifying root directory to read the json labeled mask csv file (created by labelme_seg_mask2.py)
+                                DEFAULT = '../../../goes-data/labelled/'
+         date_range           : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
+                                DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
+         meso_sector          : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)                
+         domain_sector        : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
+         ir_min_value         : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
+         ir_max_value         : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
+         no_write_ir          : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
+         no_write_vis         : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
+         no_write_irdiff      : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
+         no_write_glm         : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
+         no_write_csv         : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
+         no_write_sza         : IF keyword set (True), do not write the Solar zenith angle numpy data arrays (degrees). DEFAULT = False.
+         no_write_cirrus      : IF keyword set (True), do not write the cirrus channel numpy data arrays. DEFAULT = True.
+         no_write_snowice     : IF keyword set (True), do not write the Snow/Ice channel numpy data arrays. DEFAULT = True.
+         no_write_dirtyirdiff : IF keyword set (True), do not write the IR BT difference (12-10 microns) numpy data arrays. DEFAULT = True.
+         no_write_trop        : IF keyword set (True), do not write the IR BT -tropopause temperature difference numpy data arrays. DEFAULT = True.
+         run_gcs              : IF keyword set (True), read and write everything directly from the google cloud platform.
+                                DEFAULT = False
+         use_local            : IF keyword set (True), read locally stored files.                  
+                                DEFAULT = False (read from GCP.)
+         real_time            : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write. 
+                                Files are also output to a real time directory.
+                                DEFAULT = False
+         del_local            : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
+                                DEFAULT = False
+         og_bucket_name       : Google cloud storage bucket to read raw IR/GLM/VIS files.
+                                DEFAULT = 'goes-data'
+         comb_bucket_name     : Google cloud storage bucket to read raw IR/GLM/VIS files.
+                                DEFAULT = 'ir-vis-sandwhich'
+         proc_bucket_name     : Google cloud storage bucket to read raw IR/GLM/VIS files.
+                                DEFAULT = 'aacp-proc-data'
+         use_native_ir        : IF keyword set (True), write files for native IR satellite resolution.
+                                DEFAULT = False -> use satellite VIS resolution
+         verbose              : IF keyword set (True), print verbose informational messages to terminal.
     Output:    
       Writes IR, VIS, and GLM numpy arrays for each satellite scan
     Author and history:
@@ -385,8 +499,20 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
         os.makedirs(vis_dir, exist_ok = True)
         keep0 = 'last'
         no_write_sza = False
-    if no_write_irdiff == False:
-        os.makedirs(irdiff_dir, exist_ok = True)
+#     if no_write_irdiff == False:
+#         os.makedirs(irdiff_dir, exist_ok = True)
+#     if no_write_cirrus == False:
+#         cirrus_dir = join(inroot, 'cirrus')
+#         os.makedirs(cirrus_dir, exist_ok = True)
+#     if no_write_snowice == False:
+#         snowice_dir = join(inroot, 'snowice')
+#         os.makedirs(snowice_dir, exist_ok = True)
+#     if no_write_dirtyirdiff == False:
+#         dirtyir_dir = join(inroot, 'dirtyirdiff')
+#         os.makedirs(dirtyir_dir, exist_ok = True)
+#     if no_write_trop == False:
+#         trop_dir = join(inroot, 'tropdiff')
+#         os.makedirs(trop_dir, exist_ok = True)
     if domain_sector == None:
         sector = 'M' + str(meso_sector)                                                                                                        #Set mesoscale sector string. Used for output directory and which input files to use
     else:
@@ -556,7 +682,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
           
     df_ir   = pd.DataFrame(ir_files)                                                                                                           #Create data structure containing IR data file names
     df_comb = pd.DataFrame(comb_files)                                                                                                         #Create data structure containing combined netCDF data file names
-    df_ir['date_time']   = df_ir[0].apply( lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))                         #Extract date of file scan and put into data structure
+    df_ir['date_time']   = df_ir[0].apply( lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))       #Extract date of file scan and put into data structure
     df_comb['date_time'] = df_comb[0].apply(lambda x: datetime.strptime(((re.split('_s|_',  os.path.basename(x)))[5])[0:-1],'%Y%j%H%M%S'))     #Extract date of file scan and put into data structure
     df_ir.rename(columns={0:'ir_files'}, inplace = True)                                                                                       #Rename column IR files
     df_comb.rename(columns={0:'comb_files'}, inplace = True)                                                                                   #Rename column combined VIS/IR files
@@ -569,11 +695,15 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
     date_str0   = '1800136'                                                                                                                    #Default random date string to determine if date changed in loop   
     for f in range(ir_vis.shape[0]):    
         date_str    = datetime.strftime(ir_vis['date_time'][f], '%Y%j')                                                                        #Extract loop date string as day-number (determines if date changes)
-        ir_results  = []                                                                                                                       #Initialize list to store IR data for single day
-        ird_results = []                                                                                                                       #Initialize list to store IR BT difference data for single day
-        vis_results = []                                                                                                                       #Initialize list to store VIS data for single day
-        glm_results = []                                                                                                                       #Initialize list to store GLM data for single day
-        sza_results = []                                                                                                                       #Initialize list to store solar zenith angle data for single day (¡)
+        ir_results       = []                                                                                                                  #Initialize list to store IR data for single day
+        ird_results      = []                                                                                                                  #Initialize list to store IR BT difference data for single day
+        vis_results      = []                                                                                                                  #Initialize list to store VIS data for single day
+        glm_results      = []                                                                                                                  #Initialize list to store GLM data for single day
+        cirrus_results   = []                                                                                                                  #Initialize list to store cirrus channel data for single day
+        snowice_results  = []                                                                                                                  #Initialize list to store Snow/Ice channel data for single day
+        dirtyird_results = []                                                                                                                  #Initialize list to store IR BT difference (12-10 micron) data for single day
+        trop_results     = []                                                                                                                  #Initialize list to store IR BT - tropopause temperature difference data for single day
+        sza_results      = []                                                                                                                  #Initialize list to store solar zenith angle data for single day (¡)
         if (date_str0 != date_str):    
             if f!= 0:    
                 if no_write_csv == False: 
@@ -627,7 +757,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                     ir_vis2 = ir_vis2.iloc[pd.to_datetime(ir_vis2.date_time).values.argsort()].drop_duplicates(subset = ['glm_files'], keep = keep0).reset_index().drop(columns = ['index']) #Remove duplicate date times and sort them
                     ir_vis2['ir_index']   = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['ir_index'])]
                     ir_vis2['comb_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['comb_index'])]
-                    ir_vis2['glm_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['glm_index'])]
+                    ir_vis2['glm_index']  = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['glm_index'])]
                     if no_write_vis == False: ir_vis2['vis_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['vis_index'])]
                     ir_vis2.to_csv(join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))                              #Write IR/VIS/GLM csv file corresponding to the numpy files     
                     if run_gcs == True: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)             #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
@@ -644,6 +774,14 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
             os.makedirs(join(outdir, sector, 'ir'),  exist_ok = True)                                                                          #Create output directory if it does not exist
             if no_write_irdiff == False:
                 os.makedirs(join(outdir, sector, 'ir_diff'), exist_ok = True)                                                                  #Create output directory if it does not exist
+            if no_write_cirrus == False:
+                os.makedirs(join(outdir, sector, 'cirrus'), exist_ok = True)                                                                   #Create output directory if it does not exist
+            if no_write_snowice == False:
+                os.makedirs(join(outdir, sector, 'snowice'), exist_ok = True)                                                                  #Create output directory if it does not exist
+            if no_write_dirtyirdiff == False:
+                os.makedirs(join(outdir, sector, 'dirtyirdiff'), exist_ok = True)                                                              #Create output directory if it does not exist
+            if no_write_trop == False:
+                os.makedirs(join(outdir, sector, 'tropdiff'), exist_ok = True)                                                                 #Create output directory if it does not exist
             if no_write_vis == False:
                 os.makedirs(join(outdir, sector, 'vis'), exist_ok = True)                                                                      #Create output directory if it does not exist
             if no_write_glm == False:
@@ -657,55 +795,84 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
             tod       = []                                                                                                                     #Initialize list to store whether or not the scene is considered 'night' or 'day'    
         
         if pd.notna(ir_vis['comb_files'][f]) == True:
-            combined_nc_dat = Dataset(ir_vis['comb_files'][f])                                                                                 #Read combined netCDF file
-            lon_shape       = np.copy(np.asarray(combined_nc_dat.variables['longitude'])).shape                                                #Copy array of longitudes into lon variable
-            lat_shape       = np.copy(np.asarray(combined_nc_dat.variables['latitude'])).shape                                                 #Copy array of latitudes into lat variable
-
-            if pd.notna(ir_vis['ir_files'][f]) == True:
-                if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['ir_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
-                    print('Combined netCDF and IR netCDF dates do not match')
-                    exit()
-                    
-                if no_write_ir  == False: 
-                    i_files.append(os.path.relpath(ir_vis['ir_files'][f]))                                                                     #Add loops IR file name to list
-                    ir_results.append(fetch_convert_ir(combined_nc_dat, lon_shape, lat_shape, min_value = ir_min_value, max_value = ir_max_value))         #Add new normalized IR data result to IR list
-            
-                if no_write_irdiff == False: 
-                    ird_results.append(fetch_convert_irdiff(combined_nc_dat, lon_shape, lat_shape))                                            #Add new normalized IR BT difference data result to IRdiff list
-            if no_write_vis == False: 
-                if pd.notna(ir_vis['vis_files'][f]) == True:
-                    if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['vis_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
-                        print('Combined netCDF and VIS netCDF dates do not match')
+            with Dataset(ir_vis['comb_files'][f]) as combined_nc_dat:                                                                          #Read combined netCDF file
+                lon_shape = np.copy(np.asarray(combined_nc_dat.variables['longitude'])).shape                                                  #Copy array of longitudes into lon variable
+                lat_shape = np.copy(np.asarray(combined_nc_dat.variables['latitude'])).shape                                                   #Copy array of latitudes into lat variable
+    
+                if pd.notna(ir_vis['ir_files'][f]) == True:
+                    if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['ir_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
+                        print('Combined netCDF and IR netCDF dates do not match')
                         exit()
-                  
-                    vis, tod0, sza = fetch_convert_vis(combined_nc_dat)                                                                        #Extract new normalized VIS data result and if night or day
-                    if tod0 == 'day':
-                        v_files.append(os.path.relpath(ir_vis['vis_files'][f]))                                                                #Add loops VIS file name to list
-                        vis_results.append(vis)                                                                                                #Add new normalized VIS data result to VIS list
-                    sza_results.append(sza)                                                                                                    #Add new SZA data result to SZA list
-                    tod.append(tod0)                                                                                                           #Add if night or day to list
+                        
+                    if no_write_ir  == False: 
+                        i_files.append(os.path.relpath(ir_vis['ir_files'][f]))                                                                 #Add loops IR file name to list
+                        ir_results.append(fetch_convert_ir(combined_nc_dat, lon_shape, lat_shape, min_value = ir_min_value, max_value = ir_max_value))         #Add new normalized IR data result to IR list
+                
+                    if no_write_irdiff == False: 
+                        ird_results.append(fetch_convert_irdiff(combined_nc_dat, lon_shape, lat_shape))                                        #Add new normalized IR BT difference data result to IRdiff list
+                    if no_write_cirrus == False: 
+                        cirrus_results.append(fetch_convert_cirrus(combined_nc_dat))                                                           #Add new normalized cirrus data result to cirrus list
+                    if no_write_snowice == False: 
+                        snowice_results.append(fetch_convert_snowice(combined_nc_dat))                                                         #Add new normalized snowice data result to snowice list
+                    if no_write_dirtyirdiff == False: 
+                        dirtyird_results.append(fetch_convert_dirtyirdiff(combined_nc_dat, lon_shape, lat_shape))                              #Add new normalized dirtyIR BT difference data result to dirtyIR list
+                    if no_write_trop == False: 
+                        trop_results.append(fetch_convert_trop(combined_nc_dat, lon_shape, lat_shape))                                         #Add new normalized IR BT - tropT difference data result to tropdiff list
+                if no_write_vis == False: 
+                    if pd.notna(ir_vis['vis_files'][f]) == True:
+                        if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['vis_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
+                            print('Combined netCDF and VIS netCDF dates do not match')
+                            exit()
+                      
+                        vis, tod0, sza = fetch_convert_vis(combined_nc_dat)                                                                    #Extract new normalized VIS data result and if night or day
+                        if tod0 == 'day':
+                            v_files.append(os.path.relpath(ir_vis['vis_files'][f]))                                                            #Add loops VIS file name to list
+                            vis_results.append(vis)                                                                                            #Add new normalized VIS data result to VIS list
+                        sza_results.append(sza)                                                                                                #Add new SZA data result to SZA list
+                        tod.append(tod0)                                                                                                       #Add if night or day to list
+                    else:
+                        tod.append(np.nan)    
                 else:
-                    tod.append(np.nan)    
-            else:
-                if no_write_sza == False:
-                    vis, tod0, sza = fetch_convert_vis(combined_nc_dat, no_write_vis = no_write_vis)                                           #Extract new normalized VIS data result and if night or day
-                    sza_results.append(sza)                                                                                                    #Add new SZA data result to SZA list
-                    tod.append(tod0)                                                                                                           #Add if night or day to list
-                else:
-                    tod.append('night')
-            g_files.append(os.path.relpath(ir_vis['comb_files'][f]))                                                                           #Add loops GLM file name to list
-            if no_write_glm == False: 
-                glm_results.append(fetch_convert_glm(combined_nc_dat, lon_shape, lat_shape))                                                   #Add new normalized GLM data result to GLM list
-#                 if len(ir_results) != len(glm_results):
-#                     print('Number of elements in IR array does not match GLM array.')
-            combined_nc_dat.close()                                                                                                            #Close combined netCDF data file
+                    if no_write_sza == False:
+                        vis, tod0, sza = fetch_convert_vis(combined_nc_dat, no_write_vis = no_write_vis)                                       #Extract new normalized VIS data result and if night or day
+                        sza_results.append(sza)                                                                                                #Add new SZA data result to SZA list
+                        tod.append(tod0)                                                                                                       #Add if night or day to list
+                    else:
+                        tod.append('night')
+                g_files.append(os.path.relpath(ir_vis['comb_files'][f]))                                                                       #Add loops GLM file name to list for combined netCDF names
+                if no_write_glm == False: 
+                    glm_results.append(fetch_convert_glm(combined_nc_dat, lon_shape, lat_shape))                                               #Add new normalized GLM data result to GLM list
+#                     if len(ir_results) != len(glm_results):
+#                         print('Number of elements in IR array does not match GLM array.')
 
         d_str = datetime.strftime(ir_vis['date_time'][f], '%Y%j%H%M%S')
-        if no_write_ir     == False and len(ir_results)  > 0: np.save(join(outdir, sector, 'ir',  d_str + '_ir.npy'),  np.asarray(ir_results)) #Write IR data to numpy file
-        if no_write_vis    == False and len(vis_results) > 0: np.save(join(outdir, sector, 'vis', d_str + '_vis.npy'), np.asarray(vis_results))#Write VIS data to numpy file
-        if no_write_sza    == False and len(sza_results) > 0: np.save(join(outdir, sector, 'sza', d_str + '_sza.npy'), np.asarray(sza_results))#Write solar zenith angle data to numpy file
-        if no_write_glm    == False and len(glm_results) > 0: np.save(join(outdir, sector, 'glm', d_str + '_glm.npy'), np.asarray(glm_results))#Write GLM data to numpy file
-        if no_write_irdiff == False and len(ird_results) > 0: np.save(join(outdir, sector, 'ir_diff', d_str + '_irdiff.npy'), np.asarray(ird_results))   #Write IR BT difference data to numpy file
+        if no_write_ir     == False      and len(ir_results)       > 0: 
+            os.makedirs(join(outdir, sector, 'ir'), exist_ok = True)
+            np.save(join(outdir, sector, 'ir',          d_str + '_ir.npy'),          np.asarray(ir_results))                                   #Write IR data to numpy file
+        if no_write_vis    == False      and len(vis_results)      > 0: 
+            os.makedirs(join(outdir, sector, 'vis'), exist_ok = True)
+            np.save(join(outdir, sector, 'vis',         d_str + '_vis.npy'),         np.asarray(vis_results))                                  #Write VIS data to numpy file
+        if no_write_sza    == False      and len(sza_results)      > 0: 
+            os.makedirs(join(outdir, sector, 'sza'), exist_ok = True)
+            np.save(join(outdir, sector, 'sza',         d_str + '_sza.npy'),         np.asarray(sza_results))                                  #Write solar zenith angle data to numpy file
+        if no_write_glm    == False      and len(glm_results)      > 0: 
+            os.makedirs(join(outdir, sector, 'glm'), exist_ok = True)
+            np.save(join(outdir, sector, 'glm',         d_str + '_glm.npy'),         np.asarray(glm_results))                                  #Write GLM data to numpy file
+        if no_write_irdiff == False      and len(ird_results)      > 0: 
+            os.makedirs(join(outdir, sector, 'ir_diff'), exist_ok = True)
+            np.save(join(outdir, sector, 'ir_diff',     d_str + '_ir_diff.npy'),      np.asarray(ird_results))                                 #Write IR BT difference data to numpy file
+        if no_write_cirrus == False      and len(cirrus_results)   > 0: 
+            os.makedirs(join(outdir, sector, 'cirrus'), exist_ok = True)
+            np.save(join(outdir, sector, 'cirrus',      d_str + '_cirrus.npy'),      np.asarray(cirrus_results))                               #Write cirrus data to numpy file
+        if no_write_snowice == False     and len(snowice_results)  > 0: 
+            os.makedirs(join(outdir, sector, 'snowice'), exist_ok = True)
+            np.save(join(outdir, sector, 'snowice',     d_str + '_snowice.npy'),     np.asarray(snowice_results))                              #Write snowice data to numpy file
+        if no_write_dirtyirdiff == False and len(dirtyird_results) > 0: 
+            os.makedirs(join(outdir, sector, 'dirtyirdiff'), exist_ok = True)
+            np.save(join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy'), np.asarray(dirtyird_results))                             #Write dirtyIR BT difference data to numpy file
+        if no_write_trop == False        and len(trop_results)     > 0: 
+            os.makedirs(join(outdir, sector, 'tropdiff'), exist_ok = True)
+            np.save(join(outdir, sector, 'tropdiff',    d_str + '_tropdiff.npy'),    np.asarray(trop_results))                                 #Write IR BT-TropT difference data to numpy file
         if run_gcs == True and np.asarray(ir_results).shape[1] <= 2000:
             if no_write_ir  == False and len(ir_results)  > 0: 
                 t = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'ir'), join(outdir, sector, 'ir',  d_str + '_ir.npy')), kwargs = {'del_local' : del_local})
@@ -720,8 +887,20 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                 t3 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'glm'), join(outdir, sector, 'glm', d_str + '_glm.npy')), kwargs = {'del_local' : del_local})
                 t3.start()
             if no_write_irdiff == False and len(ird_results) > 0:
-                t4 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_irdiff.npy')), kwargs = {'del_local' : del_local})
+                t4 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_ir_diff.npy')), kwargs = {'del_local' : del_local})
                 t4.start()
+            if no_write_cirrus == False and len(cirrus_results) > 0:
+                t5 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'cirrus'), join(outdir, sector, 'cirrus', d_str + '_cirrus.npy')), kwargs = {'del_local' : del_local})
+                t5.start()
+            if no_write_snowice == False and len(snowice_results) > 0:
+                t6 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'snowice'), join(outdir, sector, 'snowice', d_str + '_snowice.npy')), kwargs = {'del_local' : del_local})
+                t6.start()
+            if no_write_dirtyirdiff == False and len(dirtyird_results) > 0:
+                t7 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'dirtyirdiff'), join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy')), kwargs = {'del_local' : del_local})
+                t7.start()
+            if no_write_trop == False and len(trop_results) > 0:
+                t8 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'tropdiff'), join(outdir, sector, 'tropdiff', d_str + '_tropdiff.npy')), kwargs = {'del_local' : del_local})
+                t8.start()
         else:
             if run_gcs == True:
                 if no_write_ir  == False and len(ir_results)  > 0: 
@@ -734,6 +913,14 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'glm'), join(outdir, sector, 'glm', d_str + '_glm.npy'), del_local = del_local)  #Write GLM data to numpy filein google cloud storage bucket
                 if no_write_irdiff == False and len(ird_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_ir_diff.npy'), del_local = del_local)  #Write IR diff data to numpy filein google cloud storage bucket
+                if no_write_cirrus == False and len(cirrus_results) > 0:
+                    write_to_gcs(proc_bucket_name, join(pref, sector, 'cirrus'), join(outdir, sector, 'cirrus', d_str + '_cirrus.npy'), del_local = del_local)  #Write cirrus data to numpy filein google cloud storage bucket
+                if no_write_snowice == False and len(snowice_results) > 0:
+                    write_to_gcs(proc_bucket_name, join(pref, sector, 'snowice'), join(outdir, sector, 'snowice', d_str + '_snowice.npy'), del_local = del_local)  #Write snowice data to numpy filein google cloud storage bucket
+                if no_write_dirtyirdiff == False and len(dirtyird_results) > 0:
+                    write_to_gcs(proc_bucket_name, join(pref, sector, 'dirtyirdiff'), join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy'), del_local = del_local)  #Write dirtyirdiff data to numpy filein google cloud storage bucket
+                if no_write_trop == False and len(trop_results) > 0:
+                    write_to_gcs(proc_bucket_name, join(pref, sector, 'tropdiff'), join(outdir, sector, 'tropdiff', d_str + '_tropdiff.npy'), del_local = del_local)  #Write tropdiff data to numpy filein google cloud storage bucket
     if no_write_csv == False:
         if verbose == True: print('Writing file containing combined netCDF file names:', join(outdir, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
         df_ir2  = pd.DataFrame({'ir_files' : i_files,  'ir_index':range(len(i_files))})                                                        #Create data structure containing IR data file names

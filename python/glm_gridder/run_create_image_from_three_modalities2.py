@@ -101,6 +101,8 @@
 #                            DEFAULT = True
 #     rewrite_nc           : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
 #                            DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
+#     append_nc            : IF keyword set (True), append the combined ir/vis/glm netCDF file.
+#                            DEFAULT = True-> Append existing netCDF file
 #     verbose              : BOOL keyword to specify whether or not to print verbose informational messages.
 #                            DEFAULT = True which implies to print verbose informational messages
 # Author and history:
@@ -152,7 +154,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                                             plt_plane          = False, 
                                             plt_traj           = False, 
                                             in_bucket_name     = 'goes-data', out_bucket_name = 'ir-vis-sandwhich', plane_bucket_name = 'misc-data0',
-                                            replot_img         = True, rewrite_nc = False, verbose = True):
+                                            replot_img         = True, rewrite_nc = False, append_nc = True, verbose = True):
     '''
     Name:
         run_create_image_from_three_modalities2.py
@@ -256,6 +258,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                                DEFAULT = True
         rewrite_nc           : IF keyword set (True), rewrite the combined ir/vis/glm netCDF file.
                                DEFAULT = False (do not rewrite combined netCDF file if one exists. Write if it does not exist though)
+        append_nc            : IF keyword set (True), append the combined ir/vis/glm netCDF file.
+                               DEFAULT = True-> Append existing netCDF file
         verbose              : BOOL keyword to specify whether or not to print verbose informational messages.
                                DEFAULT = True which implies to print verbose informational messages
     Author and history:
@@ -331,7 +335,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         if no_write_vis == False:
             vis_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'vis'), ['-Rad' + sector + '-']))                                #Extract names of all of the GOES visible data files from the google cloud
         ir_files  = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'ir'), ['-Rad' + sector + '-']))                                     #Extract names of all of the GOES infrared data files from the google cloud
-        if rewrite_nc == False:
+        if rewrite_nc == False or append_nc == True:
             com_files = sorted(list_gcs(out_bucket_name, os.path.join('combined_nc_dir', f_dates), ['_COMBINED_', '_' + sector + '_']))        #Extract names of all of the GOES infrared data files from the google cloud
         if no_write_irdiff == False:
             ird_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'ir_diff'), ['-Rad' + sector + '-']))                            #Extract names of all of the GOES 6.2 micron infrared data files from the google cloud
@@ -356,11 +360,11 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
             if no_write_cirrus == False:
                 c_files = [c_files[-1]]                                                                                                        #Download only the most recent 1.37 micron files if running code in real time
             if no_write_snowice == False:
-                snowice_files = [snowice_files[-1]]                                                                                             #Download only the most recent 1.6 micron  files if running code in real time
+                snowice_files = [snowice_files[-1]]                                                                                            #Download only the most recent 1.6 micron  files if running code in real time
             if no_write_dirtyirdiff == False:
-                dirtyir_files = [dirtyir_files[-1]]                                                                                             #Download only the most recent 12.3 micron  files if running code in real time
+                dirtyir_files = [dirtyir_files[-1]]                                                                                            #Download only the most recent 12.3 micron  files if running code in real time
         else:
-            ir_files2  = sorted(glob.glob(os.path.join(ir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                                          #Extract names of all of the GOES IR data files already in local storage
+            ir_files2  = sorted(glob.glob(os.path.join(ir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                           #Extract names of all of the GOES IR data files already in local storage
             if len(ir_files2) > 0:                                                                                                             #Only download files that are not already available on the local disk 
                 fi  = sorted([os.path.basename(g) for g in ir_files])
                 fi2 = sorted([os.path.basename(g) for g in ir_files2])
@@ -416,7 +420,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                     dirtyir_files  = dirtyir_files0
             for g in dirtyir_files: download_ncdf_gcs(in_bucket_name, g, dirtyir_dir)                                                          #Download IR 12.3 micron channel files
         
-        if rewrite_nc == False:
+        if rewrite_nc == False or append_nc == True:
             com_files2 = sorted(glob.glob(os.path.join(layered_dir, '*' + '_' + sector + '_COMBINED_' + '*.nc'), recursive = True))            #Find combined netCDF files not already stored on local disk
             if len(com_files2) > 0:
                 fi  = sorted([os.path.basename(g) for g in com_files])
@@ -581,7 +585,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                                                                                     xy_bounds, del_combined_nc, universal_file, ir_min_value, ir_max_value, 
                                                                                     grid_data, colorblind, plt_img_name, domain_sector, meso_sector, 
                                                                                     plt_cbar, subset, region, run_gcs, write_combined_gcs, del_local, out_bucket_name, plane_bucket_name, 
-                                                                                    replot_img, rewrite_nc, plane_df, pdates, plt_traj, rm_dates, verbose)) for row in range(start_index, end_index)]
+                                                                                    replot_img, rewrite_nc, append_nc, plane_df, pdates, plt_traj, rm_dates, verbose)) for row in range(start_index, end_index)]
     results2  = [result.get() for result in results]
     fnames    = [x[0] for x in results2]                                                                                                       #Extract the image names created
     fnames2   = [x[1] for x in results2]                                                                                                       #Extract the combined netCDF file names created
@@ -597,7 +601,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
             rerun_vfiles = find_images_not_created(fnames, ir_files[start_index:end_index+1])                                                  #Find vis data files that were not created        
         print('VIS/IR image files not created', rerun_vfiles)
         rerun_ifiles = [ir_files[vis_files.index(rv)] for rv in rerun_vfiles]                                                                  #Find ir files corresponding to vis files
-        pool         = mp.Pool(2, maxtasksperchild =2)                                                                                        #Set up multiprocessing threads
+        pool         = mp.Pool(2, maxtasksperchild =2)                                                                                         #Set up multiprocessing threads
         results      = [pool.apply_async(create_image_from_three_modalities_parallel, args=(row, rerun_ifiles, rerun_vfiles, 
                                                                                             glm_in_dir, glm_out_dir, layered_dir,
                                                                                             img_out_dir, no_plot_glm, no_plot, 
@@ -605,11 +609,12 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                                                                                             xy_bounds, del_combined_nc, universal_file, ir_min_value, ir_max_value, 
                                                                                             grid_data, colorblind, plt_img_name, domain_sector, meso_sector, 
                                                                                             plt_cbar, subset, region, run_gcs, write_combined_gcs, del_local, out_bucket_name, plane_bucket_name, 
-                                                                                            replot_img, rewrite_nc, plane_df, pdates, plt_traj, rm_dates, verbose)) for row in range(len(rerun_vfiles))]
+                                                                                            replot_img, rewrite_nc, append_nc, plane_df, pdates, plt_traj, rm_dates, verbose)) for row in range(len(rerun_vfiles))]
 
-        fnames.append([x[0] for x in results])                                                                                                 #Extract output image name
-        fnames2.append([x[1] for x in results])                                                                                                #Extract combined netCDF file name
-        proj_data.append([x[2] for x in results])                                                                                              #Extract satellite projection
+        results2  = [result.get() for result in results]
+        fnames.append([x[0] for x in results2])                                                                                                #Extract output image name
+        fnames2.append([x[1] for x in results2])                                                                                               #Extract combined netCDF file name
+        proj_data.append([x[2] for x in results2])                                                                                             #Extract satellite projection
         pool.close()                                                                                                                           #Close multiprocessing threads
         pool.join()                                                                                                                            #Wait until multi processed job finished before moving on threads
     if len(fnames2) != len(range(start_index, end_index)):
@@ -663,6 +668,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
 #         for e in range(len(proc.open_files())):        
 #             os.close(proc.open_files()[0][1])                                                                                                #Close all open files
 #     
+    results  = None
+    results2 = None
     return(fnames, fnames2, proj_data[0])
 
 def create_image_from_three_modalities_parallel(f, ir_files, vis_files, 
@@ -672,7 +679,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                 xy_bounds, del_combined_nc, universal_file, ir_min_value, ir_max_value, 
                                                 grid_data, colorblind, plt_img_name, domain_sector, meso_sector, 
                                                 plt_cbar, subset, region, run_gcs, write_combined_gcs, del_local, out_bucket_name, plane_bucket_name, 
-                                                replot_img, rewrite_nc, plane_df, pdates, plt_traj, rm_dates, verbose):   
+                                                replot_img, rewrite_nc, append_nc, plane_df, pdates, plt_traj, rm_dates, verbose):   
     from netCDF4 import Dataset
     if domain_sector == None:
         sector  = 'M' + str(meso_sector)                                                                                                       #Set mesoscale sector string. Used for output directory and which input files to use
@@ -716,7 +723,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
         file_attr0 = re.split('_' + sat + '_|-', os.path.basename(ir_files[f]))                                                                #Split IR file name string to create output file name
         out_nc     = os.path.join(layered_dir, file_attr0[0] + '_' + file_attr0[1] + '_' + str(file_attr0[2].split('Rad')[1]) + '_COMBINED_' + file_attr0[4])
         glm_file   = os.path.join(glm_out_dir, date_str + '_gridded_data.nc')                                                                  #Create output GLM directory path if does not already exist
-        if os.path.isfile(out_nc) == False or rewrite_nc == True:
+        if os.path.isfile(out_nc) == False or rewrite_nc == True or append_nc == True:
             if sector[0].lower() == 'c' or sector[0].lower() == 'f':
                 date_str3 = file_attr[4]
                 d_range   = []#[date_str2, file_attr2[4]]                                                                                      #Set range of dates
@@ -737,6 +744,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                              no_write_dirtyirdiff = no_write_dirtyirdiff, 
                                                              universal_file       = universal_file, 
                                                              rewrite_nc           = rewrite_nc, 
+                                                             append_nc            = append_nc, 
                                                              xy_bounds            = xy_bounds, 
                                                              verbose              = verbose)
         else:
@@ -752,6 +760,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                              no_write_dirtyirdiff = no_write_dirtyirdiff, 
                                                              universal_file       = universal_file, 
                                                              rewrite_nc           = rewrite_nc, 
+                                                             append_nc            = append_nc, 
                                                              xy_bounds            = xy_bounds, 
                                                              verbose              = verbose)
     else:
@@ -767,6 +776,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                              no_write_dirtyirdiff = no_write_dirtyirdiff, 
                                                              universal_file       = universal_file, 
                                                              rewrite_nc           = rewrite_nc, 
+                                                             append_nc            = append_nc, 
                                                              xy_bounds            = xy_bounds, 
                                                              verbose              = verbose)
         else:
@@ -781,6 +791,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                              no_write_dirtyirdiff = no_write_dirtyirdiff, 
                                                              universal_file       = universal_file, 
                                                              rewrite_nc           = rewrite_nc, 
+                                                             append_nc            = append_nc, 
                                                              xy_bounds            = xy_bounds, 
                                                              verbose              = verbose)
             

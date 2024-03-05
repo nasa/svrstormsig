@@ -135,6 +135,8 @@ from EDA.MultiResUnet_new_UPsampling import MultiResUnet_new_UPsampling
 from EDA.create_vis_ir_numpy_arrays_from_netcdf_files2 import *
 #from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
+from new_model.run_write_severe_storm_post_processing import download_gfs_analysis_files_from_gcloud, download_gfs_analysis_files
+from new_model.run_write_gfs_trop_temp_to_combined_ncdf import run_write_gfs_trop_temp_to_combined_ncdf
 backend.clear_session()
 
 def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = None, 
@@ -276,6 +278,10 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
       use_glm = True
     else:
       use_glm = False
+    if len(re.split('tropdiff', use_chkpnt)) != 1:
+      no_tropdiff = False
+    else:
+      no_tropdiff = True
     if len(re.split('updraft_day_model', use_chkpnt)) != 1:
       use_updraft = True
       mod_pat     = 'updraft_day_model'    
@@ -322,6 +328,16 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                       gcs_bucket = og_bucket_name2,
                                                       del_local  = False,
                                                       verbose    = verbose)
+    #Download GFS tropopause grib files if needed to run model
+    if no_tropdiff == False:
+      download_gfs_analysis_files_from_gcloud(date.strftime("%Y-%m-%d %H:%M:%S"), 
+                                              outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                              gfs_bucket_name = 'global-forecast-system', 
+                                              write_gcs       = False,
+                                              del_local       = True,
+                                              verbose         = verbose)
+    
+    
   else:  
     if no_download == False:
       og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = date1, date2 = date2,                                                                         #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
@@ -333,7 +349,18 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                  no_irdiff  = True, 
                                                                  gcs_bucket = og_bucket_name2,
                                                                  del_local  = False,
-                                                                 verbose    = False)
+                                                                 verbose    = verbose)
+      #Download GFS tropopause grib files if needed to run model
+      if no_tropdiff == False:
+        download_gfs_analysis_files(date1, date2,
+                                    GFS_ANALYSIS_DT = 21600,
+                                    outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                    c_bucket_name   = 'ir-vis-sandwhich',
+                                    write_gcs       = False,
+                                    del_local       = True,
+                                    verbose         = verbose)
+      
+      
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
         og_dir = og_dir[:-1]
@@ -394,9 +421,14 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
         mod0      = 'GLM'
         mod1      = 'glm'
         if use_night == None: use_night = True 
+      elif os.path.join('model_checkpoints', 'tropdiff') in use_chkpnt:                                                                                                 
+        mod0      = 'TROPDIFF'
+        mod1      = 'tropdiff'
+        if use_night == None: use_night = True 
       else:
           print('Not set up to handle model specified.')
           exit()
+      
       res_dir = os.path.join(outroot, 'aacp_results', mod1, mod_pat, pat, d_str)  
       
     t00 = time.time()                                                                                                                                                       #Start clock to time how long the following process takes
@@ -412,6 +444,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                             domain_sector      = sector0, 
                                                                             run_gcs            = run_gcs, 
                                                                             write_combined_gcs = False, 
+                                                                            append_nc          = True, 
                                                                             region             = region, xy_bounds = xy_bounds, 
                                                                             real_time          = rt, del_local = False, 
                                                                             plt_model          = os.path.join(res_dir, d_str2, str(sector00)), 
@@ -431,10 +464,20 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                           domain_sector      = sector0, 
                                                                           run_gcs            = run_gcs, 
                                                                           write_combined_gcs = False, 
+                                                                          append_nc          = True, 
                                                                           region             = region, xy_bounds = xy_bounds,  
                                                                           real_time          = rt, del_local = False, 
                                                                           in_bucket_name     = og_bucket_name, out_bucket_name = c_bucket_name,
                                                                           verbose            = verbose)
+    
+    if no_tropdiff == False:
+      run_write_gfs_trop_temp_to_combined_ncdf(inroot        = os.path.join(outroot, 'combined_nc_dir', os.path.basename(o)), 
+                                               gfs_root      = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                               use_local     = True, write_gcs = run_gcs, del_local = del_local,
+                                               c_bucket_name = c_bucket_name,
+                                               real_time     = rt,
+                                               verbose       = verbose)
+    
     if len(img_names) > 0:
       nc_files.extend(sorted(nc_names))
       if verbose == True: 
@@ -454,6 +497,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                      domain_sector    = sector0, 
                                                                      no_write_glm     = not use_glm, 
                                                                      no_write_vis     = use_native_ir, 
+                                                                     no_write_trop    = no_tropdiff, 
                                                                      run_gcs          = run_gcs, real_time = rt, del_local = del_local, use_local = True,
                                                                      og_bucket_name   = og_bucket_name, 
                                                                      comb_bucket_name = c_bucket_name, 
@@ -490,6 +534,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                     use_night     = use_night,
                                                                     rewrite_model = rewrite_model, 
                                                                     use_native_ir = use_native_ir,
+                                                                    no_write_npy  = no_plot, 
                                                                     verbose       = verbose)
                                        
       res_dirs.append(outdir)
@@ -769,6 +814,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                            rewrite_model  = False, 
                                            chk_day_night  = {}, 
                                            use_native_ir  = False, 
+                                           no_write_npy   = False, 
                                            verbose        = True):
   '''
   This is a function to predict the 1-channel updraft or plume model based on the most recent previous model run results checkpoint weights. 
@@ -823,12 +869,15 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       chk_day_night  : Structure containing day and night model data information in order to make seemless transition in predictions of the 2.
                        DEFAULT = {} -> do not use day_night transition                 
       use_native_ir  : IF keyword set (True), run model at the native IR data resolution.
-    	                   DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
+    	                 DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
+      no_write_npy   : IF keyword set (True), do not write numpy results files. Only append the combined netCDF files
+    	                 DEFAULT = False -> write the numpy results files
       verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
                        DEFAULT = True which implies to print verbose informational messages
   Returns:
       Numpy files with the model results for real time date or specified date range.
-  '''  
+  '''
+  backend.clear_session()
   if night_only == True:
     use_night = True
   if d_str == None: d_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -898,6 +947,10 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     elif os.path.join('model_checkpoints', 'ir') in use_chkpnt:
       mod0 = 'IR'
       mod1 = 'ir'
+      if use_night == None: use_night = True 
+    elif os.path.join('model_checkpoints', 'tropdiff') in use_chkpnt:
+      mod0 = 'TROPDIFF'
+      mod1 = 'tropdiff'
       if use_night == None: use_night = True 
     else:
         print('Not set up to handle model specified.')
@@ -1037,7 +1090,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       [os.remove(c) for c in chk_files]
           
   os.makedirs(os.path.join(outdir0, d_str2, str(sector)), exist_ok = True)                                                                                                  #Create output directory to send model results files, if necessary
-  if 'day_night_optimal' in outdir0:
+  if 'day_night_optimal' not in outdir0:
     pref = os.path.join(os.path.relpath(outdir0, re.split(mod1, outdir0)[0]), d_str2, str(sector))
   else:
     pref = os.path.join(os.path.relpath(outdir0, re.split('day_night_optimal', outdir0)[0]), d_str2, str(sector))
@@ -1080,6 +1133,8 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       else:
         if mod1 == 'vis':     
           imgs = build_imgs(df.loc[d].to_frame().T, [('vis_index',os.path.join(dir_path, 'vis', d_str0 + '_vis.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)                                        
+        elif mod1 == 'tropdiff':
+          imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index',os.path.join(dir_path, 'tropdiff', d_str0 + '_tropdiff.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)                                                
         else:                                        
           imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index',os.path.join(dir_path, 'ir', d_str0 + '_ir.npy'))], dims = [dims[1], dims[2]], bucket_name = p_bucket_name2)                                        
       
@@ -1154,6 +1209,11 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           results = results[:, 5:-7, 5:-7, :]
         else:
 #          results = reconstruct_tensor_from_subset(results, dims[1], dims[2])                                                                                               #Reconstruct tensor back to original shape
+          if mod_type.lower() == 'multiresunet':  
+            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
+            results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
+            results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
+            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0  
           if len(rem[0]) > 0:
             results2 = np.zeros((imgs.shape[0], imgs.shape[1], imgs.shape[2], results.shape[3]))
             results2[rem[0], :, :, :] = results
@@ -1208,18 +1268,19 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           results[na2, 0] = 0
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', results.shape[1]) + '_results.npy')                                      #Save file path and name in case want to write results to google cloud storage bucket
       results[results < 0.02] = 0
-      np.save(fname, results)                                                                                                                                               #Save model results to numpy file in local storage
-      if verbose == True:
-        print('Prediction file output file path/name = ' + fname)
-      if run_gcs == True:  
-        if rt == True:
-          write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), fname, del_local = False)
-        else:  
-          t = Thread(target = write_to_gcs, args = (f_bucket_name, os.path.join('Cooney_testing', pref), fname), kwargs = {'del_local' : del_local})                        #Write results to Google Cloud Storage Bucket
-          t.start()
-#       if counter != 0:
-#         t2.join()
-#         t2.close()
+      if no_write_npy == False:
+        np.save(fname, results)                                                                                                                                             #Save model results to numpy file in local storage
+        if verbose == True:
+          print('Prediction file output file path/name = ' + fname)
+        if run_gcs == True:  
+          if rt == True:
+            write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), fname, del_local = False)
+          else:  
+            t = Thread(target = write_to_gcs, args = (f_bucket_name, os.path.join('Cooney_testing', pref), fname), kwargs = {'del_local' : del_local})                      #Write results to Google Cloud Storage Bucket
+            t.start()
+      if counter != 0:
+        t2.join()
+#        t2.close()
       if len(chk_day_night) != 0:
         dn     = df['day_night'][d]
         if dn.lower() == 'night':
@@ -1238,6 +1299,21 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       counter = counter+1
 #     t2.join()
 #     t2.close()
+#Clear memory
+  results2 = None
+  dataset  = None
+  imgs     = None
+  imgs2    = None
+  model    = None
+  na       = None
+  na2      = None
+  r0       = None
+  mnval    = None
+  mxval    = None
+  if counter > 1:
+    print('Waiting for output netCDF file to close')
+    t2.join()
+#    t2.close()
   return(os.path.join(outdir0, d_str2, str(sector)), pthresh, df)
 
 def append_combined_ncdf_with_model_results(nc_file, res, mod_description, optimal_thresh = None, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', use_chkpnt = None, verbose = True):
@@ -1266,42 +1342,46 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, optim
   Output:
       Appends the combined netCDF data files
   '''  
-  f      = Dataset(nc_file, "a", format="NETCDF4")                                                                                                                          #Open combined netCDF file to append with model results
-  vname  = '_'.join(re.split(' ', mod_description.replace('+', '_'))[:-1]).lower()
-  vnames = list(f.variables.keys())
-  if vname not in vnames:
-    lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                                                 #Read latitude from combined netCDF file to make sure it is the same shape as the model results
-    lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                                                #Read longitude from combined netCDF file to make sure it is the same shape as the model results
-    if res[0, :, :, 0].shape != lat.shape or res[0, :, :, 0].shape != lon.shape:
-      print('Model results file does not match file latitude or longitude shape!!!!')
-      print(lon.shape)
-      print(lat.shape)
-      print(res.shape)
-      exit()
-    #Declare variables
-#    Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                                                      #Extract data scaling and offset ability for np.int32
-    var_mod = f.createVariable(vname, 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 3)#, fill_value = Scaler._FillValue)
-    var_mod.set_auto_maskandscale( False )
-    var_mod.long_name       = mod_description + ' Machine Learning Detection Likelihood'
-    var_mod.standard_name   = '_'.join(re.split(' |_', mod_description)[:-1]) + '_Model_Results'
-    var_mod.checkpoint_file = use_chkpnt
-    var_mod.model_type      = re.split(' ', mod_description)[2]
-    var_mod.valid_range     = [int(0), int(1)]
-    if optimal_thresh != None:
-      var_mod.optimal_thresh = optimal_thresh
-    var_mod.missing_value   = 0
-    var_mod.units           = 'dimensionless'
-    var_mod.coordinates     = 'longitude latitude time'
-    var_mod[0, :, :]     = res[0, :, :, 0]                                                                                                                                  #Write the results data to the combined netCDF file
+  if os.path.isfile(nc_file) == False:
+    print('File does not exist??')
+    print(nc_file)
+    exit()
+  with Dataset(nc_file, "a", format="NETCDF4") as f:                                                                                                                        #Open combined netCDF file to append with model results
+    vname  = '_'.join(re.split(' ', mod_description.replace('+', '_'))[:-1]).lower()
+    vnames = list(f.variables.keys())
+    if vname not in vnames:
+      lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                                               #Read latitude from combined netCDF file to make sure it is the same shape as the model results
+      lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                                              #Read longitude from combined netCDF file to make sure it is the same shape as the model results
+      if res[0, :, :, 0].shape != lat.shape or res[0, :, :, 0].shape != lon.shape:
+        print('Model results file does not match file latitude or longitude shape!!!!')
+        print(lon.shape)
+        print(lat.shape)
+        print(res.shape)
+        exit()
+      #Declare variables
+#      Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                                                    #Extract data scaling and offset ability for np.int32
+      var_mod = f.createVariable(vname, 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 3)#, fill_value = Scaler._FillValue)
+      var_mod.set_auto_maskandscale( False )
+      var_mod.long_name       = mod_description + ' Machine Learning Detection Likelihood'
+      var_mod.standard_name   = '_'.join(re.split(' |_', mod_description)[:-1]) + '_Model_Results'
+      var_mod.checkpoint_file = use_chkpnt
+      var_mod.model_type      = re.split(' ', mod_description)[2]
+      var_mod.valid_range     = [int(0), int(1)]
+      if optimal_thresh != None:
+        var_mod.optimal_thresh = optimal_thresh
+      var_mod.missing_value   = 0
+      var_mod.units           = 'dimensionless'
+      var_mod.coordinates     = 'longitude latitude time'
+      var_mod[0, :, :]        = res[0, :, :, 0]                                                                                                                             #Write the results data to the combined netCDF file
+      
+#       data, scale_mod, offset_mod = Scaler.scaleData(res[0, :, :, 0])                                                                                                     #Scale the results data
+#       print(data.shape)
+#       var_mod.add_offset   = offset_mod                                                                                                                                   #Write the data offset to the combined netCDF file
+#       var_mod.scale_factor = scale_mod                                                                                                                                    #Write the data scale factor to the combined netCDF file
+#       var_mod[0, :, :]     = data                                                                                                                                         #Write the results data to the combined netCDF file
     
-#     data, scale_mod, offset_mod = Scaler.scaleData(res[0, :, :, 0])                                                                                                         #Scale the results data
-#     print(data.shape)
-#     var_mod.add_offset   = offset_mod                                                                                                                                       #Write the data offset to the combined netCDF file
-#     var_mod.scale_factor = scale_mod                                                                                                                                        #Write the data scale factor to the combined netCDF file
-#     var_mod[0, :, :]     = data                                                                                                                                             #Write the results data to the combined netCDF file
-  
-  print('Model output netCDF file name = ' + nc_file)
-  f.close()                                                                                                                                                                 #Close combined netCDF file once finished appending
+    print('Model output netCDF file name = ' + nc_file)
+#  f.close()                                                                                                                                                                 #Close combined netCDF file once finished appending
   res = None
   return()
   

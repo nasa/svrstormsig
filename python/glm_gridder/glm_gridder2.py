@@ -108,15 +108,24 @@ def glm_gridder2(outfile     = None,
 #                      "--dx=2.0", "--dy=2.0",
 #                      # "--ctr_lat=33.5", "--ctr_lon=-101.5",
 #                      ]
+        if '_G16_' in os.path.basename(files[0]):
+            loc = "east"
+        elif '_G17_' in os.path.basename(files[0]):
+            loc = "west"
+        elif '_G18_' in os.path.basename(files[0]):
+            loc = "west"
+        else:
+            print('Not set up currently to handle GOES GLM required!')
+            exit()
         if ctr_lon0 == None or ctr_lat0 == None:
             grid_spec = ["--fixed_grid", "--split_events",
-                         "--goes_position", "east", "--goes_sector", sector,
+                         "--goes_position", loc, "--goes_sector", sector,
                          "--dx=2.0", "--dy=2.0",
                          # "--ctr_lat=33.5", "--ctr_lon=-101.5",
                          ]
         else:
             grid_spec = ["--fixed_grid", "--split_events",
-                         "--goes_position", "east", "--goes_sector", sector,
+                         "--goes_position", loc, "--goes_sector", sector,
                          "--dx=2.0", "--dy=2.0",
                          "--ctr_lat=" + ctr_lat0, "--ctr_lon=" + ctr_lon0,
                          ]
