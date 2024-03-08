@@ -447,6 +447,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
             print('Number of visible and infrared data files in directory do not match or no files in directory!?')
             print(len(vis_files))
             print(len(ir_files))
+            print(vis_dir)
+            print(ir_dir)
             if len(vis_files) == 0:
                 exit()
             if abs(len(vis_files) - len(ir_files)) > 10:

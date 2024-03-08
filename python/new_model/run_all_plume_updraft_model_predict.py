@@ -316,6 +316,8 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           else:
             print('You must enter satellite sector information. It cannot be left blank. Please try again.')
             print()
+      elif sat.lower() == 'seviri':
+        sector = 'full'
       else:
         sector = ''
       if (sat[0:4] == 'goes' and (sector == 'meso1' or sector == 'meso2')):
@@ -1335,6 +1337,8 @@ def run_all_plume_updraft_model_predict(verbose     = False,
         else:
           print('You must enter satellite sector information. It cannot be left blank. Please try again.')
           print()
+    elif sat.lower() == 'seviri':
+      sector = 'full'
     else:
       sector = ''
 

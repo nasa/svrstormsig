@@ -634,10 +634,22 @@ def sat_time_intervals(sat, sector = None):
         elif sector[0].lower() == 'f':
             t_interval = 600.0                                                                                                                                                  #10 mins between full disk scans for GOES-16 and GOES-17
         else:
-          print('sector specified not found??')
-          print('Specified sector = ' + str(sector))
-          print('Sectors for GOES satellite are Full, CONUS, Mesoscale.')
-          exit()
+            print('sector specified not found??')
+            print('Specified sector = ' + str(sector))
+            print('Sectors for GOES satellite are Full, CONUS, Mesoscale.')
+            exit()
+    elif sat.lower() == 'seviri':
+        if sector == None:
+            print('Sector must be specified for SEVIRI satellite in sat_time_intervals function!!')
+            print('Only full disk currently available')
+            exit()
+        if sector[0].lower() == 'f':
+            t_interval = 900.0                                                                                                                                                  #15 mins between full disk scans for GOES-16 and GOES-17
+        else:
+            print('sector specified not found??')
+            print('Specified sector = ' + str(sector))
+            print('Sectors for SEVIRI satellite are Full')
+            exit()
     else:
         print('sat_time_intervals function not set up to handle specified satellite!!')
         print('Exiting program.')
