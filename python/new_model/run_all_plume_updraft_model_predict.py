@@ -1815,6 +1815,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
+            use_native_ir = True
             day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
