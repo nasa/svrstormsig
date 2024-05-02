@@ -135,8 +135,8 @@ import psutil
 import pandas as pd
 import metpy
 import xarray
-#import cartopy
-#import cartopy.crs as ccrs
+import cartopy
+import cartopy.crs as ccrs
 import pyproj
 import multiprocessing as mp
 import sys 
@@ -147,7 +147,7 @@ sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.glm_gridder2 import glm_gridder2
 from glm_gridder.combine_ir_glm_vis import combine_ir_glm_vis
-#from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
+from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, load_csv_gcs
 from gridrad.rdr_sat_utils_jwc import read_dcotss_er2_plane, doctss_read_lat_lon_alt_trajectory_particle_ncdf
 
@@ -156,7 +156,7 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                                            layered_dir        = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir'), 
                                            img_out_dir        = os.path.join('..', '..', '..', 'goes-data', 'layered_img_dir'), 
                                            plane_inroot       = os.path.join('..', '..', '..', 'misc-data0', 'DCOTSS', 'aircraft'),
-                                           no_plot_glm        = True, no_plot = True, 
+                                           no_plot_glm        = True, no_plot = False, no_plot_irdiff = True, no_plot_cirrus = True, no_plot_tropdiff = True, no_plot_snowice = True, no_plot_dirtyirdiff = True,
                                            no_write_glm       = False, no_write_vis = False, no_write_irdiff = True, no_write_cirrus = True, no_write_snowice = True, no_write_dirtyirdiff = True, 
                                            xy_bounds          = [], 
                                            domain_sector      = None, 
@@ -307,7 +307,18 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
     glm_out_dir = os.path.realpath(os.path.join(glm_out_dir, f_dates, sector))                                                                 #Create link to real path so compatible with Mac
     layered_dir = os.path.realpath(os.path.join(layered_dir, f_dates))                                                                         #Create link to real path so compatible with Mac
     img_out_dir = os.path.realpath(img_out_dir)                                                                                                #Create link to real path so compatible with Mac
-
+    if no_plot_irdiff == False:
+        img_out_dir = os.path.join(img_out_dir, 'wvirdiff')
+    if no_plot_cirrus == False:
+        img_out_dir = os.path.join(img_out_dir, 'cirrus')
+    if no_plot_tropdiff == False:
+        img_out_dir = os.path.join(img_out_dir, 'tropdiff')
+    if no_plot_snowice == False:
+        img_out_dir = os.path.join(img_out_dir, 'snowice')
+    if no_plot_dirtyirdiff == False:
+        img_out_dir = os.path.join(img_out_dir, 'dirtyirdiff')
+    if no_plot_glm == False:
+        img_out_dir = os.path.join(img_out_dir, 'glm')
     vis_dir    = os.path.join(inroot, 'vis')                                                                                                   #Path to GOES Visible data files
     glm_in_dir = os.path.join(inroot, 'glm')                                                                                                   #Path to GLM data file
     ir_dir     = os.path.join(inroot, 'ir')                                                                                                    #Path to GOES IR data files
@@ -786,25 +797,30 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                         if traj_dat == {}:
                             traj_dat =  {'lon':[-1], 'lat':[-1], 'Z':[-1]}
 
-                    image    = img_from_three_modalities2(nc_file       = combined_nc_file,                                                    #Create 3-layered image
-                                                          out_dir       = img_out_dir, 
-                                                          no_plot_glm   = no_plot_glm, 
-                                                          ir_min_value  = ir_min_value, 
-                                                          ir_max_value  = ir_max_value, 
-                                                          grid_data     = grid_data, 
-                                                          colorblind    = colorblind, 
-                                                          plt_img_name  = plt_img_name, 
-                                                          plt_cbar      = plt_cbar, 
-                                                          subset        = subset, 
-                                                          latlon_domain = xy_bounds, 
-                                                          region        = region, 
-                                                          pthresh       = pthresh, 
-                                                          plane_data    = [], 
-                                                          traj_data     = traj_dat,
-                                                          chk_day_night = chk_day_night,
-                                                          proj          = proj, 
-                                                          replot_img    = replot_img, 
-                                                          verbose       = verbose)
+                    image    = img_from_three_modalities2(nc_file             = combined_nc_file,                                                    #Create 3-layered image
+                                                          out_dir             = img_out_dir, 
+                                                          no_plot_glm         = no_plot_glm, 
+                                                          no_plot_irdiff      = no_plot_irdiff, 
+                                                          no_plot_cirrus      = no_plot_cirrus, 
+                                                          no_plot_tropdiff    = no_plot_tropdiff, 
+                                                          no_plot_snowice     = no_plot_snowice, 
+                                                          no_plot_dirtyirdiff = no_plot_dirtyirdiff,
+                                                          ir_min_value        = ir_min_value, 
+                                                          ir_max_value        = ir_max_value, 
+                                                          grid_data           = grid_data, 
+                                                          colorblind          = colorblind, 
+                                                          plt_img_name        = plt_img_name, 
+                                                          plt_cbar            = plt_cbar, 
+                                                          subset              = subset, 
+                                                          latlon_domain       = xy_bounds, 
+                                                          region              = region, 
+                                                          pthresh             = pthresh, 
+                                                          plane_data          = [], 
+                                                          traj_data           = traj_dat,
+                                                          chk_day_night       = chk_day_night,
+                                                          proj                = proj, 
+                                                          replot_img          = replot_img, 
+                                                          verbose             = verbose)
                 else:    
 #                    p_data   = [df['G_LONG_MMS'][p_ind2:p_ind+1], df['G_LAT_MMS'][p_ind2:p_ind+1], df['HHH_H2O'][p_ind2:p_ind+1]]              #Extract necessary plane data
                     p_data    = [df['Longitude_ER2'][p_ind2:p_ind+1], df['Latitude_ER2'][p_ind2:p_ind+1], df['GPS_Altitude_ER2'][p_ind], df['HHH_H2O'][p_ind2:p_ind+1]] #Extract necessary plane data
@@ -828,25 +844,30 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                         if traj_dat == {}:
                             traj_dat =  {'lon':[-1], 'lat':[-1], 'Z':[-1]}
                     
-                    image    = img_from_three_modalities2(nc_file       = combined_nc_file,                                                    #Create 3-layered image
-                                                          out_dir       = img_out_dir, 
-                                                          no_plot_glm   = no_plot_glm, 
-                                                          ir_min_value  = ir_min_value, 
-                                                          ir_max_value  = ir_max_value, 
-                                                          grid_data     = grid_data, 
-                                                          colorblind    = colorblind, 
-                                                          plt_img_name  = plt_img_name, 
-                                                          plt_cbar      = plt_cbar, 
-                                                          subset        = subset, 
-                                                          latlon_domain = xy_bounds, 
-                                                          region        = region, 
-                                                          pthresh       = pthresh, 
-                                                          plane_data    = p_data,
-                                                          traj_data     = traj_dat,
-                                                          proj          = proj, 
-                                                          replot_img    = replot_img, 
-                                                          chk_day_night = chk_day_night, 
-                                                          verbose       = verbose)
+                    image    = img_from_three_modalities2(nc_file             = combined_nc_file,                                                    #Create 3-layered image
+                                                          out_dir             = img_out_dir, 
+                                                          no_plot_glm         = no_plot_glm, 
+                                                          no_plot_irdiff      = no_plot_irdiff, 
+                                                          no_plot_cirrus      = no_plot_cirrus, 
+                                                          no_plot_tropdiff    = no_plot_tropdiff, 
+                                                          no_plot_snowice     = no_plot_snowice, 
+                                                          no_plot_dirtyirdiff = no_plot_dirtyirdiff,
+                                                          ir_min_value        = ir_min_value, 
+                                                          ir_max_value        = ir_max_value, 
+                                                          grid_data           = grid_data, 
+                                                          colorblind          = colorblind, 
+                                                          plt_img_name        = plt_img_name, 
+                                                          plt_cbar            = plt_cbar, 
+                                                          subset              = subset, 
+                                                          latlon_domain       = xy_bounds, 
+                                                          region              = region, 
+                                                          pthresh             = pthresh, 
+                                                          plane_data          = p_data,
+                                                          traj_data           = traj_dat,
+                                                          proj                = proj, 
+                                                          replot_img          = replot_img, 
+                                                          chk_day_night       = chk_day_night, 
+                                                          verbose             = verbose)
             else:
                 if real_time == True:
                     d_str0     = datetime.strptime(date_str[0:-1], "%Y%j%H%M%S").strftime("%Y%j%H%M%S")
@@ -879,24 +900,29 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                     finally:
                         print('Image being created in background')
                 else:
-                    image        = img_from_three_modalities2(nc_file       = combined_nc_file,                                                #Create 3-layered image
-                                                              out_dir       = img_out_dir, 
-                                                              no_plot_glm   = no_plot_glm, 
-                                                              no_plot_vis   = no_write_vis, 
-                                                              ir_min_value  = ir_min_value, 
-                                                              ir_max_value  = ir_max_value, 
-                                                              grid_data     = grid_data, 
-                                                              colorblind    = colorblind, 
-                                                              plt_img_name  = plt_img_name, 
-                                                              plt_cbar      = plt_cbar, 
-                                                              subset        = subset,
-                                                              latlon_domain = xy_bounds,  
-                                                              region        = region, 
-                                                              pthresh       = pthresh, 
-                                                              proj          = proj, 
-                                                              replot_img    = replot_img,
-#                                                              plt_model     = plt_model, 
-                                                              verbose       = verbose)
+                    image        = img_from_three_modalities2(nc_file             = combined_nc_file,                                                #Create 3-layered image
+                                                              out_dir             = img_out_dir, 
+                                                              no_plot_glm         = no_plot_glm, 
+                                                              no_plot_vis         = no_write_vis, 
+                                                              no_plot_irdiff      = no_plot_irdiff, 
+                                                              no_plot_cirrus      = no_plot_cirrus, 
+                                                              no_plot_tropdiff    = no_plot_tropdiff, 
+                                                              no_plot_snowice     = no_plot_snowice, 
+                                                              no_plot_dirtyirdiff = no_plot_dirtyirdiff,
+                                                              ir_min_value        = ir_min_value, 
+                                                              ir_max_value        = ir_max_value, 
+                                                              grid_data           = grid_data, 
+                                                              colorblind          = colorblind, 
+                                                              plt_img_name        = plt_img_name, 
+                                                              plt_cbar            = plt_cbar, 
+                                                              subset              = subset,
+                                                              latlon_domain       = xy_bounds,  
+                                                              region              = region, 
+                                                              pthresh             = pthresh, 
+                                                              proj                = proj, 
+                                                              replot_img          = replot_img,
+#                                                              plt_model           = plt_model, 
+                                                              verbose             = verbose)
 
             if real_time == True:
                 image = os.path.join(img_out_dir, date_str + '_' + re.sub('\.nc$', '', os.path.basename(combined_nc_file)) + '.png')

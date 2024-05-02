@@ -67,6 +67,10 @@
 #                                          not the software acts as if it is daytime within the domain. Fixed major issue with looping over post-processing dates and the month or 
 #                                          year changed during a real-time or archived model run. New version speeds up post-processing for OTs. Set variables to None after using 
 #                                          them in order to clear cached memory. Catch and hide RunTime warnings that the User does not need to worry about. 
+#                              2024-04-23. MINOR REVISION. A bug was found when IR+GLM AACP model run using the configuration file. The bug was that the code was not using the
+#                                          IR resolution data and was instead trying to run the at VIS resolution. Simple fix was made.
+#                              2024-05-01. MAJOR REVISION. Added visualization product capabilities back into the software. In real-time mode, plots will be created in background.
+#                                          In archived mode, plots are created at the end. NOTE, plotting will slow down the processing.       
 #
 #-
 
@@ -156,7 +160,7 @@ from EDA.create_vis_ir_numpy_arrays_from_netcdf_files import *
 from EDA.unet import unet
 from EDA.MultiResUnet import MultiResUnet
 from EDA.create_vis_ir_numpy_arrays_from_netcdf_files2 import *
-#from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
+from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
 backend.clear_session()
 tf.get_logger().setLevel('ERROR')
@@ -1211,16 +1215,15 @@ def run_all_plume_updraft_model_predict(verbose     = False,
         del_local = False  
         use_local = True
         
-#       dd = str(input('Would you like to plot model results on top of IR/VIS sandwich images for each individual scene? Note, time to plot may cause run to be slower. (y/n): ')).replace("'", '')
-#       if dd == '':
-#         dd = 'y'
-#       dd = ''.join(e for e in dd if e.isalnum())
-#       if dd[0].lower() == 'y':
-#         no_plot = False
-#       else:
-#         no_plot = True
-#       print()
-      no_plot = True
+      dd = str(input('Would you like to plot model results on top of IR/VIS sandwich images for each individual scene? Note, time to plot may cause run to be slower. (y/n): ')).replace("'", '')
+      if dd == '':
+        dd = 'y'
+      dd = ''.join(e for e in dd if e.isalnum())
+      if dd[0].lower() == 'y':
+        no_plot = False
+      else:
+        no_plot = True
+      print()
       if nhours != None:
         if nhours < 1:
           nhours2 = nhours*60.0
@@ -2174,13 +2177,12 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             print('Format type entered = ' + str(type(pthresh)))
             print()
 
-#     dd = vals[14]                                                                                                                 #If user wants to plot the data
-#     dd = ''.join(e for e in dd if e.isalnum())
-#     if dd[0].lower() == 'y':
-#       no_plot = False
-#     else:
-#       no_plot = True
-    no_plot = True
+    dd = vals[14]                                                                                                                  #If user wants to plot the data
+    dd = ''.join(e for e in dd if e.isalnum())
+    if dd[0].lower() == 'y':
+      no_plot = False
+    else:
+      no_plot = True
     
     if mod_loc == 'OT':
       use_updraft = True
@@ -2220,9 +2222,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
       if no_plot == True:
         print('(7) You have chosen to not plot the individual scenes')  
       else:
-#        print('(7) You have chosen to plot the individual scenes (Note, this may cause a run-time slowdown)')  
-        print()
-        print('(7) This software is currently not set up to plot images due to licensing restrictions. We apologize for the inconvenience.')
+        print('(7) You have chosen to plot the individual scenes (Note, this may cause a run-time slowdown)')  
       
       if region == None:
         print('(8) No state/country specified to constrain output to.')
@@ -3150,11 +3150,8 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   
           elif dd == 7:
             if no_plot == True:
-#              print('This job will now output images.')
-#               no_plot = False
-              print()
-              print('This software is currently not set up to plot images due to licensing restrictions. We apologize for the inconvenience.')
-              no_plot = True
+              print('This job will now output images.')
+              no_plot = False
             else:
               print('This job will not output images.')
               no_plot = True  
@@ -3334,7 +3331,6 @@ def run_all_plume_updraft_model_predict(verbose     = False,
     else:
       use_updraft = False    
 
-  no_plot = True
   if nhours == None:
     tstart = int(''.join(re.split('-', d_str1))[0:8])                                                                              #Extract start date of job for real-time post processing
     tend   = int(''.join(re.split('-', d_str2))[0:8])                                                                              #Extract end date of job for real-time post processing

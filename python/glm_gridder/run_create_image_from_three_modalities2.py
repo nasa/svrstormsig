@@ -129,7 +129,7 @@ sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.glm_gridder2 import glm_gridder2
 from glm_gridder.combine_ir_glm_vis import combine_ir_glm_vis
-#from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
+from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, load_csv_gcs
 from gridrad.rdr_sat_utils_jwc import read_dcotss_er2_plane, doctss_read_lat_lon_alt_trajectory_particle_ncdf
 from glm_gridder.run_create_image_from_three_modalities import sort_goes_irvis_files

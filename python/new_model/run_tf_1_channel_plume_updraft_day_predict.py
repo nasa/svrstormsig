@@ -133,7 +133,7 @@ from EDA.unet import unet
 from EDA.MultiResUnet import MultiResUnet
 from EDA.MultiResUnet_new_UPsampling import MultiResUnet_new_UPsampling
 from EDA.create_vis_ir_numpy_arrays_from_netcdf_files2 import *
-#from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
+from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
 from new_model.run_write_severe_storm_post_processing import download_gfs_analysis_files_from_gcloud, download_gfs_analysis_files
 from new_model.run_write_gfs_trop_temp_to_combined_ncdf import run_write_gfs_trop_temp_to_combined_ncdf
@@ -688,102 +688,102 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
       pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split(mod1, outdir)[0]))[0], d_str)
     write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'))                       #Write results csv file to Google Cloud Storage Bucket
   nc_files = sorted(list(set(nc_files)))
-#  if rt != True:
-#    if 'day_night_optimal' in outdir:
-#      pref0 = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
-#    else:
-#      pref0 = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split(mod1, outdir)[0]))[0], d_str)
-#    results = []
-#    for r, res_dir in enumerate(res_dirs):
-#      res_dir = os.path.realpath(res_dir)
-#      if 'day_night_optimal' in res_dir:
-#        pref = os.path.relpath(res_dir, re.split('day_night_optimal', res_dir)[0])
-#      else:
-#        pref = os.path.relpath(res_dir, re.split(mod1, res_dir)[0])
-#      if use_local == True:
-##         pref     = re.split('aacp_results/', res_dir)[1]
-#        res_file = sorted(glob.glob(os.path.join(res_dir, '*.npy')))
-#      else:
-##         pref     = re.split('aacp_results/', res_dir)[1]
-#        res_file = list_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), ['results', '.npy'], delimiter = '/')
-#      if len(res_file) ==  0:
-#        print('No results files found??')
-#        print(pref)
-#        print(f_bucket_name)
-#        print(res_file)
-#      if len(res_file) > 1:
-#        pref00  = ''
-#        counter = 0
-#        fb = [re.split('_s|_', os.path.basename(x))[5][0:-1] for x in nc_files]
-#        for idx, n in enumerate(nc_files): 
-#          if use_local == True:
-#            res_file = sorted(glob.glob(os.path.join(res_dir, '*.npy')))                                                                                                    #Extract name of numpy results file
-#            if len(res_file) == 0:    
-#              print('No results file found??')    
-#              res0 = []  
-#            if len(res_file) > 1:                                                                                                                                           #If results file for each scan
-#              date_str = fb[idx]                                                                                                                                            #Split file string in order to extract date string of scan
-#              if counter == 0:
-#                fb2 = [re.split('_', os.path.basename(x))[0] for x in res_file]
-#                counter = 1
-#              if date_str in fb2:
-#                res0 = np.load(res_file[fb2.index(date_str)])                                                                                                               #Load numpy results file
-#              else:
-#                res0 = []
-#            else:
-#              res0 = np.load(res_file[0])                                                                                                                                   #Load numpy results file
-#          else:    
-#            pref = os.path.join('Cooney_testing', pref)   
-#            if pref != pref00:
-#              res_file = list_gcs(f_bucket_name, pref, ['results', '.npy'], delimiter = '/')                                                                                #Extract name of model results file
-#              if len(res_file) == 0:    
-#                print('No results file found??')
-#                print(pref)
-#                print(f_bucket_name)
-#                res0 = []  
-#              pref00 = pref
-#            if len(res_file) > 1:    
-#              date_str = fb[idx]                                                                                                                                            #Split file string in order to extract date string of scan
-#              if counter == 0:
-#                fb2 = [re.split('_', os.path.basename(x))[0] for x in res_file]
-#                counter = 1
-#              if date_str in fb2:
-#                res0 = load_npy_gcs(f_bucket_name, res_file[fb2.index(date_str)])                                                                                           #Load numpy results file
-#              else:
-#                res0 = []          
-#          if len(res0) > 0:
-#            res0 = res0[0, :, :, 0]
-#            if len(results) <= 0:
-#              results = np.copy(res0)
-#              res0    = [] 
-#            else:  
-#              results[res0 > results] = res0[res0 > results]                                                                                                                #Retain only the maximum values at each index
-#              res0 = [] 
-#      else:
-#        if len(res_file) == 1:
-#          if run_gcs == True and del_local == True: 
-#            if len(results) <= 0:
-#              results = np.nanmax(load_npy_gcs(f_bucket_name, res_file[0])[:, :, :, 0], axis = 0)
-#            else:
-#              res0    = np.nanmax(load_npy_gcs(f_bucket_name, res_file[0])[:, :, :, 0], axis = 0)
-#              results[res0 > results] = res0[res0 > results]                                                                                                                #Retain only the maximum values at each index
-#              res0    = []
-#          else:
-#            if len(results) <= 0:
-#              results = np.nanmax(np.load(res_file[0])[:, :, :, 0], axis = 0)
-#            else:
-#              res0    = np.nanmax(np.load(res_file[0])[:, :, :, 0], axis = 0)
-#              results[res0 > results] = res0[res0 > results]                                                                                                                #Retain only the maximum values at each index
-#              res0 = []
-#   
-#    d1  = datetime.strptime(date_range2[0], "%Y-%m-%d %H:%M:%S").strftime("%Y%j")                                                                                           #Extract dates as string in order to put onto plots and in out filepaths
-#    d1j = datetime.strptime(date_range2[0], "%Y-%m-%d %H:%M:%S").strftime("%j")
-#    d2  = datetime.strptime(date_range2[1], "%Y-%m-%d %H:%M:%S").strftime("%j")
-#    if d1j == d2:
-#      pat3 = d1
-#    else:
-#      pat3 = d1 + '-' + d2
-#    write_plot_model_result_predictions(nc_files, ir_files, tod = tods, res = results, res_dir = outdir, write_gcs = run_gcs, use_local = use_local, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, date_range = date_range2, outroot = os.path.join(outroot, 'aacp_results_imgs', pref0, 'time_ag_figs', pat3, str(sector00).upper()), time_ag = True, verbose = verbose)
+#   if rt != True and no_plot == False:
+#     if 'day_night_optimal' in outdir:
+#       pref0 = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
+#     else:
+#       pref0 = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split(mod1, outdir)[0]))[0], d_str)
+#     results = []
+#     for r, res_dir in enumerate(res_dirs):
+#       res_dir = os.path.realpath(res_dir)
+#       if 'day_night_optimal' in res_dir:
+#         pref = os.path.relpath(res_dir, re.split('day_night_optimal', res_dir)[0])
+#       else:
+#         pref = os.path.relpath(res_dir, re.split(mod1, res_dir)[0])
+#       if use_local == True:
+# #         pref     = re.split('aacp_results/', res_dir)[1]
+#         res_file = sorted(glob.glob(os.path.join(res_dir, '*.npy')))
+#       else:
+# #         pref     = re.split('aacp_results/', res_dir)[1]
+#         res_file = list_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), ['results', '.npy'], delimiter = '/')
+#       if len(res_file) ==  0:
+#         print('No results files found??')
+#         print(pref)
+#         print(f_bucket_name)
+#         print(res_file)
+#       if len(res_file) > 1:
+#         pref00  = ''
+#         counter = 0
+#         fb = [re.split('_s|_', os.path.basename(x))[5][0:-1] for x in nc_files]
+#         for idx, n in enumerate(nc_files): 
+#           if use_local == True:
+#             res_file = sorted(glob.glob(os.path.join(res_dir, '*_' + str(dims[1]) + '_*.npy')))                                                                             #Extract name of numpy results file
+#             if len(res_file) == 0:    
+#               print('No results file found??')    
+#               res0 = []  
+#             if len(res_file) > 1:                                                                                                                                           #If results file for each scan
+#               date_str = fb[idx]                                                                                                                                            #Split file string in order to extract date string of scan
+#               if counter == 0:
+#                 fb2 = [re.split('_', os.path.basename(x))[0] for x in res_file]
+#                 counter = 1
+#               if date_str in fb2:
+#                 res0 = np.load(res_file[fb2.index(date_str)])                                                                                                               #Load numpy results file
+#               else:
+#                 res0 = []
+#             else:
+#               res0 = np.load(res_file[0])                                                                                                                                   #Load numpy results file
+#           else:    
+#             pref = os.path.join('Cooney_testing', pref)   
+#             if pref != pref00:
+#               res_file = list_gcs(f_bucket_name, pref, ['results', '_' + str(dims[1]) + '_', '.npy'], delimiter = '/')                                                      #Extract name of model results file
+#               if len(res_file) == 0:    
+#                 print('No results file found??')
+#                 print(pref)
+#                 print(f_bucket_name)
+#                 res0 = []  
+#               pref00 = pref
+#             if len(res_file) > 1:    
+#               date_str = fb[idx]                                                                                                                                            #Split file string in order to extract date string of scan
+#               if counter == 0:
+#                 fb2 = [re.split('_', os.path.basename(x))[0] for x in res_file]
+#                 counter = 1
+#               if date_str in fb2:
+#                 res0 = load_npy_gcs(f_bucket_name, res_file[fb2.index(date_str)])                                                                                           #Load numpy results file
+#               else:
+#                 res0 = []          
+#           if len(res0) > 0:
+#             res0 = res0[0, :, :, 0]
+#             if len(results) <= 0:
+#               results = np.copy(res0)
+#               res0    = [] 
+#             else:  
+#               results[res0 > results] = res0[res0 > results]                                                                                                                #Retain only the maximum values at each index
+#               res0 = [] 
+#       else:
+#         if len(res_file) == 1:
+#           if run_gcs == True and del_local == True: 
+#             if len(results) <= 0:
+#               results = np.nanmax(load_npy_gcs(f_bucket_name, res_file[0])[:, :, :, 0], axis = 0)
+#             else:
+#               res0    = np.nanmax(load_npy_gcs(f_bucket_name, res_file[0])[:, :, :, 0], axis = 0)
+#               results[res0 > results] = res0[res0 > results]                                                                                                                #Retain only the maximum values at each index
+#               res0    = []
+#           else:
+#             if len(results) <= 0:
+#               results = np.nanmax(np.load(res_file[0])[:, :, :, 0], axis = 0)
+#             else:
+#               res0    = np.nanmax(np.load(res_file[0])[:, :, :, 0], axis = 0)
+#               results[res0 > results] = res0[res0 > results]                                                                                                                #Retain only the maximum values at each index
+#               res0 = []
+#    
+#     d1  = datetime.strptime(date_range2[0], "%Y-%m-%d %H:%M:%S").strftime("%Y%j")                                                                                           #Extract dates as string in order to put onto plots and in out filepaths
+#     d1j = datetime.strptime(date_range2[0], "%Y-%m-%d %H:%M:%S").strftime("%j")
+#     d2  = datetime.strptime(date_range2[1], "%Y-%m-%d %H:%M:%S").strftime("%j")
+#     if d1j == d2:
+#       pat3 = d1
+#     else:
+#       pat3 = d1 + '-' + d2
+#     write_plot_model_result_predictions(nc_files, ir_files, tod = tods, res = results, res_dir = outdir, write_gcs = run_gcs, use_local = use_local, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, date_range = date_range2, outroot = os.path.join(outroot, 'aacp_results_imgs', pref0, 'time_ag_figs', pat3, str(sector00).upper()), time_ag = True, verbose = verbose)
     
   if del_local == True: 
     if len(nc_files) > 0: 
@@ -889,7 +889,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   if use_updraft == True:
     mod_pat  = 'updraft_day_model'
     mod_name = 'OT'
-    val_set  = 1
+    val_set  = 0
   else:
     mod_pat  = 'plume_day_model'
     mod_name = 'AACP'
@@ -1264,8 +1264,8 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                        np.roll(r0, (1, 1), axis = (0, 1)), np.roll(r0, (1, 1), axis = (1, 0)), np.roll(r0, (-1, -1), axis = (0, 1)), np.roll(r0, (-1, -1), axis = (1, 0))]), axis = 0) == 0)] = 0 #Set likelihood scores near to edges of domain to 0s.
 
         results[0, :, :, 0] = r0
-        if len(na2) > 0:
-          results[na2, 0] = 0
+      if len(na2) > 0:
+        results[na2, 0] = 0
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', results.shape[1]) + '_results.npy')                                      #Save file path and name in case want to write results to google cloud storage bucket
       results[results < 0.02] = 0
       if no_write_npy == False:
