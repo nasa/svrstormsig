@@ -391,7 +391,12 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             image_projection.latitude_of_projection_origin  = proj_img.latitude_of_projection_origin
             image_projection.longitude_of_projection_origin = proj_img.longitude_of_projection_origin
             image_projection.sweep_angle_axis               = proj_img.sweep_angle_axis
-        
+            proj4_string = (
+                f'+proj=geos +lon_0={proj_img.longitude_of_projection_origin} +h={proj_img.perspective_point_height} '
+                f'+sweep={proj_img.sweep_angle_axis} +a={proj_img.semi_major_axis} +b={proj_img.semi_minor_axis} +rf={proj_img.inverse_flattening} '
+                '+ellps=GRS80'
+            )
+                    
             # NetCDF File Description
             f.Conventions = 'CF-1.8'                                                                                                            #Write netCDF conventions attribute
             if os.path.isfile(glm_file) == True and no_write_glm == False: 
@@ -410,6 +415,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             f.x_inds  = x_inds                                                                                                                  #Write min latitude as global variable
             f.y_inds  = y_inds                                                                                                                  #Write max latitude as global variable
             f.spatial_resolution = xyres                                                                                                        #Write satellite spatial resolution to the file
+            f.proj4_string       = proj4_string
             
             if len(xy_bounds) > 0  and ('RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file)):
                 image_projection.bounds = str(proj_extent_new[0]) + ',' + str(proj_extent_new[1]) + ',' + str(proj_extent_new[2]) + ',' + str(proj_extent_new[3])
