@@ -681,7 +681,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                     plt_model0[~mask] = 0.0                                                                                       #Set all values below likelihood threshold to 0
                     plt_model0[mask]  = 1.0                                                                                       #Set all values above likelihood threshold to 1 
                     out_img3 = plt.contour(lon,lat, plt_model0,                                                                      
-                                   vmin = 0.0, vmax = 2.0, linewidths = 0.01*(domain[2]-domain[0]), linestyles = 'solid',                                                                           
+                                   vmin = 0.0, vmax = 2.0, linewidths = 0.025*(domain[2]-domain[0]), linestyles = 'solid',                                                                           
                                    transform = ccrs.PlateCarree(),                                                                #Transform the cartopy projection correctly
                                    extent    = extent, 
 #                                   colors    = 'black'),                                                                         #Set the matplotlib colormap           
@@ -689,7 +689,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                 else:
                     if np.nanmax(plt_model0) <= 1:
                         out_img3 = plt.contour(lon,lat, plt_model0,                                                                      
-                                       vmin = 0.0, vmax = 2.0, linewidths = 0.01*(domain[2]-domain[0]), linestyles = 'solid',                                                                           
+                                       vmin = 0.0, vmax = 2.0, linewidths = 0.025*(domain[2]-domain[0]), linestyles = 'solid',                                                                           
                                        transform = ccrs.PlateCarree(),                                                            #Transform the cartopy projection correctly
                                        extent    = extent, 
                                        colors    = 'black'),                                                                      #Set the matplotlib colormap           
@@ -701,7 +701,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                         plt_model0[mask]  = 1.0                                                                                   #Set all values above likelihood threshold to 1 
                         
                         out_img3 = plt.contour(lon,lat, plt_model0,                                                                     
-                                       vmin = 0.0, vmax = 2.0, linewidths = 0.01*(domain[2]-domain[0]), linestyles = 'solid',                                                                          
+                                       vmin = 0.0, vmax = 2.0, linewidths = 0.025*(domain[2]-domain[0]), linestyles = 'solid',                                                                          
                                        transform = ccrs.PlateCarree(),                                                            #Transform the cartopy projection correctly
                                        extent    = extent, 
                                        colors    = 'black'),                                                                      #Set the matplotlib colormap           
@@ -710,7 +710,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                         plt_model02[~mask] = 0.0                                                                                  #Set all values below likelihood threshold to 0
                         plt_model02[mask]  = 1.0                                                                                  #Set all values above likelihood threshold to 1 
                         out_img4 = plt.contour(lon,lat, plt_model02,                                                                     
-                                       vmin = 0.0, vmax = 2.0, linewidths = 0.01*(domain[2]-domain[0]), linestyles = 'solid',                                                                          
+                                       vmin = 0.0, vmax = 2.0, linewidths = 0.025*(domain[2]-domain[0]), linestyles = 'solid',                                                                          
                                        transform = ccrs.PlateCarree(),                                                            #Transform the cartopy projection correctly
                                        extent    = extent, 
                                        colors    = 'darkviolet'),                                                                 #Set the matplotlib colormap           
