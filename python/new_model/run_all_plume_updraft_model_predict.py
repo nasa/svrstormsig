@@ -71,6 +71,7 @@
 #                                          IR resolution data and was instead trying to run the at VIS resolution. Simple fix was made.
 #                              2024-05-01. MAJOR REVISION. Added visualization product capabilities back into the software. In real-time mode, plots will be created in background.
 #                                          In archived mode, plots are created at the end. NOTE, plotting will slow down the processing.       
+#                              2024-05-06. MINOR REVISION. Tropopause temperature data now written for AACP runs in addition to OT runs. Will also check previous day for GFS files
 #
 #-
 
@@ -3336,7 +3337,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
     tend   = int(''.join(re.split('-', d_str2))[0:8])                                                                              #Extract end date of job for real-time post processing
     ts     = d_str1
     te     = d_str2
-    t0     = time.strftime("%Y-%m-%d %H:%M:%S")
+    t0     = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     if d_str2 > t0:
       print('Waiting until end date to start archived model run.')
       print('End date chosen = ' + d_str2)
