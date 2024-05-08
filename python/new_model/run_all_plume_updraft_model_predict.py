@@ -3596,7 +3596,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
   if nhours != None:
     time.sleep(2)
 
-  if object_type == 'OT' and 'tropdiff' not in mod_inp and 'TROPDIFF' not in mod_inp:
+  if 'tropdiff' not in mod_inp and 'TROPDIFF' not in mod_inp:
     download_gfs_analysis_files(ts, te,
                                 GFS_ANALYSIS_DT = 21600,
                                 write_gcs       = run_gcs,
