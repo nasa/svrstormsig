@@ -310,7 +310,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 no_f = 1
 
                             if no_f == 1:
-                                for cc in range(1, 4):
+                                for cc in range(1, 8):
                                     near_date = gfs_nearest_time(date-timedelta(seconds = cc*GFS_ANALYSIS_DT), GFS_ANALYSIS_DT, ROUND = 'round')       #Find nearest date to satellite scan
                                     nd_str    = near_date.strftime("%Y%m%d%H")                                                                         #Extract nearest date to satellite scan as a string
                                     no_f = 0
@@ -440,12 +440,13 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
         if 'tropopause_temperature' not in vnames and np.sum(np.isfinite(tropT)) > 0:
           var_mod3 = f.createVariable('tropopause_temperature', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
           var_mod3.set_auto_maskandscale( False )
-          var_mod3.long_name      = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
-          var_mod3.standard_name  = "GFS Tropopause"
-          var_mod3.missing_value  = np.nan
-          var_mod3.units          = 'K'
-          var_mod3.coordinates    = 'longitude latitude time'
-          var_mod3[0, :, :]       = np.copy(tropT)
+          var_mod3.long_name          = "Temperature of the Tropopause Retrieved from GFS Interpolated and Smoothed onto Satellite Grid"
+          var_mod3.standard_name      = "GFS Tropopause"
+          var_mod3.contributing_files = files_used
+          var_mod3.missing_value      = np.nan
+          var_mod3.units              = 'K'
+          var_mod3.coordinates        = 'longitude latitude time'
+          var_mod3[0, :, :]           = np.copy(tropT)
       else:
         lat = np.copy(np.asarray(f.variables['latitude'][:,:]))                                                                                        #Read latitude from combined netCDF file to make sure it is the same shape as the model results
         lon = np.copy(np.asarray(f.variables['longitude'][:,:]))                                                                                       #Read longitude from combined netCDF file to make sure it is the same shape as the model results
@@ -558,7 +559,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
     date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     if (now-date1) <= timedelta(days =1):                                                                                                              #If start date is within 1 day of the current date then latest GFS file may not be available
-        date1 = date1 - timedelta(days = 1)                                                                                                            #If latest GFS file is not available then download previous dates GFS files
+        date1 = date1 - timedelta(days = 1, seconds = GFS_ANALYSIS_DT)                                                                                 #If latest GFS file is not available then download previous dates GFS files
     date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
     date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                     #Extract maximum time of GFS files required to download to encompass data date range
   #  aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
