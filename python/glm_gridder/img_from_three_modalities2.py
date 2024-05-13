@@ -203,7 +203,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                                  2020-09-24. (Plotting VIS reflectance normalized by solar zenith angle.
                                               Added vmin and vmax to stop flickering issue between images.
                                               Do not plot if solar zenith angle in middle of scene > 85°)
-    
+                                 2024-05-05. Added dirtyirdiff and other GOES channel plotting capabilities.
     '''
     if plt_ir_max < plt_ir_min:
       plt_ir_maxt = plt_ir_min
