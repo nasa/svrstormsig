@@ -19,6 +19,25 @@ Severe weather clouds exhibit distinct patterns in satellite imagery. These patt
 
 Version 2 released on 6 March 2024. LARGE model performance enhancement, particularly with AACP detection. Added A LOT of new model input combinations as possibilities, including TROPDIFF, DIRTYIRDIFF, SNOWICE, and CIRRUS. Added new and improved checkpoint files associated with those model runs. Optimal models and thresholds have been updated since the Version 1 release. Changed how we interpolate the GFS data onto the GOES grid. We now follow the methods outlined in Khlopenkov et al. (2021). New version changes how we decide between daytime and nighttime model runs. Previously we used the maximum solar zenith angle within the domain and checked if that exceeded 85°, however, there was an issue of only nighttime models being used for CONUS domains due to how the satellite views the Earth and the data are gridded. Thus, now the software checks to see if more than 5% of the pixels in the domain have solar zenith angles that exceed 85°. If they do, then the software acts as if the domain is nighttime and if not the software acts as if it is daytime within the domain. Fixed major issue with looping over post-processing dates and the month or year changed during a real-time or archived model run. New version speeds up post-processing for OTs. Set variables to None after using them in order to clear cached memory. Catch and hide RunTime warnings that the User does not need to worry about. Software Users prior to 5 March 2024 will need to pull the latest python files from GitHub. This should be very fast. Users MUST also download the new checkpoint files from 'https://science-data.larc.nasa.gov/LaRC-SD-Publications/2023-05-05-001-JWC/data/ML_data.zip'. Once downloaded and unzipped, replace the old model_checkpoints subdirectory with the latest one that was just downloaded. This directory includes all of the improved model detection files as well as checkpoint files for the new input combination. If you have issues downloading and unzipping the file from the browser, run the run_download_model_chkpoint_files.py script included with the software. Users have experienced issues downloading the checkpoint files from the browser and this script has been successful.
 
+**Model Performance**
+
+Example scenes of recent cases that ran the ML OT and AACP detection algorithm can be found in the examples folder provided. Example data masks from severe storm outbreaks used to train, validate, and test model performance are shown below. The black contours outline OTs, the magenta contours outline confident plume labels (warm anomaly), and the white contours outline plume labels.
+
+![masks](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_masks2.pdf)
+
+Model detections for these same scenes are provided below. The OT model used IR+VIS inputs and the AACP model used IR+VIS+DIRTYIRDIFF inputs. These detection models used the optimal input configurations found during testing. This includes IR+VIS during daytime OT model runs, IR during nighttime OT model runs, and IR+DIRTYIRDIFF during day and night AACP model runs.
+
+![results](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_results2_ir_vis_dirtyirdiff_plume.pdf)
+
+Some additional examples are provided below while additional cases are provided in the examples folder.
+
+![20240507](https://github.com/nasa/svrstormsig/blob/main/examples/20240507T000728Z_C_full_domain_multimap_model_ot_plume_results.png)
+
+![20240508](https://github.com/nasa/svrstormsig/blob/main/examples/20240508T122224Z_C_full_domain_multimap_model_ot_plume_results.png)
+
+![20240516](https://github.com/nasa/svrstormsig/blob/main/examples/20240516T220240Z_M2_full_domain_multimap_model_ot_plume_results.png)
+
+![20240516](https://github.com/nasa/svrstormsig/blob/main/examples/20240314T011440Z_M2_full_domain_multimap_model_ot_plume_results.png)
 
 **Citation Request**
 
