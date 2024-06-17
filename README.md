@@ -33,6 +33,8 @@ Some additional examples are provided below while additional cases are provided 
 
 ![20240507](https://github.com/nasa/svrstormsig/blob/main/examples/20240507T000728Z_C_full_domain_multimap_model_ot_plume_results.png)
 
+![20240508](https://github.com/nasa/svrstormsig/blob/main/examples/20240508T121248Z_C_full_domain_multimap_model_ot_plume_results.png)
+
 ![20240508](https://github.com/nasa/svrstormsig/blob/main/examples/20240508T122224Z_C_full_domain_multimap_model_ot_plume_results.png)
 
 ![20240516](https://github.com/nasa/svrstormsig/blob/main/examples/20240516T220240Z_M2_full_domain_multimap_model_ot_plume_results.png)
