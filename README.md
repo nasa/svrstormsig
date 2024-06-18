@@ -23,11 +23,11 @@ Version 2 released on 6 March 2024. LARGE model performance enhancement, particu
 
 Example scenes of recent cases that ran the ML OT and AACP detection algorithm can be found in the examples folder provided. Example data masks from severe storm outbreaks used to train, validate, and test model performance are shown below. The black contours outline OTs, the magenta contours outline confident plume labels (warm anomaly), and the white contours outline plume labels.
 
-![masks](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_masks2.pdf)
+![masks](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_masks2.jpg)
 
 Model detections for these same scenes are provided below. The OT model used IR+VIS inputs and the AACP model used IR+VIS+DIRTYIRDIFF inputs. These detection models used the optimal input configurations found during testing. This includes IR+VIS during daytime OT model runs, IR during nighttime OT model runs, and IR+DIRTYIRDIFF during day and night AACP model runs.
 
-![results](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_results2_ir_vis_dirtyirdiff_plume.pdf)
+![results](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_results2_ir_vis_dirtyirdiff_plume.jpg)
 
 Some additional examples are provided below while additional cases are provided in the examples folder.
 
