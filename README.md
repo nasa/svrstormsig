@@ -32,17 +32,21 @@ Model detections for these same scenes are provided below. The OT model used IR+
 Some additional examples are provided below while additional cases are provided in the examples folder.
 
 ![20240507](https://github.com/nasa/svrstormsig/blob/main/examples/20240507T000728Z_C_full_domain_multimap_model_ot_plume_results.png)
+
 Image above shows IR+VIS OT and IR+DIRTYIRDIFF AACP model detections 20 minutes prior to initial report of rope tornado in Oklahoma that damaged a building at 0034 UTC. In Kansas, hail was observed and winds > 50 mph measured in middle of Kansas at 2344 UTC. In addition, a tornado was estimated from radar at 0048 UTC in northeast Kansas. 
 
 ![20240508](https://github.com/nasa/svrstormsig/blob/main/examples/20240508T121248Z_C_full_domain_multimap_model_ot_plume_results.png)
 
 ![20240508](https://github.com/nasa/svrstormsig/blob/main/examples/20240508T122224Z_C_full_domain_multimap_model_ot_plume_results.png)
+
 The 2 images above shows IR+VIS OT and IR+DIRTYIRDIFF AACP model detections at time of hail and severe wind reports along the Tennessee and Kentucky border. Hail was observed along border at 1205 and 1239 UTC. Hail observed throughout storm within Tennesse as there were multiple reports after 1400 UTC.
 
 ![20240516](https://github.com/nasa/svrstormsig/blob/main/examples/20240516T220240Z_M2_full_domain_multimap_model_ot_plume_results.png)
+
 The image above shows IR+VIS OT and IR+DIRTYIRDIFF AACP model detections an hour before a tornado touched down near Houston, Texas. Wind reports and power outages reported at 2213 UTC. Quarter size hail observed at 0000 UTC.
 
 ![20240314](https://github.com/nasa/svrstormsig/blob/main/examples/20240314T011440Z_M2_full_domain_multimap_model_ot_plume_results.png)
+
 The image above shows IR OT and IR+DIRTYIRDIFF AACP model detections during a tornado being observed by law enforcement at 0115 UTC in northeast Kansas. Reports of tornado on the ground at 0133 along border of Kansas and Missouri. Quarter size hail reported at time of detections in northeast Kansas as well. In addition quarter size hail covered the ground in northcentral Kansas (reported at 0110 UTC).
 
 **Citation Request**
