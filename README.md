@@ -25,7 +25,7 @@ Example scenes of recent cases that ran the ML OT and AACP detection algorithm c
 
 ![masks](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_masks2.jpg)
 
-Model detections for these same scenes are provided below. The OT model used IR+VIS inputs and the AACP model used IR+VIS+DIRTYIRDIFF inputs. These detection models used the optimal input configurations found during testing. This includes IR+VIS during daytime OT model runs, IR during nighttime OT model runs, and IR+DIRTYIRDIFF during day and night AACP model runs.
+Model detections for these same scenes are provided below. The OT model used IR+VIS inputs and the AACP model used IR+VIS+DIRTYIRDIFF inputs. These detection models used the optimal input configurations found during testing. This includes IR+VIS during daytime OT model runs, IR during nighttime OT model runs, and IR+DIRTYIRDIFF during day and night AACP model runs. See Cooney et al. (in review) for more details.
 
 ![results](https://github.com/nasa/svrstormsig/blob/main/examples/combined_all_case_ex_results2_ir_vis_dirtyirdiff_plume.jpg)
 
