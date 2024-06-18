@@ -47,7 +47,7 @@ The image above shows IR+VIS OT and IR+DIRTYIRDIFF AACP model detections an hour
 
 ![20240314](https://github.com/nasa/svrstormsig/blob/main/examples/20240314T011440Z_M2_full_domain_multimap_model_ot_plume_results.png)
 
-The image above shows IR OT and IR+DIRTYIRDIFF AACP model detections during a tornado being observed by law enforcement at 0115 UTC in northeast Kansas. Reports of tornado on the ground at 0133 along border of Kansas and Missouri. Quarter size hail reported at time of detections in northeast Kansas as well. In addition quarter size hail covered the ground in northcentral Kansas (reported at 0110 UTC).
+The image above shows IR OT and IR+DIRTYIRDIFF AACP model detections during a tornado being observed by law enforcement at 0115 UTC in northeast Kansas. Reports of tornado on the ground at 0133 along border of Kansas and Missouri. Quarter size hail reported at time of detections in northeast Kansas as well. In addition quarter size hail covered the ground in northcentral Kansas (reported at 0110 UTC). Quarter size hail observed and time estimated to 0122 in northwest Missouri.
 
 **Citation Request**
 
