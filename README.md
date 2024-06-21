@@ -55,6 +55,12 @@ The image above shows IR+VIS OT and IR+DIRTYIRDIFF AACP model detections an hour
 
 The image above shows IR OT and IR+DIRTYIRDIFF AACP model detections during a tornado being observed by law enforcement at 0115 UTC in northeast Kansas. Reports of tornado on the ground at 0133 along border of Kansas and Missouri. Quarter size hail reported at time of detections in northeast Kansas as well. In addition quarter size hail covered the ground in northcentral Kansas (reported at 0110 UTC). Quarter size hail observed and time estimated to 0122 in northwest Missouri.
 
+**Data Availability Statement**
+
+The master set of OT and AACP labels used in this study are available at https://science-data.larc.nasa.gov/LaRC-SD-Publications/2023-05-05-001-JWC/data/master_labels.zip. These labels serve as our “truth”, and “masks” to train, validate and test the ML models. The labelers consisted of 2 experienced analysts and 3 lesser-experienced student analysts trained to identify these features. The various labels were combined to arrive at this optimal “master” label database.
+
+There are 4 classes, ‘Overshoot’ (OT), ‘Plume’, ‘Confident Plume’, and ‘Null’. Confident and non-confident AACPs are differentiated to allow training of the model on the features most apparent to an analyst, which should also be most easily detectable by an ML model. AACPs can be either cold or warm, depending on the level of the tropopause relative to the storm top and their distance downstream from the parent OT (Murillo & Homeyer, 2022). Warm anomaly regions of AACPs, directly adjacent to an OT, are considered confident detections because they are easiest to see in the sandwich imagery. In addition, AACPs can span hundreds of kilometers and the peripheries may not be near to the parent OT. Thus, models may confuse similarly textured anvil regions with AACPs. Null labels were strategically positioned within GOES imagery without OT/AACP to attempt to teach the model the difference between ordinary convection and our desired features. 
+
 **Citation Request**
 
 If you use this software in your project, please contact our team prior to publication and cite our contribution.
