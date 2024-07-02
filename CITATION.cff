@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software in your project, please contact our team prior to publication and cite our contribution."
+- type: software
+  authors:
+    - family-names: Cooney
+      given-names: John
+      affiliation: "NASA Langley Research Center"
+      orcid: https://orcid.org/0000-0003-2942-8783
+      email: john.w.cooney@nasa.gov
+    - family-names: Bedka
+      given-names: Kristopher
+      affiliation: "NASA Langley Research Center"
+      orcid: https://orcid.org/0000-0003-3066-0555
+      email: kristopher.m.bedka@nasa.gov
+    - family-names: Liles
+      given-names: Charles
+      affiliation: "NASA Langley Research Center"
+      email: charles.a.liles@nasa.gov
+    - family-names: Homeyer
+      given-names: Cameron
+      affiliation: "University of Oklahoma"
+      orcid: https://orcid.org/0000-0002-4883-6670
+      email: chomeyer@ou.edu
+  title: "svrstormsig"
+  repository-code: https://github.com/nasa/svrstormsig
+  version: 2.1.4
+  identifiers:
+    - type: doi
+      value: https://github.com/nasa/svrstormsig
+  date-released: 2023-05-09
