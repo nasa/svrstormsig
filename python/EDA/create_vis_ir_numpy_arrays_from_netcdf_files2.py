@@ -568,20 +568,23 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
         if len(date_range) > 0:
             time0 = datetime.strptime(date_range[0], "%Y-%m-%d %H:%M:%S")                                                                      #Extract start date to find data within of the date range
             time1 = datetime.strptime(date_range[1], "%Y-%m-%d %H:%M:%S")                                                                      #Extract end date to find data within of the date range
+            if verbose:
+                print(time0)
+                print(time1)
             #Extract subset of raw VIS netCDF files within date_range
             if no_write_vis == False:
                 start_index = 0
                 end_index   = len(vis_files)
                 for f in (range(0, len(vis_files))):
                     file_attr = re.split('_s|_', os.path.basename(vis_files[f]))                                                                   
-                    date_str  = file_attr[3][7:11]                                                                                                 
-                    if file_attr[3][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute) and start_index == 0:
+                    date_str  = file_attr[3][7:13] 
+                    if file_attr[3][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute, time0.second) and start_index == 0:
                         if f == 0:
                             start_index = -1
                         else:    
                             start_index = f
-                    if file_attr[3][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute) and end_index == len(vis_files):
-                        if "{:02d}{:02d}".format(time1.hour, time1.minute) == date_str:
+                    if file_attr[3][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute, time1.second) and end_index == len(vis_files):
+                        if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
                             if f == (len(vis_files)-1):
                                 end_index = len(vis_files)
                             else:    
@@ -590,7 +593,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                             if f == (len(vis_files)-1):
                                 end_index = len(vis_files)
                             else:
-                                end_index = f                 
+                                end_index = f+1                 
                 if start_index == -1:
                     start_index = 0
                 vis_files = vis_files[start_index:end_index]
@@ -600,14 +603,14 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
             end_index   = len(ir_files)
             for f in (range(0, len(ir_files))):
                 file_attr = re.split('_s|_', os.path.basename(ir_files[f]))                                                                    #Split file string in order to extract date string of scan
-                date_str  = file_attr[3][7:11]                                                                                                 #Split file string in order to extract date string of scan
-                if file_attr[3][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute) and start_index == 0:
+                date_str  = file_attr[3][7:13]                                                                                                 #Split file string in order to extract date string of scan
+                if file_attr[3][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute, time0.second) and start_index == 0:
                     if f == 0:
                         start_index = -1
                     else:    
                         start_index = f
-                if file_attr[3][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute) and end_index == len(ir_files):
-                    if "{:02d}{:02d}".format(time1.hour, time1.minute) == date_str:
+                if file_attr[3][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute, time1.second) and end_index == len(ir_files):
+                    if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
                         if f == (len(ir_files)-1):
                             end_index = len(ir_files)
                         else:    
@@ -616,24 +619,23 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                         if f == (len(ir_files)-1):
                             end_index = len(ir_files)
                         else:
-                            end_index = f                
+                            end_index = f+1                
             if start_index == -1:
                 start_index = 0
             ir_files = ir_files[start_index:end_index]
-            
             #Extract subset of combined netCDF files within date_range
             start_index = 0
             end_index   = len(comb_files)
             for f in (range(0, len(comb_files))):
                 file_attr = re.split('_s|_', os.path.basename(comb_files[f]))                                                                  #Split file string in order to extract date string of scan
-                date_str  = file_attr[5][7:11]                                                                                                 #Split file string in order to extract date string of scan
-                if file_attr[5][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute) and start_index == 0:
+                date_str  = file_attr[5][7:13]                                                                                                 #Split file string in order to extract date string of scan
+                if file_attr[5][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute, time0.second) and start_index == 0:
                     if f == 0:
                         start_index = -1
                     else:    
                         start_index = f
-                if file_attr[5][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute) and end_index == len(comb_files):
-                    if "{:02d}{:02d}".format(time1.hour, time1.minute) == date_str:
+                if file_attr[5][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute, time1.second) and end_index == len(comb_files):
+                    if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
                         if f == (len(comb_files)-1):
                             end_index = len(comb_files)
                         else:    
@@ -647,7 +649,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                 start_index = 0
             comb_files = comb_files[start_index:end_index]        
     
-    if no_write_vis == False:    
+    if no_write_vis == False:
         if len(ir_files) == 0 or len(vis_files) == 0 or len(comb_files) == 0:
           print('No VIS, IR netCDF or labeled json files found?')
           exit()
