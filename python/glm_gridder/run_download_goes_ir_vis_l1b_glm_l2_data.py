@@ -44,6 +44,8 @@
 #                    DEFAULT = True -> do not download 12.3 micron data files for date range.  (channel 15)
 #     no_shortwave : IF keyword set (True), use do not download 3.9 micron channel data files.           
 #                    DEFAULT = True -> do not download 3.9 micron data files for date range.  (channel 7)
+#     no_wv        : IF keyword set (True), use do not download 6.9 micron channel data files.           
+#                    DEFAULT = True -> do not download 6.9 micron data files for date range.  (channel 9)
 #     gcs_bucket   : STRING google cloud storage bucket name to write downloaded files to in addition to local storage.
 #                    DEFAULT = None -> Do not write to a google cloud storage bucket.
 #     del_local    : IF keyword set (True) AND gcs_bucket != None, delete local copy of output file.
@@ -80,6 +82,7 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
                                              no_snowice   = True, 
                                              no_dirtyir   = True, 
                                              no_shortwave = True, 
+                                             no_wv        = True,
                                              gcs_bucket   = None,
                                              del_local    = False,
                                              verbose      = True):
@@ -130,6 +133,8 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
                        DEFAULT = True -> do not download 12.3 micron data files for date range.  (channel 15)
         no_shortwave : IF keyword set (True), use do not download 3.9 micron channel data files.           
                        DEFAULT = True -> do not download 3.9 micron data files for date range.  (channel 7)
+        no_wv        : IF keyword set (True), use do not download 6.9 micron channel data files.           
+                       DEFAULT = True -> do not download 6.9 micron data files for date range.  (channel 9)
         gcs_bucket   : STRING google cloud storage bucket name to write downloaded files to in addition to local storage.
                        DEFAULT = None -> Do not write to a google cloud storage bucket.
         del_local    : IF keyword set (True) AND gcs_bucket != None, delete local copy of output file.
@@ -333,6 +338,31 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
                         copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
             else:
                 print('No 3.9 micron C07 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
+
+        if no_wv == False:
+            if rt == True and no_ir == False:
+                fb     = re.split('_s|_', os.path.basename(files[0]))[3]
+                files  = list_gcs(bucket_name, iv_prefix, ['C09', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                                    #Extract list of 3.9 micron files that match product and date
+                if len(files) == 0:    
+                    print('Waiting for 6.9 micron C09 files to be available online')
+                    while True:    
+                        files  = list_gcs(bucket_name, iv_prefix, ['C09', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0, fb])                            #Extract list of cirrus files that match product and date
+                        if len(files) > 0:    
+                            break    
+            else:
+                files  = list_gcs(bucket_name, iv_prefix, ['C09', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                        #Extract list of 3.9 micron files that match product and date
+            if len(files) > 0:
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'wv') 
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: files = [files[-1]]
+                for i in files:
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download shortwave file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'wv')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+            else:
+                print('No 6.9 micron C09 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
 
         if no_irdiff == False:
             if rt == True and no_ir == False:
