@@ -683,6 +683,8 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                 plt_cbar, subset, region, run_gcs, write_combined_gcs, del_local, out_bucket_name, plane_bucket_name, 
                                                 replot_img, rewrite_nc, append_nc, plane_df, pdates, plt_traj, rm_dates, verbose):   
     from netCDF4 import Dataset
+    ir_files  = sorted(ir_files)
+    vis_files = sorted(vis_files)
     if domain_sector == None:
         sector  = 'M' + str(meso_sector)                                                                                                       #Set mesoscale sector string. Used for output directory and which input files to use
         str_sec = 'meso'
@@ -706,6 +708,16 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
     
         if (date_str2 != date_str):                                                                                                            #Throw error if not using matching IR and VIS files
             print('GOES IR and VIS file date strings do not match??')    
+            print(date_str2)
+            print(date_str)
+            print(vis_files)
+            print()
+            print()
+            print()
+            print(ir_files)
+            print()
+            print(os.path.basename(vis_files[f]))
+            print(os.path.basename(ir_files[f]))
             exit()    
 #     if grid_data == True:
 #         ir    = xarray.open_dataset(ir_files[f]).load()

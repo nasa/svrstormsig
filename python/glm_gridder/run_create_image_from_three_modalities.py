@@ -977,11 +977,11 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
     return(fnames, fnames2, proj, p)
 
 def sort_goes_irvis_files(elem):
-    d_str = re.split('_s|_', os.path.basename(elem))[3][0:11]
+    d_str = re.split('_s|_', os.path.basename(elem))[3][0:13]
     return(d_str)
 
 def sort_goes_comb_files(elem):
-    d_str = re.split('_s|_', os.path.basename(elem))[5][0:11]
+    d_str = re.split('_s|_', os.path.basename(elem))[5][0:13]
     return(d_str)
 
 def main():
