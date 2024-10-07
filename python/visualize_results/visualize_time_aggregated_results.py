@@ -1016,7 +1016,7 @@ def read_spc_reports(date1 = None, date2 = None, verbose = True):
             exit()
         else:
             d_str  = [(day1 + timedelta(days=x)).strftime('%y%m%d') for x in range(dt.days+1)]
-            d_str2 = [(day1 + timedelta(days=x)).strftime('%Y%m%d') for x in range(dt.days+1)]
+            d_str2 = [(day1 + timedelta(days=x)).strftime('%Y%m%d') for x in range(dt.days+2)]
     
     hail_rprt  = pd.DataFrame()                                                                                                         #Initialize data frame to store SPC hail reports
     torn_rprt  = pd.DataFrame()                                                                                                         #Initialize data frame to store SPC tornado reports
@@ -1043,7 +1043,20 @@ def read_spc_reports(date1 = None, date2 = None, verbose = True):
             wind_rprt0 = pyn.get_spc_storm_reports(link, type_of_df = 'wind').df                                                        #Read the Storm Prediction Center wind report
         except ValueError:
             print('No wind data in ' + link)          
-
+        
+        if hail_rprt0.empty == False: 
+            hail_rprt0['Date'] = d_str2[d_count]
+            hail_rprt0['Date'][hail_rprt0['Time'] >= '1200'] = d_str2[d_count]
+            hail_rprt0['Date'][hail_rprt0['Time'] < '1200'] = d_str2[d_count+1]
+        if torn_rprt0.empty == False:
+            torn_rprt0['Date'] = d_str2[d_count]
+            torn_rprt0['Date'][torn_rprt0['Time'] >= '1200'] = d_str2[d_count]
+            torn_rprt0['Date'][torn_rprt0['Time'] < '1200'] = d_str2[d_count+1]
+        if wind_rprt0.empty == False:
+            wind_rprt0['Date'] = d_str2[d_count]
+            wind_rprt0['Date'][wind_rprt0['Time'] >= '1200'] = d_str2[d_count]
+            wind_rprt0['Date'][wind_rprt0['Time'] < '1200'] = d_str2[d_count+1]
+        
         if d_count == 0:
             if hhmm1 >= '1200':
                 if len(d_str) == 1 and hhmm2 > '1200':
@@ -1082,6 +1095,11 @@ def read_spc_reports(date1 = None, date2 = None, verbose = True):
         hail_rprt0 = pd.DataFrame()
         torn_rprt0 = pd.DataFrame()
         wind_rprt0 = pd.DataFrame()
+   
+    if hail_rprt.empty == False: hail_rprt.reset_index(drop=True, inplace = True)
+    if torn_rprt.empty == False: torn_rprt.reset_index(drop=True, inplace = True)
+    if wind_rprt.empty == False: wind_rprt.reset_index(drop=True, inplace = True)
+    
     return(hail_rprt, torn_rprt, wind_rprt)       
 
 def main():
