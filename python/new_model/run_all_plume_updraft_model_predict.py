@@ -72,6 +72,9 @@
 #                              2024-05-01. MAJOR REVISION. Added visualization product capabilities back into the software. In real-time mode, plots will be created in background.
 #                                          In archived mode, plots are created at the end. NOTE, plotting will slow down the processing.       
 #                              2024-05-06. MINOR REVISION. Tropopause temperature data now written for AACP runs in addition to OT runs. Will also check previous day for GFS files
+#                              2024-10-07. MINOR REVISION. Setup to handle GOES mesoscale imagery at temporal frequency of 30 seconds. The code was previously setup to do 1 min
+#                                          mesoscale files and checked for start scan minute. This looks at the start scan second now in filenames. Note, code is still unable to
+#                                          handle M1 and M2 sectors simultaneously. This update is just to handle a single meso sector at 30 second frequency,
 #
 #-
 
@@ -110,6 +113,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.colors import ListedColormap, BoundaryNorm, Normalize
 from matplotlib.cm import ScalarMappable
 from matplotlib.pyplot import figure
+import argparse
 #import cartopy
 #import cartopy.crs as ccrs
 #from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
@@ -166,6 +170,7 @@ from visualize_results.run_write_plot_model_result_predictions import write_plot
 backend.clear_session()
 tf.get_logger().setLevel('ERROR')
 def run_all_plume_updraft_model_predict(verbose     = False, 
+                                        dcrs        = False,
                                         config_file = None):
   '''
       This is a script to run (by importing) programs to run previous models using checkpoint files for inputs that include
@@ -175,6 +180,10 @@ def run_all_plume_updraft_model_predict(verbose     = False,
   Keywords:
       config_file        : STRING specifying path to configure file which allows user to not have to answer any questions when starting model.
                            DEFAULT = None -> answer questions to determine type of run
+      dcrs               : BOOL keyword to specify whether or not this will be used for dcrs (NASA Langley disaster coordinator response) purposes.
+                           IF keyword set (True), use IR+VIS+GLM OT model. DCRS wants GLM data for time aggregated plotting and this is
+                           easiest way to do that. So, essentially, this keyword just ensures GLM data are in output netCDF files.
+                           DEFAULT = False which implies to use default OT model which is IR+VIS and no GLM data are included in output files.
       verbose            : BOOL keyword to specify whether or not to print verbose informational messages.
                            DEFAULT = True which implies to print verbose informational messages
   Functions:
@@ -522,10 +531,10 @@ def run_all_plume_updraft_model_predict(verbose     = False,
       if opt_params[0].lower() == 'y':
         if mod_loc == 'OT':
           if transition == 'y':
-            day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir) 
-            night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir)
-            day_inp = re.split('\+', day0[0].lower())
-            nig_inp = re.split('\+', night0[0].lower())
+            day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir, dcrs = dcrs) 
+            night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
+            day_inp = re.split(r'\+', day0[0].lower())
+            nig_inp = re.split(r'\+', night0[0].lower())
             use_trop        = False
             use_dirtyirdiff = False
             use_cirrus      = False
@@ -570,11 +579,11 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             print()
           else:
             if use_night == False:
-              day0        = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               mod_type    = day0[1]
               mod_inputs  = day0[0]
               pthresh     = day0[3]
-              if 'GLM' in re.split('\+', mod_inputs):
+              if 'GLM' in re.split(r'\+', mod_inputs):
                 use_glm = True
               else:
                 use_glm = False
@@ -582,11 +591,11 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               opt_pthres0 = pthresh
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh('best', mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh('best', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               mod_type    = day0[1]
               mod_inputs  = day0[0]
               pthresh     = day0[3]
-              if 'GLM' in re.split('\+', mod_inputs):
+              if 'GLM' in re.split(r'\+', mod_inputs):
                 use_glm = True
               else:
                 use_glm = False
@@ -596,10 +605,10 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             print('You have chosen to run an ' + mod_inputs + ' ' + mod_type + ' OT model') 
         else:
           if transition == 'y':
-            day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir) 
-            night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir)
-            day_inp = re.split('\+', day0[0].lower())
-            nig_inp = re.split('\+', night0[0].lower())
+            day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir, dcrs = dcrs) 
+            night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
+            day_inp = re.split(r'\+', day0[0].lower())
+            nig_inp = re.split(r'\+', night0[0].lower())
             use_trop        = False
             use_dirtyirdiff = False
             use_cirrus      = False
@@ -644,11 +653,11 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             print()          
           else:  
             if use_night == False:
-              day0        = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               mod_type    = day0[1]
               mod_inputs  = day0[0]
               pthresh     = day0[3]
-              if 'GLM' in re.split('\+', mod_inputs):
+              if 'GLM' in re.split(r'\+', mod_inputs):
                 use_glm = True
               else:
                 use_glm = False
@@ -656,11 +665,11 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               opt_pthres0 = pthresh
             else:  
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh('best', mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh('best', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               mod_type    = day0[1]
               mod_inputs  = day0[0]
               pthresh     = day0[3]
-              if 'GLM' in re.split('\+', mod_inputs):
+              if 'GLM' in re.split(r'\+', mod_inputs):
                 use_glm = True
               else:
                 use_glm = False
@@ -717,7 +726,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -732,7 +741,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -741,7 +750,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -754,7 +763,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 pthresh     = 0.65
                 opt_pthres0 = pthresh
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -765,7 +774,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -780,7 +789,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -790,7 +799,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -805,7 +814,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -815,7 +824,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -829,7 +838,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -839,7 +848,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -853,7 +862,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -862,7 +871,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -875,7 +884,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -884,7 +893,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -897,7 +906,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -907,7 +916,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -921,7 +930,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -930,7 +939,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -943,7 +952,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -954,7 +963,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -968,7 +977,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -978,7 +987,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
                 use_native_ir = True
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -992,7 +1001,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 exit()
             else:
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1001,7 +1010,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -1014,7 +1023,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1024,7 +1033,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             use_glm    = True
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -1037,7 +1046,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1046,7 +1055,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -1059,7 +1068,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1068,7 +1077,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -1081,7 +1090,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 print(mod_inputs)
                 exit()
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1091,7 +1100,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             use_glm    = True
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh
@@ -1104,7 +1113,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                 pthresh     = 0.20
                 opt_pthres0 = pthresh
             else:
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1663,10 +1672,10 @@ def run_all_plume_updraft_model_predict(verbose     = False,
     if opt_params[0].lower() == 'y':
       mod_type = 'multiresunet'
       if transition == 'y':
-        day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir) 
-        night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir)
-        day_inp = re.split('\+', day0[0].lower())
-        nig_inp = re.split('\+', night0[0].lower())
+        day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir, dcrs = dcrs) 
+        night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
+        day_inp = re.split(r'\+', day0[0].lower())
+        nig_inp = re.split(r'\+', night0[0].lower())
         use_trop        = False
         use_dirtyirdiff = False
         use_cirrus      = False
@@ -1757,7 +1766,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1772,7 +1781,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1781,7 +1790,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1794,7 +1803,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               pthresh     = 0.65
               opt_pthres0 = pthresh
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1805,7 +1814,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1820,7 +1829,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1830,7 +1839,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1845,7 +1854,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1855,7 +1864,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1869,7 +1878,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1879,7 +1888,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1893,7 +1902,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1902,7 +1911,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1915,7 +1924,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1924,7 +1933,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1937,7 +1946,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1947,7 +1956,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1961,7 +1970,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1970,7 +1979,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -1983,7 +1992,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -1994,7 +2003,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2008,7 +2017,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2018,7 +2027,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
               use_native_ir = True
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2032,7 +2041,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               exit()
           else:
             use_native_ir = True
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2041,7 +2050,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2054,7 +2063,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2064,7 +2073,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           use_glm    = True
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2077,7 +2086,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2086,7 +2095,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2099,7 +2108,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2108,7 +2117,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           mod_check  = 1
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2121,7 +2130,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               print(mod_inputs)
               exit()
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2132,7 +2141,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
           use_glm    = True
           if mod_loc == 'OT':
             if mod_type == 'multiresunet':
-              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+              day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
@@ -2145,7 +2154,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
               pthresh     = 0.20
               opt_pthres0 = pthresh
           else:
-            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+            day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
             pthresh     = day0[3]
             use_chkpnt  = os.path.realpath(day0[2])
             opt_pthres0 = pthresh
@@ -2425,7 +2434,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   print(mod_inputs)
                   print(mod_type)
                   exit()
-                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                 pthresh0    = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
                 opt_pthres0 = pthresh0
@@ -2539,7 +2548,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                     print(mod_inputs)
                     print(mod_type)
                     exit()
-                  day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                  day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                   pthresh0    = day0[3]
                   use_chkpnt  = os.path.realpath(day0[2])
                   opt_pthres0 = pthresh0
@@ -2626,10 +2635,10 @@ def run_all_plume_updraft_model_predict(verbose     = False,
             opt_params = ''.join(e for e in opt_params if e.isalnum())                                                             #Remove any special characters or spaces.
             if opt_params[0].lower() == 'y':
               if transition == 'y':
-                day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir) 
-                night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir)
-                day_inp = re.split('\+', day0[0].lower())
-                nig_inp = re.split('\+', night0[0].lower())
+                day0    = best_model_checkpoint_and_thresh('best_day', mod_loc, native_ir = use_native_ir, dcrs = dcrs) 
+                night0  = best_model_checkpoint_and_thresh('best_night', mod_loc, native_ir = use_native_ir, dcrs = dcrs)
+                day_inp = re.split(r'\+', day0[0].lower())
+                nig_inp = re.split(r'\+', night0[0].lower())
                 use_trop        = False
                 use_dirtyirdiff = False
                 use_cirrus      = False
@@ -2694,7 +2703,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2710,7 +2719,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2721,7 +2730,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2734,7 +2743,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       pthresh0    = 0.65
                       opt_pthres0 = pthresh0               
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2746,7 +2755,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2762,7 +2771,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2773,7 +2782,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2789,7 +2798,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2800,7 +2809,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2814,7 +2823,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2825,7 +2834,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2839,7 +2848,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2850,7 +2859,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2863,7 +2872,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2874,7 +2883,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2887,7 +2896,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2898,7 +2907,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2912,7 +2921,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2923,7 +2932,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2936,7 +2945,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2948,7 +2957,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2962,7 +2971,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2973,7 +2982,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
                       use_native_ir = True
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -2987,7 +2996,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       exit()
                   else:
                     use_native_ir = True
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -2998,7 +3007,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -3011,7 +3020,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -3023,7 +3032,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -3036,7 +3045,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -3047,7 +3056,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -3060,7 +3069,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -3071,7 +3080,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -3084,7 +3093,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       print(mod_inputs)
                       exit()
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -3096,7 +3105,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                   use_native_ir = False          
                   if mod_loc == 'OT':
                     if mod_type == 'multiresunet':
-                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                      day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                       pthresh0    = day0[3]
                       use_chkpnt  = os.path.realpath(day0[2])
                       opt_pthres0 = pthresh0
@@ -3109,7 +3118,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                       pthresh0    = 0.20
                       opt_pthres0 = pthresh0               
                   else:
-                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir)
+                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, dcrs = dcrs)
                     pthresh0    = day0[3]
                     use_chkpnt  = os.path.realpath(day0[2])
                     opt_pthres0 = pthresh0
@@ -3371,7 +3380,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                                                  rewrite_model  = True,
                                                  verbose        = verbose)
     else:
-      mod_inp = re.split('\+', mod_inputs)
+      mod_inp = re.split(r'\+', mod_inputs)
       if mod_inputs.count('+') == 0:
         run_tf_1_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                    use_updraft    = use_updraft, 
@@ -3498,7 +3507,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                                                    rewrite_model  = True,
                                                    verbose        = verbose)
       else:
-        mod_inp = re.split('\+', mod_inputs)
+        mod_inp = re.split(r'\+', mod_inputs)
         if mod_inputs.count('+') == 0:
           run_tf_1_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                      use_updraft    = use_updraft, 
@@ -3618,7 +3627,7 @@ def run_all_plume_updraft_model_predict(verbose     = False,
                                            verbose       = verbose)
     tstart0 = tstart0 + timedelta(days=1)
     
-def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False):
+def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, dcrs = False):
   '''
       This is a function to return the path to the best model checkpoint files as well as the likelihood threshold, given
       the model inputs (e.g. 'IR', 'IR+VIS', etc.) the User wants and the model object the User hopes to detect (e.g. 'OT' or 'AACP'). 
@@ -3626,7 +3635,8 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False):
       mod_input  : STRING specifying the GOES channels should be input to the model. (ex. 'IR', 'IR+VIS', etc.)
       mod_object : STRING specifying what the User wants to detect (ex. 'OT' or 'AACP')
   Keywords:
-      None.
+      native_ir : IF keyword set (True), return models that work on native IR data grid
+      dcrs      : IF keyword set (True), return models that work on native IR data grid
   Output:
       Returns the path to the checkpoint files as well as the model optimal likelihood threhsolds found in testing 
   '''  
@@ -3645,27 +3655,50 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False):
               'BEST'                 : ['IR',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                   'updraft_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.2]
               }
     else:
-      best = {
-              'IR'                       : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
-              'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.6],
-              'IR+VIS'                   : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
-              'IR+GLM'                   : ['IR+GLM',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_glm',                   'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
-              'IR+WVIRDIFF'              : ['IR+WVIRDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_wvirdiff',              'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
-              'IR+SNOWICE'               : ['IR+SNOWICE',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_snowice',               'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.6],
-              'IR+CIRRUS'                : ['IR+CIRRUS',                'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_cirrus',                'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.5],
-              'IR+DIRTYIRDIFF'           : ['IR+DIRTYIRDIFF',           'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',           'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
-              'IR+TROPDIFF'              : ['IR+TROPDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_tropdiff',              'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
-              'VIS+TROPDIFF'             : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.5],
-              'TROPDIFF+GLM'             : ['TROPDIFF+GLM',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_glm',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.55],
-              'IR+VIS+GLM'               : ['IR+VIS+GLM',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_glm',               'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
-              'IR+VIS+TROPDIFF'          : ['IR+VIS+TROPDIFF',          'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_tropdiff',          'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.15],
-              'VIS+TROPDIFF+GLM'         : ['VIS+TROPDIFF+GLM',         'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_glm',         'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
-              'TROPDIFF+DIRTYIRDIFF'     : ['TROPDIFF+DIRTYIRDIFF',     'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_dirtyirdiff',     'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
-              'IR+VIS+DIRTYIRDIFF'       : ['IR+VIS+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',       'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
-              'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
-              'BEST_DAY'                 : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
-              'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
-              }
+      if dcrs == True:
+        best = {
+                'IR'                       : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.6],
+                'IR+VIS'                   : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+                'IR+GLM'                   : ['IR+GLM',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_glm',                   'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+                'IR+WVIRDIFF'              : ['IR+WVIRDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_wvirdiff',              'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
+                'IR+SNOWICE'               : ['IR+SNOWICE',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_snowice',               'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.6],
+                'IR+CIRRUS'                : ['IR+CIRRUS',                'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_cirrus',                'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.5],
+                'IR+DIRTYIRDIFF'           : ['IR+DIRTYIRDIFF',           'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',           'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
+                'IR+TROPDIFF'              : ['IR+TROPDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_tropdiff',              'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+                'VIS+TROPDIFF'             : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.5],
+                'TROPDIFF+GLM'             : ['TROPDIFF+GLM',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_glm',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.55],
+                'IR+VIS+GLM'               : ['IR+VIS+GLM',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_glm',               'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'IR+VIS+TROPDIFF'          : ['IR+VIS+TROPDIFF',          'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_tropdiff',          'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.15],
+                'VIS+TROPDIFF+GLM'         : ['VIS+TROPDIFF+GLM',         'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_glm',         'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'TROPDIFF+DIRTYIRDIFF'     : ['TROPDIFF+DIRTYIRDIFF',     'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_dirtyirdiff',     'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
+                'IR+VIS+DIRTYIRDIFF'       : ['IR+VIS+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',       'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
+                'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
+                'BEST_DAY'                 : ['IR+VIS+GLM',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_glm',               'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
+                }
+      else:
+        best = {
+                'IR'                       : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.6],
+                'IR+VIS'                   : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+                'IR+GLM'                   : ['IR+GLM',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_glm',                   'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+                'IR+WVIRDIFF'              : ['IR+WVIRDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_wvirdiff',              'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
+                'IR+SNOWICE'               : ['IR+SNOWICE',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_snowice',               'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.6],
+                'IR+CIRRUS'                : ['IR+CIRRUS',                'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_cirrus',                'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.5],
+                'IR+DIRTYIRDIFF'           : ['IR+DIRTYIRDIFF',           'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',           'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
+                'IR+TROPDIFF'              : ['IR+TROPDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_tropdiff',              'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+                'VIS+TROPDIFF'             : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.5],
+                'TROPDIFF+GLM'             : ['TROPDIFF+GLM',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_glm',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.55],
+                'IR+VIS+GLM'               : ['IR+VIS+GLM',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_glm',               'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'IR+VIS+TROPDIFF'          : ['IR+VIS+TROPDIFF',          'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_tropdiff',          'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.15],
+                'VIS+TROPDIFF+GLM'         : ['VIS+TROPDIFF+GLM',         'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_glm',         'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
+                'TROPDIFF+DIRTYIRDIFF'     : ['TROPDIFF+DIRTYIRDIFF',     'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_dirtyirdiff',     'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
+                'IR+VIS+DIRTYIRDIFF'       : ['IR+VIS+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',       'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
+                'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
+                'BEST_DAY'                 : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+                'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
+                }
   elif mod_object.lower() == 'aacp' or mod_object.lower() == 'plume' or mod_object.lower() == 'above anvil cirrus plume':
     if native_ir == True:
       best = {
@@ -3717,21 +3750,39 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False):
 
 
 def main():
-    args = sys.argv[1:]
-    config_file = None
-    if len(args) > 0:
-      if len(args) == 2 and args[0] == '--config':
-        config_file = args[1]
-      else:
-        if len(args) != 2:
-          print('Number of arguments not correct!!')
-          print(args)
-          exit()
-        if args[0] != '--config':
-          print('Not set up to handle specified argument!!')
-          print(args)
-          exit()  
-    run_all_plume_updraft_model_predict(config_file = config_file)
+    parser = argparse.ArgumentParser(
+        description = 'svrstormsig software for detecting OTs and AACPs using machine learning and written by John W. Cooney')
+    
+    parser.add_argument(                                                                 #If config file set
+        '-c', '--config',
+        type=str, 
+        help   = 'Path to the config file')
+  
+    parser.add_argument(                                                                 #If dcrs set
+        '-d', '--dcrs',
+        action = 'store_true',
+        help   = 'Argument to run IR+VIS+GLM OT model for the DCRS because they want time aggregated GLM flash extent density plots.')   
+
+    args = parser.parse_args()
+    
+    run_all_plume_updraft_model_predict(config_file = args.config, dcrs = args.dcrs)
+    
+#OLD method of parsing the command line inputs
+#     args = sys.argv[1:]
+#     config_file = None
+#     if len(args) > 0:
+#       if len(args) == 2 and args[0] == '--config':
+#         config_file = args[1]
+#       else:
+#         if len(args) != 2:
+#           print('Number of arguments not correct!!')
+#           print(args)
+#           exit()
+#         if args[0] != '--config':
+#           print('Not set up to handle specified argument!!')
+#           print(args)
+#           exit()  
+#     run_all_plume_updraft_model_predict2(config_file = config_file)
     
 if __name__ == '__main__':
     main()
