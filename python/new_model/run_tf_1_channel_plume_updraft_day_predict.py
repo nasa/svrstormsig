@@ -1209,11 +1209,11 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           results = results[:, 5:-7, 5:-7, :]
         else:
 #          results = reconstruct_tensor_from_subset(results, dims[1], dims[2])                                                                                               #Reconstruct tensor back to original shape
-          if mod_type.lower() == 'multiresunet':  
-            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
-            results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
-            results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
-            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0  
+#           if mod_type.lower() == 'multiresunet':  
+#             results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
+#             results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
+#             results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
+#             results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0  
           if len(rem[0]) > 0:
             results2 = np.zeros((imgs.shape[0], imgs.shape[1], imgs.shape[2], results.shape[3]))
             results2[rem[0], :, :, :] = results
