@@ -361,7 +361,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_lat.standard_name = 'latitude'
             var_lat.units         = 'degrees_north'
             
-            var_t    = f.createVariable('time', 'f4', ('time',))
+            var_t    = f.createVariable('time', np.float64, ('time',))
             var_t.long_name       = ir.variables['t'].long_name
             var_t.standard_name   = ir.variables['t'].standard_name
             var_t.units           = ir.variables['t'].units
