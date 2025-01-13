@@ -925,11 +925,11 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                                                               verbose             = verbose)
 
             if real_time == True:
-                image = os.path.join(img_out_dir, date_str + '_' + re.sub('\.nc$', '', os.path.basename(combined_nc_file)) + '.png')
+                image = os.path.join(img_out_dir, date_str + '_' + re.sub(r'\.nc$', '', os.path.basename(combined_nc_file)) + '.png')
             fnames.append(image)                                                                                                               #Store the names of the images in a list
         else:
             if real_time == True:
-                image = os.path.join(img_out_dir, date_str + '_' + re.sub('\.nc$', '', os.path.basename(combined_nc_file)) + '.png')
+                image = os.path.join(img_out_dir, date_str + '_' + re.sub(r'\.nc$', '', os.path.basename(combined_nc_file)) + '.png')
                 fnames.append(image)                                                                                                           #Store the names of the images in a list
 
         if run_gcs == True:
