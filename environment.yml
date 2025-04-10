@@ -1,4 +1,4 @@
-name: svrstormsig_test
+name: svrstormsig
 channels:
 - conda-forge
 - defaults
@@ -11,7 +11,7 @@ dependencies:
 - pyclipper
 - matplotlib>=3.3.2
 - Cython>=0.29.21
-- scikit-learn==0.23
+- scikit-learn
 - pillow==8.0.1
 - xarray>=0.16.1
 - netcdf4>=1.5.3
@@ -37,3 +37,4 @@ dependencies:
   - requests
   - pygrib
   - cartopy==0.20.1
+  - eumdac
