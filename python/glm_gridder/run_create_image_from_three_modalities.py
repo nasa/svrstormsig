@@ -131,10 +131,10 @@ import re
 from netCDF4 import Dataset
 import numpy as np
 from datetime import datetime, timedelta
-import psutil
+#import psutil
 import pandas as pd
-import metpy
-import xarray
+#import metpy
+#import xarray
 import cartopy
 import cartopy.crs as ccrs
 import pyproj
@@ -951,7 +951,7 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
         [os.remove(x) for x in glm_files]                                                                                                      #Remove all downloaded GLM files
         os.rmdir(glm_in_dir)                                                                                                                   #Remove GLM data directory
    
-    if run_gcs == True and del_local == True:    
+    if run_gcs and del_local:
         [os.remove(x) for x in ir_files]                                                                                                       #Remove all downloaded IR files
         os.rmdir(ir_dir)                                                                                                                       #Remove IR data directory
         if no_write_vis == False:
@@ -978,6 +978,10 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
 
 def sort_goes_irvis_files(elem):
     d_str = re.split('_s|_', os.path.basename(elem))[3][0:13]
+    return(d_str)
+
+def sort_mtg_irvis_files(elem):
+    d_str = re.split('_|-|,|\+', os.path.basename(elem))[23][0:14]
     return(d_str)
 
 def sort_goes_comb_files(elem):

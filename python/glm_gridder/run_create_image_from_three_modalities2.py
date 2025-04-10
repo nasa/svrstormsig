@@ -118,7 +118,7 @@ import re
 from netCDF4 import Dataset
 import numpy as np
 from datetime import datetime, timedelta
-import psutil
+#import psutil
 import multiprocessing as mp
 import pandas as pd
 #import metpy
@@ -437,7 +437,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
 #                     print(sat_proj_files)
 #                     print(in_bucket_name)
 #                     exit()
-#                 os.makedirs(dpath, exist_ok = True)
+#                 os.makedirs(dpath, exist_ok = True)  
 #                 for g in sat_proj_files: download_ncdf_gcs(in_bucket_name, g, dpath)
     
     vis_files = sorted(glob.glob(os.path.join(vis_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True), key = sort_goes_irvis_files)      #Extract names of all of the GOES visible data files
@@ -498,7 +498,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         end_index   = len(ir_files)
         for f in (range(0, len(ir_files))):
             file_attr = re.split('_s|_', os.path.basename(ir_files[f]))                                                                   
-            date_str  = file_attr[3][7:11]                                                                                                 
+            date_str  = file_attr[3][7:11]   
             if file_attr[3][0:11] >= "{:04d}{:03d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute) and start_index == 0:
                 if f == 0:
                     start_index = -1
@@ -514,7 +514,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                     if f == (len(ir_files)-1):
                         end_index = len(ir_files)              
                     else:
-                        end_index = f                
+                        end_index = f+1                
     else:
 #        if verbose == True: print('Number of VIS/IR files = ' + str(len(vis_files)))
         end_index = len(ir_files)
