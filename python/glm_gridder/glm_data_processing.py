@@ -40,7 +40,7 @@ import matplotlib.patches as patches
 import cv2
 import warnings
 #from pysolar.solar import *
-#import cartopy.crs as ccrs
+import cartopy.crs as ccrs
 
 def fetch_glm_to_match_ir(_ir_dataset, _glm_dataset, _northern_hemisphere=True, _rect_color='y', _label= ''):
     '''
@@ -242,11 +242,13 @@ def get_lat_lon_from_vis2(_vis_dataset, extract_proj_coordinates = False, verbos
     x1          = (lon_rad_1d * _vis_dataset.variables['goes_imager_projection'].perspective_point_height).astype('float64')
     y1          = (lat_rad_1d * _vis_dataset.variables['goes_imager_projection'].perspective_point_height).astype('float64')
     proj_extent = (np.min(x1), np.max(x1), np.min(y1), np.max(y1))
-    if extract_proj_coordinates == True:
+    if extract_proj_coordinates:
         x2, y2 = np.meshgrid(x1,y1)
-    proj_img    = _vis_dataset.variables['goes_imager_projection']
-    lat_rad_1d  = lat_rad_1d*proj_info.perspective_point_height
-    lon_rad_1d  = lon_rad_1d*proj_info.perspective_point_height
+#     proj_img    = _vis_dataset.variables['goes_imager_projection']
+#     lat_rad_1d  = lat_rad_1d*proj_info.perspective_point_height
+#     lon_rad_1d  = lon_rad_1d*proj_info.perspective_point_height
+    lat_rad_1d  = y1
+    lon_rad_1d  = x1
     try:
 #         print('first try...', end='')
         globe = ccrs.Globe(semimajor_axis=proj_info.semi_major_axis,
@@ -275,10 +277,10 @@ def get_lat_lon_from_vis2(_vis_dataset, extract_proj_coordinates = False, verbos
 #     if verbose == True:
 #         print('Longitude bounds = ' + str(np.nanmin(lons)) + ', ' + str(np.nanmax(lons)))
 #         print('Latitude bounds = ' + str(np.nanmin(lats)) + ', ' + str(np.nanmax(lats)))
-    if extract_proj_coordinates == True:
-        return(lons, lats, proj_img, proj_extent, x2, y2)    
+    if extract_proj_coordinates:
+        return(lons, lats, proj_info, proj_extent, x2, y2)    
     else:
-        return(lons, lats, proj_img, proj_extent)
+        return(lons, lats, proj_info, proj_extent)
     
 def get_lat_lon_from_vis(_vis_dataset, verbose = True):
     lat_rad_1d  = _vis_dataset.variables['y'][:]
@@ -319,7 +321,7 @@ def get_lat_lon_from_vis(_vis_dataset, verbose = True):
 
     return(lon_arr, lat_arr, proj_img, proj_extent)
 
-def get_lat_lon_subset_inds(_scan_proj_dataset, xy_bounds, 
+def get_lat_lon_subset_inds(_scan_proj_dataset, xy_bounds,
                            lat           = [], lon = [], 
                            return_lats   = False, 
                            region_csvdir = os.path.join('..', '..', 'data', 'region'), 
@@ -348,6 +350,24 @@ def get_lat_lon_subset_inds(_scan_proj_dataset, xy_bounds,
         elif satellite.lower() == 'seviri':
           mod_check = 1
           sat       = 'seviri'
+        elif 'mtg' in satellite.lower():
+          if '1' in satellite.lower():
+            mod_check = 1
+            sat       = 'mtg1'
+          elif '2' in satellite.lower():    
+            mod_check = 1
+            sat       = 'mtg2'
+          elif '3' in satellite.lower():    
+            mod_check = 1
+            sat       = 'mtg3'
+          elif '4' in satellite.lower():    
+            mod_check = 1
+            sat       = 'mtg4'
+          else:
+            print('Model is not currently set up to handle satellite specified. Please try again.')
+            print()
+            print(satellite)
+            exit()
         else:
           print('Model is not currently set up to handle satellite specified. Please try again.')
           print()
@@ -363,7 +383,7 @@ def get_lat_lon_subset_inds(_scan_proj_dataset, xy_bounds,
             df = pd.read_csv(region_csv)
         else:
             df = pd.DataFrame()
-        if df.empty == True:
+        if df.empty:
             move_along = 1
         else:    
             minlons    = []
@@ -384,12 +404,13 @@ def get_lat_lon_subset_inds(_scan_proj_dataset, xy_bounds,
             scan_modes = np.asarray(scan_modes)
             loc = np.where((scan_modes == scan_mode) & (minlons == "{:.7f}".format(xy_bounds[0])) & (maxlons == "{:.7f}".format(xy_bounds[2])) & (minlats == "{:.7f}".format(xy_bounds[1])) & (maxlats == "{:.7f}".format(xy_bounds[3])))[0]
             if len(loc) > 0:
-                x_inds     = [df['min_lon_ind'][loc[0]], df['max_lon_ind'][loc[0]]]
-                y_inds     = [df['min_lat_ind'][loc[0]], df['max_lat_ind'][loc[0]]]
+                x_inds     = [int(df['min_lon_ind'][loc[0]]), int(df['max_lon_ind'][loc[0]])]
+                y_inds     = [int(df['min_lat_ind'][loc[0]]), int(df['max_lat_ind'][loc[0]])]
                 move_along = 0
             else:
                 move_along = 1
-        if move_along == 1: 
+
+        if move_along == 1:
             inds   = np.where((lon >= (xy_bounds[0]-1.0)) & (lon <= (xy_bounds[2]+1.0)) & (lat >= (xy_bounds[1]-1.0)) & (lat <= (xy_bounds[3])+1.0))
             x_inds = [np.min(inds[0]), np.max(inds[0])]
             y_inds = [np.min(inds[1]), np.max(inds[1])]
