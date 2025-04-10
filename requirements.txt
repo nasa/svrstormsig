@@ -27,3 +27,4 @@ imageio
 requests
 pygrib
 cartopy==0.20.1
+eumdac
