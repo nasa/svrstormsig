@@ -216,7 +216,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
     ### File Definition ###
     nc_file      = os.path.realpath(nc_file)                                                                                      #Create link to real path so compatible with Mac
     out_dir      = os.path.realpath(out_dir)                                                                                      #Create link to real path so compatible with Mac
-    if 'seviri' in nc_file:
+    if 'seviri' in os.path.basename(nc_file):
         file_attr    = re.split('_|.nc', os.path.basename(nc_file))                                                                #Split file string in order to extract date string of scan
         date_str     = file_attr[3]                                                                                               #Split file string in order to extract date string of scan    
         grid_data    = False
@@ -226,17 +226,22 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
         plt_ir_min = 190.0
     else:
         file_attr    = re.split('_s|_', os.path.basename(nc_file))                                                                #Split file string in order to extract date string of scan
-        date_str     = file_attr[5]                                                                                               #Split file string in order to extract date string of scan
+        date_str     = file_attr[5]                                                                                               #Split file string in order to extract date string of scan  
+    
+    origin = 'upper'
+    if 'fci' in os.path.basename(nc_file).lower():
+        origin = 'lower'
+      
     if plane_data == None:
-        out_img_name = os.path.join(out_dir, re.sub('\.nc$', '', os.path.basename(nc_file)) + '.png')                             #Output image name and path 
+        out_img_name = os.path.join(out_dir, re.sub(r'\.nc$', '', os.path.basename(nc_file)) + '.png')                             #Output image name and path 
     else:
         if type(plt_model) == np.ndarray:
-            out_img_name = os.path.join(out_dir, re.sub('\.nc$', '', os.path.basename(nc_file)) + '.png')                         #Output image name and path 
+            out_img_name = os.path.join(out_dir, re.sub(r'\.nc$', '', os.path.basename(nc_file)) + '.png')                         #Output image name and path 
         else:
             if plt_model == None:
-                out_img_name = os.path.join(out_dir, re.sub('\.nc$', '', os.path.basename(nc_file)) + '.png')                     #Output image name and path 
+                out_img_name = os.path.join(out_dir, re.sub(r'\.nc$', '', os.path.basename(nc_file)) + '.png')                     #Output image name and path 
             else:
-                out_img_name = os.path.join(out_dir, date_str[0:-1] + '_' + re.sub('\.nc$', '', os.path.basename(nc_file)) + '.png')  #Output image name and path 
+                out_img_name = os.path.join(out_dir, date_str[0:-1] + '_' + re.sub(r'\.nc$', '', os.path.basename(nc_file)) + '.png')  #Output image name and path 
     exist = False                                                                                                                 #Default is to plot image again
     if replot_img == False:     
         exist = os.path.exists(out_img_name)                                                                                      #Check if image file already exists so you don't have to plot again
@@ -263,7 +268,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
           no_plot_vis = True
         if no_plot_dirtyirdiff == False:
           ir_raw_img2 = np.copy(np.asarray(combined_data.variables['dirtyir_brightness_temperature_diff']))[0, :, :]                    #Copy dirty IR difference (12-10) reflectance into variable
-          plt_ir_min = -1.0
+          plt_ir_min = -2.0
           plt_ir_max = 2.0
           no_plot_vis = True
         if no_plot_tropdiff == False:
@@ -271,8 +276,6 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
           plt_ir_min = -15.0
           plt_ir_max =  20.0
           no_plot_vis = True
-          print(np.nanmax(ir_raw_img2))
-          print(np.nanmin(ir_raw_img2))
         if no_plot_irdiff == False:
           ir_raw_img2 = np.copy(np.asarray(combined_data.variables['ir_brightness_temperature_diff']))[0, :, :]                    #Copy dirty IR difference (12-10) reflectance into variable
           plt_ir_min = -20.0
@@ -284,9 +287,11 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             zen     = np.copy(np.asarray(combined_data.variables['solar_zenith_angle']))[0, :, :]                                     #Copy solar zenith angle into variable
             tod     = 'day' if (np.nanmax(zen) < 85.0) else 'night'
             if combined_data.variables['solar_zenith_angle'].units == 'radians':         
-                mid_zen = math.degrees(zen[int(ir_raw_img2.shape[0]/2), int(ir_raw_img2.shape[1]/2)])                                 #Calculate solar zenith angle for mid point of image (degrees)
+#                mid_zen = math.degrees(zen[int(ir_raw_img2.shape[0]/2), int(ir_raw_img2.shape[1]/2)])                                 #Calculate solar zenith angle for mid point of image (degrees)
+                mid_zen = math.degrees(np.nanmax(zen))                                 #Calculate solar zenith angle for mid point of image (degrees)
             else:         
-                mid_zen = zen[int(ir_raw_img2.shape[0]/2), int(ir_raw_img2.shape[1]/2)]                                               #Calculate solar zenith angle for mid point of image (degrees)
+#                mid_zen = zen[int(ir_raw_img2.shape[0]/2), int(ir_raw_img2.shape[1]/2)]                                               #Calculate solar zenith angle for mid point of image (degrees)
+                mid_zen = np.nanmax(zen)                                               #Calculate solar zenith angle for mid point of image (degrees)
         else:
             tod     = 'day'
             mid_zen = 90
@@ -296,7 +301,12 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
           ir_raw_img = ir_temp_scale(ir_raw_img2, min = ir_min_value, max = ir_max_value)                                           #Scale the IR BT data using the min and maximum temperatures specified
         else:
           ir_raw_img = ir_raw_img2
-        if proj == None and grid_data == True and 'seviri' not in nc_file:                                                                                    #Set up satellite projections
+#        if proj == None and grid_data == True and 'seviri' not in nc_file:                                                                                    #Set up satellite projections
+#         if 'fci' in os.path.basename(nc_file).lower():
+#             ir_raw_img = np.fliplr(ir_raw_img)
+#             if no_plot_vis == False: 
+#                 vis_img = np.fliplr(vis_img)
+        if proj == None and grid_data == True and 'seviri' not in os.path.basename(nc_file):                                                                                    #Set up satellite projections
             globe = cartopy.crs.Globe(ellipse='GRS80', semimajor_axis=combined_data.variables['imager_projection'].semi_major_axis, semiminor_axis = combined_data.variables['imager_projection'].semi_minor_axis, inverse_flattening=combined_data.variables['imager_projection'].inverse_flattening)
             crs = ccrs.Geostationary(central_longitude=combined_data.variables['imager_projection'].longitude_of_projection_origin, satellite_height=combined_data.variables['imager_projection'].perspective_point_height, false_easting=0, false_northing=0, globe=globe, sweep_axis = combined_data.variables['imager_projection'].sweep_angle_axis)
   #          crs.proj4_params['units'] = 'degrees'
@@ -305,6 +315,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #             globe = cartopy.crs.Globe(ellipse='GRS80', semimajor_axis=6378137.0, semiminor_axis = 6356752.31414, inverse_flattening=298.2572221)
 #             crs = ccrs.Geostationary(central_longitude=-75.0, satellite_height=35786023.0, false_easting=0, false_northing=0, globe=globe, sweep_axis = 'x')
 #             extent0 = [np.asarray(-500002.34375), np.asarray(500002.34375), np.asarray(2225461.25), np.asarray(3225465.75)]
+
         combined_data.close()                                                                                                     #Close combined netCDF file
         ### Image Resizing ###
         # Resize IR images to fit Vis
@@ -374,7 +385,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
         height = 6
 #         width  = (multiplier*lon.shape[1]/my_dpi)         
 #         height = (multiplier*lon.shape[0]/my_dpi)         
-        if len(plane_data) == 0 and grid_data == True and lon.shape[0] < 2000 and lon.shape[1] < 2000:
+        if len(plane_data) == 0 and grid_data == True and lon.shape[0] <= 2000 and lon.shape[1] <= 2000:
             if width <= 3.0 or height <= 3.0:
                 if width <= 1.0 or height <= 1.0:
                     mplier = 4
@@ -411,6 +422,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             ax1.set_facecolor(np.asarray([0.59375   , 0.71484375, 0.8828125 ]))
             ax1.add_feature(feature.LAND, edgecolor='lightgray', linewidth = 0.75, facecolor=feature.COLORS['land'])              #Adds filled land to the plot
             ax1.add_feature(feature.STATES, edgecolor='lightgray', linewidth = 0.75)         
+            ax1.add_feature(feature.BORDERS, edgecolor='lightgray', linewidth = 0.75)         
             if plane_data == None:
                 gl = ax1.gridlines(                                                                                               #Adds gridlines to the plot
                     draw_labels = True,                                                                                           
@@ -434,33 +446,33 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 
             if (mid_zen < 85.0) and no_plot_vis == False:         
                 if proj == None:
-                    if 'seviri' in nc_file:
+                    if 'seviri' in os.path.basename(nc_file):
                       out_img2 = ax1.contourf(lon, lat, ir_img, vmin = plt_ir_min, vmax = plt_ir_max, transform = ccrs.PlateCarree(), cmap = cpt_convert)        #Create image from 2-D layered image (IR data)
                       out_img  = ax1.pcolormesh(lon, lat, vis_img, vmin = 0.0, vmax = 1.0, transform = ccrs.PlateCarree(), cmap= 'gray', alpha = 0.7)#Create image from 2-D layered image (VIS data)
                     else:
                       if no_plot_glm == True:
-                          out_img2 = plt.imshow(ir_img, origin = 'upper', vmin = plt_ir_min, vmax = plt_ir_max, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
-                          out_img  = plt.imshow(vis_img, origin = 'upper', vmin = 0.0, vmax = 1.0, transform = crs, extent = extent0, cmap= 'gray', alpha = 0.7, interpolation = None)#Create image from 2-D layered image (VIS data)
+                          out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
+                          out_img  = plt.imshow(vis_img, origin = origin, vmin = 0.0, vmax = 1.0, transform = crs, extent = extent0, cmap= 'gray', alpha = 0.7, interpolation = None)#Create image from 2-D layered image (VIS data)
                       else:
-                          out_img2 = plt.imshow(glm_img, origin = 'upper', vmin = 0.0, vmax = 20.0, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
+                          out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
                     
                 else:
                     if no_plot_glm == True:
-                        out_img2 = plt.imshow(ir_img, origin = 'upper', vmin = plt_ir_min, vmax = plt_ir_max, transform =proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
-                        out_img  = plt.imshow(vis_img, origin = 'upper', vmin = 0.0, vmax = 1.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap= 'gray', alpha = 0.7, interpolation = None)#Create image from 2-D layered image (VIS data)
+                        out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform =proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
+                        out_img  = plt.imshow(vis_img, origin = origin, vmin = 0.0, vmax = 1.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap= 'gray', alpha = 0.7, interpolation = None)#Create image from 2-D layered image (VIS data)
                     else:
-                        out_img  = plt.imshow(glm_img, origin = 'upper', vmin = 0.0, vmax = 20.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap= cpt_convert, interpolation = None)#Create image from 2-D layered image (VIS data)
+                        out_img  = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap= cpt_convert, interpolation = None)#Create image from 2-D layered image (VIS data)
             else:                                                                                      
                 if proj == None:
                     if no_plot_glm == True:
-                        out_img2 = plt.imshow(ir_img, origin = 'upper', vmin = plt_ir_min, vmax = plt_ir_max, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)
+                        out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)
                     else:
-                        out_img2 = plt.imshow(glm_img, origin = 'upper', vmin = 0.0, vmax = 20.0, transform = ccrs.Geostationary(), extent = extent, cmap = cpt_convert, interpolation = None)
+                        out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = ccrs.Geostationary(), extent = extent, cmap = cpt_convert, interpolation = None)
                 else:
                     if no_plot_glm == True:
-                        out_img2 = plt.imshow(ir_img, origin = 'upper', vmin = plt_ir_min, vmax = plt_ir_max, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)
+                        out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)
                     else:
-                        out_img2 = plt.imshow(glm_img, origin = 'upper', vmin = 0.0, vmax = 20.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)
+                        out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)
  #           print('Plot ready')
 
             ir_raw_img2 = None
@@ -748,19 +760,19 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #                out_img  = plt.imshow(vis_img, vmin = 0.0, vmax = 1.0, cmap= 'gray', alpha = 0.7, interpolation = None, 'aspect' = aspect, extent = [0, len(lon), 0, len(lat)])#Create image from 2-D layered image (VIS data)
 #               out_img2 = plt.imshow(ir_img, vmin = 195, vmax = 230, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
                if no_plot_glm == True:
-                   out_img2 = plt.imshow(ir_img, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
-                   out_img  = plt.imshow(vis_img, vmin = 0.0, vmax = 1.0, cmap= 'gray', alpha = 0.6, interpolation = None, aspect = aspect)#Create image from 2-D layered image (VIS data)
+                   out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
+                   out_img  = plt.imshow(vis_img, origin = origin, vmin = 0.0, vmax = 1.0, cmap= 'gray', alpha = 0.6, interpolation = None, aspect = aspect)#Create image from 2-D layered image (VIS data)
 #                   out_img  = plt.imshow(vis_img, vmin = 0.0, vmax = 100.0, cmap= 'gray', alpha = 0.6, interpolation = None, aspect = aspect)#Create image from 2-D layered image (VIS data) SEVIRI right now needs to 100
                else:
-                   out_img2 = plt.imshow(glm_img, vmin = 0.0, vmax = 20.0, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
+                   out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
             else:
 #                 out_img  = plt.imshow(vis_img*0.0, vmin = 0.0, vmax = 1.0, cmap= 'gray', interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])         #Create image from 2-D layered image (VIS data)
 #                 out_img2 = plt.imshow(ir_img, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
                 if no_plot_glm == True:
-                    out_img  = plt.imshow(vis_img*0.0, vmin = 0.0, vmax = 1.0, cmap= 'gray', interpolation = None, aspect = aspect)         #Create image from 2-D layered image (VIS data)
-                    out_img2 = plt.imshow(ir_img, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
+                    out_img  = plt.imshow(vis_img*0.0, origin = origin, vmin = 0.0, vmax = 1.0, cmap= 'gray', interpolation = None, aspect = aspect)         #Create image from 2-D layered image (VIS data)
+                    out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
                 else:
-                    out_img2 = plt.imshow(glm_img, vmin = 0.0, vmax = 20.0, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
+                    out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
             zen     = None
             ir_img  = None
             vis_img = None
