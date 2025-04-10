@@ -49,6 +49,7 @@ from scipy.ndimage import label, generate_binary_structure
 import xarray as xr
 from datetime import datetime, timedelta
 import requests
+import time
 from netCDF4 import Dataset
 import pandas as pd
 import pygrib
@@ -69,6 +70,7 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                                              use_local       = True, write_gcs = False, del_local = True,
                                              c_bucket_name   = 'ir-vis-sandwhich',
                                              m_bucket_name   = 'misc-data0',
+                                             sector          = 'F', 
                                              rewrite         = True,
                                              real_time       = False,
                                              verbose         = True):
@@ -121,55 +123,77 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
         outroot = os.path.realpath(outroot)                                                                                                            #Create link to real path so compatible with Mac
         os.makedirs(outroot, exist_ok = True)                                                                                                          #Create output directory file path if does not already exist
     
-    if real_time == True:        
+    if real_time:        
         day_earlier = datetime.strptime(d_str, "%Y%m%d")-timedelta(seconds = 30)
-        if use_local == True:
-            gfs_files = sorted(glob.glob(os.path.join(gfs_root, str(day_earlier.year), day_earlier.strftime("%Y%m%d"), '*pgrb2*'), recursive = True))  #Search for all GFS model files
-            gfs_files.extend(sorted(glob.glob(os.path.join(gfs_root, yyyy, d_str, '*pgrb2*'), recursive = True)))                                      #Search for all GFS model files
+        if use_local:
+#             gfs_files = sorted(glob.glob(os.path.join(gfs_root, str(day_earlier.year), day_earlier.strftime("%Y%m%d"), '*pgrb2*'), recursive = True))  #Search for all GFS model files
+#             gfs_files.extend(sorted(glob.glob(os.path.join(gfs_root, yyyy, d_str, '*pgrb2*'), recursive = True)))                                      #Search for all GFS model files
+            gfs_files = sorted(glob.glob(os.path.join(gfs_root, str(day_earlier.year), day_earlier.strftime("%Y%m%d"), '*.grib2'), recursive = True))  #Search for all GFS model files
+            gfs_files.extend(sorted(glob.glob(os.path.join(gfs_root, yyyy, d_str, '*.grib2'), recursive = True)))                                      #Search for all GFS model files
         else:
-            gfs_files = sorted(list_gcs(m_bucket_name, os.path.join('gfs-data', str(day_earlier.year), day_earlier.strftime("%Y%m%d"), ['.pgrb2'], delimiter = '*')))                                                     #Extract names of all of the GOES visible data files from the google cloud    
-            gfs_files.extend(sorted(list_gcs(m_bucket_name, os.path.join('gfs-data', yyyy, d_str), ['.pgrb2'], delimiter = '*')))                      #Extract names of all of the GOES visible data files from the google cloud    
+#             gfs_files = sorted(list_gcs(m_bucket_name, os.path.join('gfs-data', str(day_earlier.year), day_earlier.strftime("%Y%m%d"), ['.pgrb2'], delimiter = '*')))                                                     #Extract names of all of the GOES visible data files from the google cloud    
+#             gfs_files.extend(sorted(list_gcs(m_bucket_name, os.path.join('gfs-data', yyyy, d_str), ['.pgrb2'], delimiter = '*')))                      #Extract names of all of the GOES visible data files from the google cloud    
+            gfs_files = sorted(list_gcs(m_bucket_name, os.path.join('gfs-data', str(day_earlier.year), day_earlier.strftime("%Y%m%d"), ['.grib2'], delimiter = '*')))                                                     #Extract names of all of the GOES visible data files from the google cloud    
+            gfs_files.extend(sorted(list_gcs(m_bucket_name, os.path.join('gfs-data', yyyy, d_str), ['.grib2'], delimiter = '*')))                      #Extract names of all of the GOES visible data files from the google cloud    
     else:
-        if use_local == True:
+        if use_local:
             gfs_files = sorted(glob.glob(os.path.join(gfs_root, '**', '**', '*.grib2'), recursive = True))                                             #Search for all GFS model files
+            if len(gfs_files) <= 0:
+                gfs_files = sorted(glob.glob(os.path.join(gfs_root, '**', '**', '*.f000*'), recursive = True))                                         #Search for all GFS model files
+                gfs_files = [fff for fff in gfs_files if not fff.endswith('.idx')]
         else:
             gfs_files = sorted(list_gcs(m_bucket_name, 'gfs-data', ['.grib2'], delimiter = '*/*'))                                                     #Extract names of all of the GOES visible data files from the google cloud   
    
     if len(gfs_files) <= 0:
-        print('No files found in specified directory???')
+        print('No GFS files found in specified directory???')
+        print(gfs_files)
         print(d_str)
-        if use_local == True:
+        if use_local:
             print(gfs_root)
         else:
             print(m_bucket_name)
         exit()
 
-    if use_local == True:    
-        nc_files = sorted(glob.glob(os.path.join(inroot, '*.nc')))                                                                                     #Find netCDF files to postprocess
+    if use_local:    
+        nc_files = sorted(glob.glob(os.path.join(inroot, '*_' + sector.upper() + '_*.nc')))                                                            #Find netCDF files to postprocess
     else:
         if 'native_ir' in inroot:
             pref = os.path.join(os.path.basename(os.path.dirname(os.path.dirname(inroot))), os.path.basename(os.path.dirname(inroot)), os.path.basename(inroot))#Find netCDF files in GCP bucket to postprocess        
         else:
             pref = os.path.join(os.path.basename(os.path.dirname(inroot)), os.path.basename(inroot))                                                   #Find netCDF files in GCP bucket to postprocess
-        nc_files = sorted(list_gcs(c_bucket_name, pref, ['.nc']))                                                                                      #Extract names of all of the GOES visible data files from the google cloud   
+        nc_files = sorted(list_gcs(c_bucket_name, pref, ['_' + sector.upper() + '_', '.nc']))                                                          #Extract names of all of the GOES visible data files from the google cloud   
     
     if len(nc_files) <= 0:
+        print('Combined netCDF files')
+        print(nc_files)        
+        print(sector)
         print('No files found in specified directory???')
-        if use_local == True:
+        if use_local:
             print(inroot)
         else:
             print(c_bucket_name)
             print(pref)
         exit()
-    
-    if real_time == True:
+
+    if real_time:
         gfs_files = [gfs_files[-1]]
         nc_files  = [nc_files[-1]]
-        gdates    = [os.path.basename(os.path.dirname(gfs_files[0])) + (re.split('\.|t|z', os.path.basename(g)))[2] for g in gfs_files]                #Extract date of the nearest GFS file
+        if gfs_files[0].endswith('.grib2'):
+            gdates    = [(re.split('\.', os.path.basename(gfs_files[0])))[2]]                                                                          #Extract date of the nearest GFS file
+        else:
+            gdates    = [os.path.basename(os.path.dirname(gfs_files[0])) + (re.split('\.|t|z', os.path.basename(g)))[2] for g in gfs_files]            #Extract date of the nearest GFS file
         gdate     = datetime.strptime(gdates[0], "%Y%m%d%H")
     else:
-        gdates = [(re.split('\.', os.path.basename(g)))[2] for g in gfs_files]                                                                         #Extract date of all GFS files
-    
+#        gdates = [(re.split('\.', os.path.basename(g)))[2] for g in gfs_files]                                                                        #Extract date of all GFS files
+        gfs_files = sorted(list(set(gfs_files)))
+        gdates = []
+        for gg in gfs_files:
+            if gg.endswith('.grib2'):
+                gdates.append((re.split('\.', os.path.basename(gg)))[2])
+            else:
+                gdates.append(os.path.basename(os.path.dirname(gg)) + (re.split('\.|t|z', os.path.basename(gg)))[2])                                   #Extract date of all GFS files
+#                gdates = [os.path.basename(os.path.dirname(g)) + (re.split('\.|t|z', os.path.basename(g)))[2] for g in gfs_files]                          #Extract date of all GFS files
+
     lanczos_kernel0 = lanczos_kernel(7, 3)                                                                                                             #Define the Lanczos kernel (kernel size = 7x7; cutoff frequency = 3)
     lats    = []                                                                                                                                       #Initialize array to store latitudes and longitudes from GFS. If I have read it, then I do not need to read it again
     lons    = []                                                                                                                                       #Initialize array to store latitudes and longitudes from GFS. If I have read it, then I do not need to read it again
@@ -185,6 +209,7 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
 
         check  = 0
         nc_dct = {}
+        con_files = []                                                                                                                                 #List to store contributing files to make the tropopause temperature. If contributing files are the same as before then no need to rewrite to netCDF
         with xr.open_dataset(os.path.join(inroot, os.path.basename(nc_file))).load() as f:    
             dt64  = pd.to_datetime(f['time'].values[0])                                                                                                #Read in the date of satellite scan and convert it to Timestamp
             date  = datetime(dt64.year, dt64.month, dt64.day, dt64.hour, dt64.minute, dt64.second)                                                     #Convert Timestamp to datetime structure
@@ -194,6 +219,7 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
             for var_key in var_keys:
                 if 'tropopause_temperature' in var_key:                                                                                                #Check to see if tropopause temperature was already written to combined netCDF file
                     check = 1                                                                                                                          #Set check to 1
+                    con_files = f['tropopause_temperature'].attrs['contributing_files']
 #             try:
 #                 xyres = f.spatial_resolution
 #             except:
@@ -218,23 +244,30 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                 try:
                     gfs_file0 = gfs_files[gdates.index(nd_str0)]                                                                                       #Find file that matches date string
                 except:
-                    no_f0 = 1            
+                    no_f0 = 1
+                    gfs_file0 = ''         
     
                 no_f1 = 0
                 try:
                     gfs_file1 = gfs_files[gdates.index(nd_str1)]                                                                                       #Find file that matches date string
                 except:
-                    no_f1 = 1            
+                    no_f1 = 1
+                    gfs_file1 = ''          
+                
+                if no_f0 == 1 and no_f1 == 1:
+                    print('No file found for previous or future GFS file date??')
+                    print(nd_str0)
+                    exit()
                 
                 if no_f0 == 1:
                     print('No file found for previous GFS file date??')
                     print(nd_str0)
-                    exit()
+#                    exit()
     
                 if no_f1 == 1:
                     print('No file found for future GFS file date??')
                     print(nd_str1)
-                    exit()
+#                    exit()
             else:
                 if abs(gdate - date) <= timedelta(seconds = 12*60*60):
                     gfs_file0 = gfs_files[0]    
@@ -249,80 +282,129 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                        
             gfile0 = gfs_file0
             gfile1 = gfs_file1
-            if use_local == False:
-                gfile0 = os.path.join(gfs_root, os.path.basename(os.path.dirname(os.path.dirname(gfs_file0))), os.path.basename(os.path.dirname(gfs_file0)), os.path.basename(gfs_file0))
-                gfile1 = os.path.join(gfs_root, os.path.basename(os.path.dirname(os.path.dirname(gfs_file1))), os.path.basename(os.path.dirname(gfs_file1)), os.path.basename(gfs_file1))
-                if os.path.isfile(gfile0) == False:
-                    os.makedirs(os.path.dirname(gfile0), exist_ok = True)
-                    download_ncdf_gcs(m_bucket_name, gfs_file0, os.path.dirname(gfile0))                                                               #Download netCDF file from GCP
-
-                if os.path.isfile(gfile1) == False:
-                    os.makedirs(os.path.dirname(gfile1), exist_ok = True)
-                    download_ncdf_gcs(m_bucket_name, gfs_file1, os.path.dirname(gfile1))                                                               #Download netCDF file from GCP
-
-            p0 = 0
-            p1 = 0
-            gfile0 = gfile0
-            gfile1 = gfile1
-            if gfile0 != gfile00:
-                if gfile0 == gfile11:
-                    tropT0 = np.copy(tropT1)
+       
+            nowrite = False
+            if check and not real_time and len(con_files) > 0:
+                if len(con_files) == 1:
+                     if os.path.basename(gfs_file0) == os.path.basename(con_files[0]) or os.path.basename(gfs_file1) == os.path.basename(con_files[0]):
+#                         print(gfs_file0)
+#                         print(gfs_file1)
+#                         print(con_files)
+                        nowrite = True
                 else:
-                    grbs   = pygrib.open( gfile0 )                                                                                                     #Open Grib file to read
-                    grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                              #Extract tropopause temperatures from the GRIB file
-                    tropT0 = np.copy(grb.values)                                                                                                       #Copy tropopause temperatures from backward date into array
-                    tropT0 = np.flip(tropT0, axis = 0)                                                                                                 #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                    tropT0 = circle_mean_with_offset(tropT0, 10, 0.6)        
-                    p0     = 1
-                gfile00 = gfile0
-                
-            if len(lats) <= 0:
-                lats, lons = grb.latlons()                                                                                                             #Extract GFS latitudes and longitudes
-                lats  = np.flip(lats[:, 0])                                                                                                            #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                lons  = convert_longitude(lons[0, :], to_model = True)
-                lons  = (np.asarray(lons)).tolist()
-                lats  = (np.asarray(lats)).tolist()
-                
-            if gfile1 != gfile11 and real_time == False:
-                grbs1   = pygrib.open( gfile1 )                                                                                                        #Open Grib file to read
-                grb1    = grbs1.select(name='Temperature', typeOfLevel='tropopause')[0]                                                                #Extract tropopause temperatures from the GRIB file
-                tropT1  = np.copy(grb1.values)                                                                                                         #Copy tropopause temperatures from forward date into array
-                tropT1  = np.flip(tropT1, axis = 0)                                                                                                    #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                tropT1  = circle_mean_with_offset(tropT1, 10, 0.6)        
-                gfile11 = gfile1
-                p1      = 1
-            
-            if real_time == True:
-                tropT = tropT0
-                files_used = [gfile00]
-            else:    
-                files_used = [gfile00, gfile11]
-                dt = near_date1 - near_date0                                                                                                           #Time difference between GFS data intervals
-                if dt == 0:
-                    wt = (date - near_date0)/dt                                                                                                        #Calculate time weight
-                    tropT = (1.0 - wt)*tropT0 + wt*tropT1                                                                                              #Interpolate data in time
-                else:
-                    tropT = tropT0
-            tropT_fin = convolve(tropT, lanczos_kernel0)                                                                                               #Apply Lanczos kernel to the interpolated data 
-            goes_trop_data = interpn((lats, lons), tropT_fin, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
-            if p0 == 1:
-                grbs.close()
-#                print('Closing Grib file 0')
-            if p1 == 1:
-                grbs1.close()
-#                print('Closing Grib file 1')
-
-            append_combined_ncdf_with_gfs_trop_temp(os.path.join(inroot, os.path.basename(nc_file)), goes_trop_data, files_used = files_used, rewrite = rewrite, verbose = verbose)
-            if write_gcs == True:
-                if use_local == True:
-                    if 'native_ir' in inroot:
-                        pref = 'combined_nc_dir/native_ir/' + os.path.basename(os.path.dirname(nc_file))                    
+                    if os.path.basename(gfs_file0) == os.path.basename(con_files[0]) and os.path.basename(gfs_file1) == os.path.basename(con_files[1]):
+#                         print(gfs_file0)
+#                         print(gfs_file1)
+#                         print(con_files)
+                        nowrite = True
+                     
+            if not nowrite:
+                if use_local == False:
+                    gfile0 = os.path.join(gfs_root, os.path.basename(os.path.dirname(os.path.dirname(gfs_file0))), os.path.basename(os.path.dirname(gfs_file0)), os.path.basename(gfs_file0))
+                    gfile1 = os.path.join(gfs_root, os.path.basename(os.path.dirname(os.path.dirname(gfs_file1))), os.path.basename(os.path.dirname(gfs_file1)), os.path.basename(gfs_file1))
+                    if os.path.isfile(gfile0) == False:
+                        os.makedirs(os.path.dirname(gfile0), exist_ok = True)
+                        download_ncdf_gcs(m_bucket_name, gfs_file0, os.path.dirname(gfile0))                                                           #Download netCDF file from GCP
+    
+                    if os.path.isfile(gfile1) == False:
+                        os.makedirs(os.path.dirname(gfile1), exist_ok = True)
+                        download_ncdf_gcs(m_bucket_name, gfs_file1, os.path.dirname(gfile1))                                                           #Download netCDF file from GCP
+    
+                p0 = 0
+                p1 = 0
+                gfile0 = gfile0
+                gfile1 = gfile1
+                if gfile0 != '':
+                    if gfile0 != gfile00:
+                        if gfile0 == gfile11:
+                            tropT0 = np.copy(tropT1)
+                        else:
+                            grbs   = pygrib.open( gfile0 )                                                                                             #Open Grib file to read
+                            grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                      #Extract tropopause temperatures from the GRIB file
+                            tropT0 = np.copy(grb.values)                                                                                               #Copy tropopause temperatures from backward date into array
+                            tropT0 = np.flip(tropT0, axis = 0)                                                                                         #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                    #        tropT0 = weighted_cold_bias(tropT0, 5, weight=0.3)
+                            tropT0 = circle_mean_with_offset(tropT0, 20, -0.6)        
+                            p0     = 1
+                        gfile00 = gfile0
+                    
+                    if len(lats) <= 0:
+                        lats, lons = grb.latlons()                                                                                                     #Extract GFS latitudes and longitudes
+                        lats  = np.flip(lats[:, 0])                                                                                                    #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                        lons  = convert_longitude(lons[0, :], to_model = True)
+#                         lons  = (np.asarray(lons)).tolist()
+#                         lats  = (np.asarray(lats)).tolist()
+                    
+                if gfile1 != gfile11 and real_time == False:
+                    if gfile1 != '':
+                        grbs1   = pygrib.open( gfile1 )                                                                                                #Open Grib file to read
+                        grb1    = grbs1.select(name='Temperature', typeOfLevel='tropopause')[0]                                                        #Extract tropopause temperatures from the GRIB file
+                        tropT1  = np.copy(grb1.values)                                                                                                 #Copy tropopause temperatures from forward date into array
+                        tropT1  = np.flip(tropT1, axis = 0)                                                                                            #Put latitudes in ascending order in order to be interpolated onto satellite grid
+             #           tropT1  = weighted_cold_bias(tropT1, 5, weight=0.3)
+                        tropT1  = circle_mean_with_offset(tropT1, 20, -0.6)        
+                        gfile11 = gfile1
+                        p1      = 1
+                    if gfile0 == '':
+                        if len(lats) <= 0:
+                            lats, lons = grb.latlons()                                                                                                 #Extract GFS latitudes and longitudes
+                            lats  = np.flip(lats[:, 0])                                                                                                #Put latitudes in ascending order in order to be interpolated onto satellite grid
+                            lons  = convert_longitude(lons[0, :], to_model = True)
+                    
+                    
+                if real_time or gfile1 == '' or gfile0 == '':
+                    if real_time or gfile1 == '':
+                        tropT = tropT0
+                        files_used = [os.path.realpath(gfile00)]
+                    elif gfile0 == '':
+                        tropT = tropT1
+                        files_used = [os.path.realpath(gfile11)]
+                else:    
+                    files_used = [os.path.realpath(gfile00), os.path.realpath(gfile11)]
+                    dt = near_date1 - near_date0                                                                                                       #Time difference between GFS data intervals
+#                    if dt == 0:
+                    if dt != timedelta(seconds = 0):
+                        wt = (date - near_date0)/dt                                                                                                    #Calculate time weight
+                        tropT = (1.0 - wt)*tropT0 + wt*tropT1                                                                                          #Interpolate data in time
                     else:
-                        pref = 'combined_nc_dir/' + os.path.basename(os.path.dirname(nc_file))
-                else:
-                    pref = os.path.dirname(nc_file)
+                        tropT = tropT0
 
-                write_to_gcs(c_bucket_name, pref, os.path.join(inroot, os.path.basename(nc_file)), del_local = del_local)    
+                #Longitude wraparound padding
+                N_wrap = 10                                                                                                                            #Number of grid points to duplicate on each side (tweak as needed)
+                
+                #Extend longitudes (pad with wraparound)
+                lons_extended = np.concatenate((
+                    lons[-N_wrap:] - 360,                                                                                                              #Left pad (negative side)
+                    lons,
+                    lons[:N_wrap] + 360                                                                                                                #Right pad (beyond 360)
+                ))
+                
+                #Extend tropT to match padded longitudes
+                tropT_extended = np.concatenate((
+                    tropT[:, -N_wrap:],                                                                                                                #Left pad
+                    tropT,
+                    tropT[:, :N_wrap]                                                                                                                  #Right pad
+                ), axis=1)
+                
+                #Apply Lanczos kernel
+                tropT_fin = convolve(tropT_extended, lanczos_kernel0)
+                goes_trop_data = interpn((lats, lons_extended), tropT_fin, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+                if p0 == 1:
+                    grbs.close()
+                if p1 == 1:
+                    grbs1.close()
+    
+                append_combined_ncdf_with_gfs_trop_temp(os.path.join(inroot, os.path.basename(nc_file)), goes_trop_data, files_used = files_used, rewrite = rewrite, verbose = verbose)
+                if write_gcs:
+                    if use_local:
+                        if 'native_ir' in inroot:
+                            pref = 'combined_nc_dir/native_ir/' + os.path.basename(os.path.dirname(nc_file))                    
+                        else:
+                            pref = 'combined_nc_dir/' + os.path.basename(os.path.dirname(nc_file))
+                    else:
+                        pref = os.path.dirname(nc_file)
+    
+                    write_to_gcs(c_bucket_name, pref, os.path.join(inroot, os.path.basename(nc_file)), del_local = del_local)    
         
 def append_combined_ncdf_with_gfs_trop_temp(nc_file, tropT, files_used = [], rewrite = True, verbose = True):
   '''
@@ -378,6 +460,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
                                 c_bucket_name   = 'ir-vis-sandwhich',
                                 write_gcs       = False,
                                 del_local       = True,
+                                real_time       = False,
                                 verbose         = True):
     '''
     This is a function to to download selected files with date range from rda.ucar.edu 
@@ -409,6 +492,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
     date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                     #Extract maximum time of GFS files required to download to encompass data date range
   #  aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
     files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
+    files = [f for f in files if not f.endswith('.idx')]
    # download the data file(s)
     if verbose == True:
         print('Downloading GFS files to extract tropopause temperatures.')
@@ -423,13 +507,34 @@ def download_gfs_analysis_files(date_str1, date_str2,
         
         outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
         if os.path.exists(os.path.join(outdir, ofile)) == False:
-            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
-            if response.status_code != 404:
+            #Old?                        
+#            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
+            #New path?
+            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            if verbose:
+                print(response)
+                print(response.status_code)
+                print(file)
+            if response.status_code == 200:
                 os.makedirs(outdir, exist_ok = True)
                 with open(os.path.join(outdir, ofile), "wb") as f:
                     f.write(response.content)
             else:
-                print('No GFS files found to calculate tropopause temperature for post-processing')
+                time.sleep(1)
+                #Old?                        
+#                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
+                #New path?
+                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                if verbose:
+                    print(response)
+                    print(response.status_code)
+                    print(file)
+                if response.status_code == 200:
+                    os.makedirs(outdir, exist_ok = True)
+                    with open(os.path.join(outdir, ofile), "wb") as f:
+                        f.write(response.content)
+                else:                
+                    print('No GFS files found to calculate tropopause temperature for post-processing')
             
 def gfs_nearest_time(date, dt, ROUND = 'round'):
     '''
@@ -474,7 +579,7 @@ def circle_mean_with_offset(arr, radius, offset):
     def circle_mean(x):
         return(np.mean(x) + offset * np.std(x))
     
-    return(generic_filter(arr, circle_mean, size=2*radius+1))
+    return(generic_filter(arr, circle_mean, size=2*radius+1, mode='wrap'))
 
 
 
@@ -513,6 +618,13 @@ def lanczos_kernel(size, cutoff):
 
     return(kernel / kernel.sum())
 
+def weighted_cold_bias(arr, radius, weight=0.1):
+    def func(x):
+        sorted_vals = np.sort(x)
+        idx = max(0, int(weight * len(sorted_vals)))  # Avoid index errors
+        return(sorted_vals[idx])  # Pick a colder value
+    return(generic_filter(arr, func, size=2*radius+1, mode='wrap'))
+    
 def main():
     run_write_gfs_trop_temp_to_combined_ncdf()
     
