@@ -239,6 +239,8 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 proj_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'data', 'sat_projection_files')
                 if sat == 'goes18':
                   sat = 'goes17'
+                if sat == 'goes19':
+                  sat = 'goes16'
                 if 'RadC' in os.path.basename(ir_file):
                     proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
 #                    proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'conus_scan_projections.nc')
@@ -320,16 +322,6 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
 #             coszen1 = np.cos(zen1)
 #             print(np.max(abs(coszen1 - coszen)))
 
-#         t0 = time.time()
-#         zen1     = math.radians(astronomy.sun_zenith_angle(date, lon_arr, lat_arr))
-#         print(str(time.time() - t0) + 'sec')
-#         t0 = time.time()
-#         zen     = calc_solar_zenith_angle(lon_arr, lat_arr, date)                                                                           #Returns zenith angle (radians)
-#         print(str(time.time() - t0) + 'sec')
-#         print(np.max(abs(zen1 - zen)))
-#         coszen = np.cos(zen)
-#         coszen1 = np.cos(zen1)
-#         print(np.max(abs(coszen1 - coszen)))
 
             # dimension declaration
             f.createDimension('Y',     lon_arr.shape[0])
@@ -428,7 +420,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_ir.set_auto_maskandscale( False )
             pat  = ''
             pat2 = ''
-            if os.path.isfile(glm_file) == True and no_write_glm == False: 
+            if os.path.isfile(glm_file) == True and no_write_glm == False:
                 var_glm   = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'GLM_Y', 'GLM_X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_glm.set_auto_maskandscale( False )
                 long_name = str('Flash extent density within +/- 2.5 min of time variable' + pat + pat2)
