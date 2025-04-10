@@ -83,6 +83,8 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
                                              no_dirtyir   = True, 
                                              no_shortwave = True, 
                                              no_wv        = True,
+                                             no_veggie    = True,
+                                             no_blue      = True,
                                              gcs_bucket   = None,
                                              del_local    = False,
                                              verbose      = True):
@@ -173,6 +175,7 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
         date2 = date1                                                                                                                                                       #Default set end date to start date
         rt    = True                                                                                                                                                        #Real-time download flag
  #       if verbose == True: print('Downloading in real-time: ' + date1.strftime("%Y-%m-%d-%H-%M-%S/"))
+    
     else:
         date1 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                               #Year-month-day hour:minute:second of start time to download data
         rt    = False                                                                                                                                                       #Real-time download flag
@@ -181,7 +184,10 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
         else:
             date2 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                           #Year-month-day hour:minute:second of end time to download data
         if verbose == True: print('Downloading dates : ' + date1.strftime("%Y-%m-%d-%H-%M-%S") + ' - ' + date2.strftime("%Y-%m-%d-%H-%M-%S"))
-    
+    if sat.lower() == 'goes-16':
+        if date2 >= datetime(2025, 4, 7, 15):
+            print('GOES-16 stopped operating on 2025-04-07 at 15Z. You likely want to use GOES-19')
+            exit()
     if verbose == True: print('Files downloaded to outroot ' + outroot)
     outroot0 = []
     date     = date1
@@ -239,6 +245,54 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
             else:
                 print('No VIS files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
         
+        if no_blue == False:
+            files  = list_gcs(bucket_name, iv_prefix, ['C01', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                            #Extract list of IR files that match product and date
+            if len(files) == 0 and rt == True:
+                print('Waiting for VIS C01 files to be available online')
+                while True:
+                    files  = list_gcs(bucket_name, iv_prefix, ['C01', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                    #Extract list of VIS files that match product and date
+                    if len(files) > 0:
+                        break
+            
+            if len(files) > 0:
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'blue') 
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: 
+                    files = [files[-1]]                                                                                                                                     #Download only the last IR file
+                for i in files:
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download IR file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'blue')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+#                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
+            else:
+                print('No Channel 1 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
+
+        if no_veggie == False:
+            files  = list_gcs(bucket_name, iv_prefix, ['C03', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                            #Extract list of IR files that match product and date
+            if len(files) == 0 and rt == True:
+                print('Waiting for VIS C03 files to be available online')
+                while True:
+                    files  = list_gcs(bucket_name, iv_prefix, ['C03', 's{}{:03d}{:02d}'.format(date.year, day_num, date.hour), sector0])                                    #Extract list of VIS files that match product and date
+                    if len(files) > 0:
+                        break
+            
+            if len(files) > 0:
+                outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'veggie') 
+                os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
+                if rt == True: 
+                    files = [files[-1]]                                                                                                                                     #Download only the last IR file
+                for i in files:
+                    if del_local == False:
+                        outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download IR file to outdir
+                    if gcs_bucket != None:
+                        pref = os.path.join(date.strftime("%Y%m%d"), 'veggie')
+                        copy_blob_gcs(bucket_name, i, gcs_bucket, os.path.join(pref, os.path.basename(i)))
+#                        write_to_gcs(gcs_bucket, pref, outfile, del_local = del_local)                                                                                      #Write locally stored files to a google cloud storage bucket
+            else:
+                print('No Channel 3 files found for {}'.format(date.strftime("%Y-%m-%d-%H-%M-%S")))
+
         if no_dirtyir == False:    
             if rt == True and no_ir == False:
                 fb     = re.split('_s|_', os.path.basename(files[0]))[3]
