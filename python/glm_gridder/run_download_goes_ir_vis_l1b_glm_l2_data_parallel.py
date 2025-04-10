@@ -168,6 +168,11 @@ def run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1        = None, date2
             date2 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                           #Year-month-day hour:minute:second of start time to download data
         if verbose == True: print('Downloading dates : ' + date1.strftime("%Y-%m-%d-%H-%M-%S") + ' - ' + date2.strftime("%Y-%m-%d-%H-%M-%S"))
     
+    if sat.lower() == 'goes-16':
+        if date2 >= datetime(2025, 4, 7, 15):
+            print('GOES-16 stopped operating on 2025-04-07 at 15Z. You likely want to use GOES-19')
+            exit()
+    
     if verbose == True: print('Files downloaded to outroot ' + outroot)
     date      = date1
     date_list = [date + timedelta(hours = x) for x in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1)]                                             #Extract all dates between date1 and date2 based on hour of satellite scan
