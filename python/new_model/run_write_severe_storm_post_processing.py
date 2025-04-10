@@ -61,13 +61,14 @@ import pandas as pd
 import pygrib
 import warnings
 import sys
+import time
 sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(3, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, list_gcs, download_ncdf_gcs
 #from glm_gridder.dataScaler import DataScaler
 from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, convert_longitude
-from new_model.run_write_gfs_trop_temp_to_combined_ncdf import lanczos_kernel, circle_mean_with_offset
+from new_model.run_write_gfs_trop_temp_to_combined_ncdf import lanczos_kernel, circle_mean_with_offset, weighted_cold_bias
 #from visualize_results.gfs_contour_trop_temperature import gfs_contour_trop_temperature
 def run_write_severe_storm_post_processing(inroot          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516'),
                                            gfs_root        = os.path.join('..', '..', '..', 'gfs-data'),
@@ -159,6 +160,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         gfs_files = sorted(glob.glob(os.path.join(gfs_root, '**', '**', '*.grib2'), recursive = True))                                                 #Search for all GFS model files
     else:
         gfs_files = sorted(list_gcs(m_bucket_name, 'gfs-data', ['.grib2'], delimiter = '*/*'))                                                         #Extract names of all of the GOES visible data files from the google cloud   
+
     gdates = [(re.split('\.', os.path.basename(g)))[2] for g in gfs_files]
     sector = ''.join(e for e in sector if e.isalnum())                                                                                                 #Remove any special characters or spaces.
     if sector[0].lower() == 'm':
@@ -170,6 +172,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         sector    = 'C'
     elif sector[0].lower() == 'f': 
         sector    = 'F'
+    elif sector[0].lower() == 'q' or sector[0].lower() == 'h' or sector[0].lower() == 't': 
+        sector    = sector.upper()
     else:
         print('Satellite sector specified is not available. Enter M1, M2, F, or C. Please try again.')
         print()
@@ -351,13 +355,37 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                   tropT = np.copy(grb.values)                                                                                          #Copy tropopause temperatures from backward date into array
                                   lats, lons = grb.latlons()                                                                                           #Extract GFS latitudes and longitudes
                                   tropT = np.flip(tropT, axis = 0)                                                                                     #Put latitudes in ascending order in order to be interpolated onto satellite grid
-                                  tropT = circle_mean_with_offset(tropT, 10, 0.6)        
+#                                   tropT = weighted_cold_bias(tropT, 5, weight=0.2)
+                                  tropT = circle_mean_with_offset(tropT, 20, -0.6)        
                                   lats  = np.flip(lats[:, 0])                                                                                          #Put latitudes in ascending order in order to be interpolated onto satellite grid
                                   lons  = convert_longitude(lons[0, :], to_model = True)
-                                  lons  = (np.asarray(lons)).tolist()
-                                  lats  = (np.asarray(lats)).tolist()
-                                  tropT = convolve(tropT, lanczos_kernel0)                                                                             #Apply Lanczos kernel to the interpolated data 
-                                  tropT2 = interpn((lats, lons), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+#                                   lons  = (np.asarray(lons)).tolist()
+#                                   lats  = (np.asarray(lats)).tolist()
+#                                   tropT = convolve(tropT, lanczos_kernel0)                                                                             #Apply Lanczos kernel to the interpolated data 
+#                                   tropT2 = interpn((lats, lons), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+
+
+                                  #Longitude wraparound padding
+                                  N_wrap = 10                                                                                                          #Number of grid points to duplicate on each side (tweak as needed)
+                                  
+                                  #Extend longitudes (pad with wraparound)
+                                  lons_extended = np.concatenate((
+                                      lons[-N_wrap:] - 360,                                                                                            #Left pad (negative side)
+                                      lons,
+                                      lons[:N_wrap] + 360                                                                                              #Right pad (beyond 360)
+                                  ))
+                              
+                                  #Extend tropT to match padded longitudes
+                                  tropT_extended = np.concatenate((
+                                      tropT[:, -N_wrap:],                                                                                              #Left pad
+                                      tropT,
+                                      tropT[:, :N_wrap]                                                                                                #Right pad
+                                  ), axis=1)
+                              
+                                  #Apply Lanczos kernel
+                                  tropT_extended = convolve(tropT_extended, lanczos_kernel0)
+                                  tropT2 = interpn((lats, lons_extended), tropT_extended, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+
                                   grbs.close()
                                   gfsf   = gfs_file
                                   x_sat0 = x_sat
@@ -374,9 +402,9 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                   else:
                                     #If interpolating to different latitudes and longitudes then need to interpolate (if not, use the same TropT2 as previous loop iteration
                                     if np.nanmax(np.abs(x_sat - x_sat0)) != 0 or np.nanmax(np.abs(y_sat - y_sat0)) != 0:
-                                      tropT2 = interpn((lats, lons), tropT, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
+                                      tropT2 = interpn((lats, lons_extended), tropT_extended, (y_sat, x_sat), method = 'linear', bounds_error = False, fill_value = np.nan)
                                     
-                                files_used = [gfs_file]
+                                files_used = [os.path.realpath(gfs_file)]
                             else:
                                 tropT2 = res*np.nan
                         else:
@@ -437,6 +465,7 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
           f[vname + '_anvilmean_brightness_temperature_difference'][0, :, :] = btd
           if pthresh != None:
             f[vname + '_anvilmean_brightness_temperature_difference'].likelihood_threshold = pthresh
+        
         if 'tropopause_temperature' not in vnames and np.sum(np.isfinite(tropT)) > 0:
           var_mod3 = f.createVariable('tropopause_temperature', 'f4', ('time', 'Y', 'X',), zlib = True, least_significant_digit = 2, complevel = 7)#, fill_value = Scaler._FillValue)
           var_mod3.set_auto_maskandscale( False )
@@ -530,6 +559,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
                                 c_bucket_name   = 'ir-vis-sandwhich',
                                 write_gcs       = False,
                                 del_local       = True,
+                                real_time       = False,
                                 verbose         = True):
     '''
     This is a function to to download selected files with date range from rda.ucar.edu 
@@ -564,6 +594,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
     date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                     #Extract maximum time of GFS files required to download to encompass data date range
   #  aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
     files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
+
    # download the data file(s)
     if verbose == True:
         print('Downloading GFS files to extract tropopause temperatures.')
@@ -578,13 +609,40 @@ def download_gfs_analysis_files(date_str1, date_str2,
         
         outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
         if os.path.exists(os.path.join(outdir, ofile)) == False:
-            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
-            if response.status_code != 404:
+            #Old?            
+#            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
+            #New path?
+            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            if verbose:
+                print(response)
+                print(response.status_code)
+                print(file)
+            if response.status_code == 200:
                 os.makedirs(outdir, exist_ok = True)
                 with open(os.path.join(outdir, ofile), "wb") as f:
                     f.write(response.content)
             else:
-                print('No GFS files found to calculate tropopause temperature for post-processing')
+                time.sleep(1)
+                #Old?            
+#                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
+                #New path?
+                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                if verbose:
+                    print('Trying again')
+                    print(response)
+                    print(response.status_code)
+                    print(file)
+                if response.status_code == 200:
+                    os.makedirs(outdir, exist_ok = True)
+                    with open(os.path.join(outdir, ofile), "wb") as f:
+                        f.write(response.content)
+                else:                
+#                    dates = [(date1 + timedelta(hours = d)).strftime("%Y-%m-%d %H:%M:%S") for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
+                    print('No GFS files found in rda.ucar.edu. Trying Google Cloud.')
+                    dd = os.path.basename(file).split('.')[2]
+                    dates = [datetime.strptime(dd, "%Y%m%d%H").strftime("%Y-%m-%d %H:%M:%S")]
+                    for dd in dates:
+                        download_gfs_analysis_files_from_gcloud(dd, GFS_ANALYSIS_DT = GFS_ANALYSIS_DT, outroot = outroot, write_gcs = write_gcs, del_local = del_local, real_time = real_time, verbose = verbose)
 
 def download_gfs_analysis_files_from_gcloud(date_str, 
                                             GFS_ANALYSIS_DT = 21600,
@@ -592,6 +650,7 @@ def download_gfs_analysis_files_from_gcloud(date_str,
                                             gfs_bucket_name = 'global-forecast-system', 
                                             write_gcs       = False,
                                             del_local       = True,
+                                            real_time       = True,
                                             verbose         = True):
     '''
     This is a function to to download the nearest GFS file to the date specified from Google Cloud. Used for real-time model runs
@@ -623,18 +682,30 @@ def download_gfs_analysis_files_from_gcloud(date_str,
     date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
     fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
     file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
-    if len(file) == 0:
-        date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                                                               #Extract minimum time of GFS files required to download to encompass data date range
-        fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
-        file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
     if len(file) > 1:
         file.remove(fpath + '.idx')
-    
+
+    if len(file) == 0:
+        date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                                       #Extract minimum time of GFS files required to download to encompass data date range
+        fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
+        file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
+        if len(file) > 1:
+            file.remove(fpath + '.idx')
+
+        if len(file) == 0:
+            date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                                   #Extract minimum time of GFS files required to download to encompass data date range
+            fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
+            file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
+            if len(file) > 1:
+                file.remove(fpath + '.idx')
+
+    if verbose:
+        print(file)    
     if len(file) == 1:
         outdir = os.path.join(os.path.realpath(outroot), date1.strftime('%Y'), date1.strftime('%Y%m%d'))
         if os.path.exists(os.path.join(outdir, os.path.basename(file[0]))):
             if verbose == True:
-                print('GFS file already exists so do not need to downlaod')
+                print('GFS file already exists so do not need to download')
         else:        
             os.makedirs(outdir, exist_ok = True)
             download_ncdf_gcs(gfs_bucket_name, file[0], outdir)
@@ -645,7 +716,14 @@ def download_gfs_analysis_files_from_gcloud(date_str,
         print(gfs_bucket_name)
         print('File may not be available on Google Cloud??')
         exit()    
-            
+
+    original_path = os.path.join(outdir, os.path.basename(file[0]))
+    new_filename = 'gfs.0p25.' + date1.strftime('%Y%m%d%H') + '.f000.grib2'
+    new_path = os.path.join(outdir, new_filename)
+    os.rename(original_path, new_path)
+    if verbose:
+        print(f"Renamed downloaded file {original_path} to {new_filename}")            
+
 def gfs_nearest_time(date, dt, ROUND = 'round'):
     '''
     Name:
