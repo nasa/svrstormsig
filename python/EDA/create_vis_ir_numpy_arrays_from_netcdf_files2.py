@@ -147,6 +147,7 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, min_value = -15.0, ma
         print('IR data is not normalized properly between 0 and 1??')
         exit()
     d_dat[na] = -1                                                                                                                             #Set NaN values to -1 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
+    d_dat[(d_dat > max_value)] = -1                                                                                                                            #Set NaN values to -2 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
     return(d_dat)
 
 def fetch_convert_vis(_combined_nc, min_value = 0.0, max_value = 1.0, no_write_vis = False):
