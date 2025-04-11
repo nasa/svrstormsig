@@ -260,10 +260,10 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
                     
                     # Read dirtyIR at 2 km resolution and compare with IR BT at 2 km
                     if not no_write_dirtyirdiff:
-                        ir2  = xr.open_dataset(native_files[ff], group="data/ir_123/measured")
+                        ir2  = xr.open_dataset(file, group="data/ir_123/measured")
                         ir00 = np.asarray(ir2['effective_radiance'].values[:, :])
                         bt00 = mtg_get_ir_bt_from_rad(ir2, ir00)
-                        bt3[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = upscale_img_to_fit(np.copy(bt00 - bt0), vis0)
+                        bt3[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = np.copy(bt00 - bt0)
                         ir2.close()
                 else:
                     # IR datasets at 1 km resolution (does not need to be used in conjunction with WV or DIRTYIR channels        
