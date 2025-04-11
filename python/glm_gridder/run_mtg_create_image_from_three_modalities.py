@@ -471,58 +471,88 @@ def run_mtg_create_image_from_three_modalities(inroot             = os.path.join
 # #                 for g in sat_proj_files: download_ncdf_gcs(in_bucket_name, g, dpath)
     
     sec = 'FD'
-    vis_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*HRFI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files)  #Extract names of all of the MTG data files
-    if no_write_vis == False:
-        ir_files = vis_files
-        if (len(vis_files) != len(ir_files) or len(vis_files) <= 0):                                                                           #Check to make sure same number of IR and VIS files in directory
-            print('Number of visible and infrared data files in directory do not match or no files in directory!?')
-            print(len(vis_files))
-            print(len(ir_files))
-            if len(vis_files) == 0:
-                exit()
-            if abs(len(vis_files) - len(ir_files)) > 10:
-                print('More than 10 files difference in size within the directories. Must abort.')
-                print(ir_files[0])
-                print(ir_files[-1])
-                print(vis_files[0])
-                print(vis_files[-1])
-                exit()
+    counter = 0
+    fcheck = 0
+    while fcheck == 0:
+        vis_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*HRFI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files)  #Extract names of all of the MTG data files
+        if no_write_vis == False:
+            ir_files = vis_files
+            if (len(vis_files) != len(ir_files) or len(vis_files) <= 0):                                                                       #Check to make sure same number of IR and VIS files in directory
+                if len(vis_files) == 0 and not real_time:
+                    print('Number of visible and infrared data files in directory do not match or no files in directory!?')
+                    print(len(vis_files))
+                    print(len(ir_files))
+                    exit()
+                if abs(len(vis_files) - len(ir_files)) > 10:
+                    print('More than 10 files difference in size within the directories. Must abort.')
+                    print(ir_files[0])
+                    print(ir_files[-1])
+                    print(vis_files[0])
+                    print(vis_files[-1])
+                    exit()
+                else:
+                    if real_time != True:
+#                        vis_dstr = [re.split('_|-|,|\+', os.path.basename(vis_files[f]))[23] for f in range(0, len(vis_files))]                #Extract visibile date strings to determine missing VIS or IR data files
+                        vis_dstr = [re.split('_|-|,|\+', os.path.basename(ir_files[f]))[23] for f in range(0, len(ir_files))]                  #Extract visibile date strings to determine missing VIS or IR data files
+                        ir_dstr = [re.split('_|-|,|\+', os.path.basename(ir_files[f]))[23] for f in range(0, len(ir_files))]                   #Extract IR date strings to determine missing VIS or IR data files
+                        for f in (range(0, len(vis_files))):
+                            if vis_dstr[f] not in ir_dstr:
+                                if run_gcs == True and del_local == True:
+                                    print(vis_files[f] + ' does not have a matching IR file???')
+                                    print('Deleting the visible data file from the local directory')
+                                    rm = 'y'
+                                else:    
+                                    rm = str(input(vis_files[f] + ' does not have a matching IR data file??? Is it ok to delete this file from local directory? (y/n): '))
+                                if rm[0].lower() == 'n':
+                                    print('User chose not to remove file. File must be removed in order for remaining code to work.')
+                                    exit()
+                                if rm[0].lower() == 'y':
+                                    os.remove(vis_files[f])                                                                                    #Delete visible data file that does not have a matching IR data file scan
+                        for f in (range(0, len(ir_files))):
+                            if ir_dstr[f] not in vis_dstr:
+                                if run_gcs == True and del_local == True:
+                                    print(ir_files[f] + ' does not have a matching VIS file???')
+                                    print('Deleting the IR data file from the local directory')
+                                    rm = 'y'
+                                else:    
+                                    rm = str(input(ir_files[f] + ' does not have a matching VIS data file??? Is it ok to delete this file from local directory? (y/n): '))
+                                if rm[0].lower() != 'y':
+                                    print('User chose not to remove file. File must be removed in order for remaining code to work.')
+                                    exit()
+                                if rm[0].lower() == 'y':
+                                    os.remove(ir_files[f])                                                                                     #Delete IR data file that does not have a matching IR data file scan
+                        vis_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*HRFI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files) #Extract names of all of the MTG visible data files
+                        ir_files  = vis_files                                                                                                  #Extract names of all of the MTG IR data files
+        else:
+            ir_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*FDHSI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files)
+        
+        if real_time and len(ir_files) > 0:
+            ir_file0   = ir_files[-1]
+            file_attr0 = re.split('_|-|,|\+', os.path.basename(ir_file0))
+            ds         = file_attr0[23]
+            ds0        = datetime.strptime(ds, "%Y%m%d%H%M%S")
+            cfiles     = sorted(glob.glob(os.path.join(layered_dir, f'*_s{ds0.strftime("%Y%j%H%M%S0")}_*.nc'), recursive = True))
+            if len(cfiles) == 0:
+                fcheck = 1
             else:
-                if real_time != True:
-#                    vis_dstr = [re.split('_|-|,|\+', os.path.basename(vis_files[f]))[23] for f in range(0, len(vis_files))]                    #Extract visibile date strings to determine missing VIS or IR data files
-                    vis_dstr = [re.split('_|-|,|\+', os.path.basename(ir_files[f]))[23] for f in range(0, len(ir_files))]                      #Extract visibile date strings to determine missing VIS or IR data files
-                    ir_dstr = [re.split('_|-|,|\+', os.path.basename(ir_files[f]))[23] for f in range(0, len(ir_files))]                       #Extract IR date strings to determine missing VIS or IR data files
-                    for f in (range(0, len(vis_files))):
-                        if vis_dstr[f] not in ir_dstr:
-                            if run_gcs == True and del_local == True:
-                                print(vis_files[f] + ' does not have a matching IR file???')
-                                print('Deleting the visible data file from the local directory')
-                                rm = 'y'
-                            else:    
-                                rm = str(input(vis_files[f] + ' does not have a matching IR data file??? Is it ok to delete this file from local directory? (y/n): '))
-                            if rm[0].lower() == 'n':
-                                print('User chose not to remove file. File must be removed in order for remaining code to work.')
-                                exit()
-                            if rm[0].lower() == 'y':
-                                os.remove(vis_files[f])                                                                                        #Delete visible data file that does not have a matching IR data file scan
-                    for f in (range(0, len(ir_files))):
-                        if ir_dstr[f] not in vis_dstr:
-                            if run_gcs == True and del_local == True:
-                                print(ir_files[f] + ' does not have a matching VIS file???')
-                                print('Deleting the IR data file from the local directory')
-                                rm = 'y'
-                            else:    
-                                rm = str(input(ir_files[f] + ' does not have a matching VIS data file??? Is it ok to delete this file from local directory? (y/n): '))
-                            if rm[0].lower() != 'y':
-                                print('User chose not to remove file. File must be removed in order for remaining code to work.')
-                                exit()
-                            if rm[0].lower() == 'y':
-                                os.remove(ir_files[f])                                                                                         #Delete IR data file that does not have a matching IR data file scan
-                    vis_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*HRFI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files) #Extract names of all of the MTG visible data files
-                    ir_files  = vis_files                                                                                                      #Extract names of all of the MTG IR data files
-    else:
-        ir_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*FDHSI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files)
-    if real_time == True:
+                if ds0.hour == 23 and d0.minute >= 50:
+#                if ds0.day == 11:
+                    return([], [], [], [])
+                else:
+                    print('Real time run specified not to download the data and so are waiting 60 seconds for new files to come online to process')
+                    counter +=1
+                    time.sleep(60)    
+        elif real_time and len(vis_files) == 0:
+            print('Real time run specified not to download the data and so are waiting 60 seconds for new files to come online to process')
+            counter +=1
+            time.sleep(60)    
+        if counter > 780:
+            print('No new files in directory found to be processed. Are you sure you dont want to download the data? Exiting program.')
+            print(layered_dir)
+            print(inroot)
+            exit()
+            
+    if real_time:
         if no_write_vis == False:
             vis_files = [vis_files[-1]]
         ir_files  = [ir_files[-1]]
@@ -561,8 +591,8 @@ def run_mtg_create_image_from_three_modalities(inroot             = os.path.join
     fnames  = []                                                                                                                               #Initialize list to store the names of the image files
     fnames2 = []                                                                                                                               #Initialize list to store the names of the combined netCDF files
     for f in range(start_index, end_index):
-        file_attr = re.split('_|-|,|\+', os.path.basename(ir_files[f]))                                                                         #Split file string in order to extract date string of scan
-        date_str  = file_attr[23]                                                                                                               #Split file string in order to extract date string of scan
+        file_attr = re.split('_|-|,|\+', os.path.basename(ir_files[f]))                                                                        #Split file string in order to extract date string of scan
+        date_str  = file_attr[23]                                                                                                              #Split file string in order to extract date string of scan
         if no_write_vis == False:
             file_attr2 = re.split('_|-|,|\+', os.path.basename(vis_files[f]))                                                                  #Split file string in order to extract date string of scan
             date_str2  = file_attr2[23]                                                                                                        #Split file string in order to extract date string of scan
@@ -760,11 +790,11 @@ def run_mtg_create_image_from_three_modalities(inroot             = os.path.join
 #                                                          plt_model           = plt_model, 
                                                           verbose             = verbose)
 
-            if real_time == True:
+            if real_time:
                 image = os.path.join(img_out_dir, date_str + '_' + re.sub(r'\.nc$', '', os.path.basename(combined_nc_file)) + '.png')
             fnames.append(image)                                                                                                               #Store the names of the images in a list
         else:
-            if real_time == True:
+            if real_time:
                 image = os.path.join(img_out_dir, date_str + '_' + re.sub(r'\.nc$', '', os.path.basename(combined_nc_file)) + '.png')
                 fnames.append(image)                                                                                                           #Store the names of the images in a list
 
