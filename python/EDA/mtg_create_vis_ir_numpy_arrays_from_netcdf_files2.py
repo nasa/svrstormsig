@@ -606,7 +606,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
         print(layered_root)
         print(sector)
         exit()
-    if not no_write_irdiff or not no_write_cirrus or not no_write_snowice or not no_write_dirtyirdiff:
+    if (not no_write_irdiff or not no_write_cirrus or not no_write_snowice or not no_write_dirtyirdiff) and not use_native_ir:
         nfiles2 = len(files2)
         if nfiles2 <= 0 or ncfiles <= 0:
             print('No files found???')
