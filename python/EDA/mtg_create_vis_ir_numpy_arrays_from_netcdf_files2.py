@@ -102,8 +102,6 @@ def fetch_convert_ir(_combined_nc, lon_shape, lat_shape, min_value = 180.0, max_
       ir_dat: 2000 x 2000 IR data numpy array after IR range conversion. Array is resized using cv2.resize with cv2.INTER_NEAREST interpolation
     '''
     ir_dat = np.copy(np.asarray(_combined_nc.variables['ir_brightness_temperature'][:], dtype = np.float32))[0, :, :]                          #Copy IR data into a numpy array                        
-    print(np.nanmax(ir_dat))
-    print(np.nanmin(ir_dat))
 
 #Test of SEVIRI file
 #     ir_dat = np.copy(np.asarray(_combined_nc.variables['channel_9'][:], dtype = np.float32))[:, :]                                             #Copy IR data into a numpy array                        
