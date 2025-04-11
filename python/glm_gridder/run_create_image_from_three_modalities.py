@@ -530,7 +530,7 @@ def run_create_image_from_three_modalities(inroot             = os.path.join('..
                     vis_files = sorted(glob.glob(os.path.join(vis_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True), key = sort_goes_irvis_files) #Extract names of all of the GOES visible data files
                     ir_files  = sorted(glob.glob(os.path.join(ir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True), key = sort_goes_irvis_files)  #Extract names of all of the GOES IR data files
 
-    if real_time == True:
+    if real_time:
         if no_write_vis == False:
             vis_files = [vis_files[-1]]
         ir_files  = [ir_files[-1]]
