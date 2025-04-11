@@ -176,7 +176,7 @@ def visualize_time_aggregated_results(res, nc_files, ir_files,
     else:
         plt_title = model + ';'  + mod0 + ';' + date_range[0] + ' - ' + date_range[1]
         dregion   = date_range[0] + '-' + date_range[1] + '_' + re.split('_', os.path.basename(nc_files[0]))[3] + '_region'
-    if region != None:         
+    if region != None and 'fci' not in nc_files[0]:         
         pc   = extract_us_lat_lon_region_parallax_correction(region)                                                                    #Extract parallax correction 
         pc   = pc[region.lower()]                                                                                                       #Extract the parallax correction for region for specified US state or region 
         x_pc = pc[0]                                                                                                                    #Extract parallax correction for longitudes
@@ -320,6 +320,9 @@ def visualize_time_aggregated_results(res, nc_files, ir_files,
             else:
                 extent = (np.nanmin(lon), np.nanmax(lon), np.nanmin(lat), np.nanmax(lat)) #(0, res.shape[0], 0, res.shape[1])        
                 domain = [np.nanmin(lon), np.nanmin(lat), np.nanmax(lon), np.nanmax(lat)]                                               #Domain covers entire mesoscale sector if region not set
+    origin = 'upper'
+    if 'fci' in os.path.basename(nc_files[0]).lower():
+        origin = 'lower'
 #Extract date range of files in combined netCDF directory
     if plt_spc == True:
         file_attr = re.split('_s|_', os.path.basename(nc_files[0]))                                                                     #Split file string in order to extract date string of scan
@@ -465,7 +468,7 @@ def visualize_time_aggregated_results(res, nc_files, ir_files,
         i_dat = (-50.0*(i_dat-1.0)) + 180.0
         if np.isnan(np.sum(lon)) == True or np.isnan(np.sum(lat)) == True:
             if x_pc == 0 and y_pc == 0:
-              out_img4 = ax2.imshow(i_dat, origin = 'upper', vmin = ir_min, vmax = ir_max, transform =crs, extent = extent0, cmap = cpt_convert, interpolation = None)
+              out_img4 = ax2.imshow(i_dat, origin = origin, vmin = ir_min, vmax = ir_max, transform =crs, extent = extent0, cmap = cpt_convert, interpolation = None)
             else:
               out_img4  = ax2.pcolor(lon+x_pc, lat-y_pc, i_dat, vmin = ir_min, vmax = ir_max, shading = 'auto', cmap = cpt_convert)       #Create image from model results data
         else:
