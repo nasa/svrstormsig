@@ -156,7 +156,7 @@ def run_download_goes_ir_vis_l1b_glm_l2_data(date1        = None, date2 = None,
         sector0 =  sector[0].upper() + '2'
     elif sector == 'conus':
         sector0 =  'C'
-    elif sector == 'full':
+    elif sector == 'full' or sector.lower() == 'f':
         sector0 =  'F'
     else:
         print('Not yet set up to do specified sector')
