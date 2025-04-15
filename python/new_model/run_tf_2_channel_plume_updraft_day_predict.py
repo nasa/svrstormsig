@@ -82,6 +82,10 @@
 #                      DEFAULT = False -> do not rewrite model files if already exists. 
 #     use_native_ir  : IF keyword set (True), run model at the native IR data resolution.
 #                      DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
+#     essl           : BOOL keyword to specify whether or not this will be used for ESSL purposes. ESSL has data stored in /yyyy/mm/dd/ format rather
+#                      software built format yyyymmdd. Because the software uses the yyyymdd to build other directories etc. off of the path
+#                      and ESSL may use this software as a way to download the data, this was easiest fix.
+#                      DEFAULT = False which implies data are stored using /yyyymmdd/. Set to True if data are stored in /yyyy/mm/dd/ format.
 #     verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
 #                      DEFAULT = True which implies to print verbose informational messages
 # Author and history:
@@ -129,12 +133,17 @@ from glm_gridder.run_create_image_from_three_modalities2 import *
 from glm_gridder.run_create_image_from_three_modalities import * 
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data import *
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data_parallel import *
+from glm_gridder.run_mtg_create_image_from_three_modalities2 import *
+from glm_gridder.run_mtg_create_image_from_three_modalities import *
+from glm_gridder.run_download_mtg_fci_data import *
+from glm_gridder.run_download_mtg_fci_data_parallel import *
 from gridrad.rdr_sat_utils_jwc import extract_us_lat_lon_region
 from EDA.create_vis_ir_numpy_arrays_from_netcdf_files import *
 from EDA.unet import unet
 from EDA.MultiResUnet import MultiResUnet
 from EDA.MultiResUnet_new_UPsampling import MultiResUnet_new_UPsampling
 from EDA.create_vis_ir_numpy_arrays_from_netcdf_files2 import *
+from EDA.mtg_create_vis_ir_numpy_arrays_from_netcdf_files2 import *
 from visualize_results.visualize_time_aggregated_results import visualize_time_aggregated_results
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
 from new_model.run_write_severe_storm_post_processing import download_gfs_analysis_files_from_gcloud, download_gfs_analysis_files
@@ -167,6 +176,7 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                no_download    = False, 
                                                rewrite_model  = False,
                                                use_native_ir  = False, 
+                                               essl           = False, 
                                                verbose        = True):
   '''
   This is a script to run (by importing) programs that predict the 2-channel plume or updraft model based on the most recent previous model run
@@ -240,6 +250,10 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                        DEFAULT = False -> do not rewrite model files if already exists.     
       use_native_ir  : IF keyword set (True), run model at the native IR data resolution.
     	                 DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
+      essl           : BOOL keyword to specify whether or not this will be used for ESSL purposes. ESSL has data stored in /yyyy/mm/dd/ format rather
+                       software built format yyyymmdd. Because the software uses the yyyymdd to build other directories etc. off of the path
+                       and ESSL may use this software as a way to download the data, this was easiest fix.
+                       DEFAULT = False which implies data are stored using /yyyymmdd/. Set to True if data are stored in /yyyy/mm/dd/ format.
       verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
                        DEFAULT = True which implies to print verbose informational messages
   Returns:
@@ -253,6 +267,9 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
   if date1 == None:
     date_range = []
   else:
+    d2 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")
+    if date2 != date1 and d2.hour == 0 and d2.minute == 0 and d2.second == 0:
+        date2 = (d2 - timedelta(seconds = 1)).strftime("%Y-%m-%d %H:%M:%S")
     date_range  = [date1, date2]                                                                                                                                            #Get range of dates for not real-time runs
     date_range2 = date_range.copy()
   
@@ -263,20 +280,28 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
   else:    
     rt  = False                                                                                                                                                             #Real-time download flag
     pat = 'not_real_time' 
-    
-  if sector[0:4].lower() == 'meso' or sector[0].lower() == 'm': 
-    m_sector = int(sector[-1])                                                                                                                                              #Extract meso scale sector number
-    sector0  = None
-    sector00 = 'M' + str(m_sector)
+  
+  if 'mtg' in sat.lower():
+      sector00 = sector.upper()
+      if sector00.lower() == 'full':
+        sector00 = 'F'
+      if rt:
+        if date.minute < 10:
+          date = date - timedelta(minutes = 10)
   else:
-    m_sector = 2                                                                                                                                                            #Set default meso scale sector number
-    sector0  = sector[0].upper()
-    sector00 = sector0
-    if rt == True:
-      if date.minute < 10 and sector.lower() == 'full':
-        date = date - timedelta(minutes = 10)
-      elif date.minute < 4 and sector.lower() == 'conus':  
-        date = date - timedelta(minutes = 5)
+    if 'meso' in sector.lower() or sector[0].lower() == 'm': 
+      m_sector = int(sector[-1])                                                                                                                                            #Extract meso scale sector number
+      sector0  = None
+      sector00 = 'M' + str(m_sector)
+    else:
+      m_sector = 2                                                                                                                                                          #Set default meso scale sector number
+      sector0  = sector[0].upper()
+      sector00 = sector0
+      if rt == True:
+        if date.minute < 10 and (sector.lower() == 'full' or sector.lower() == 'f'):
+          date = date - timedelta(minutes = 10)
+        elif date.minute < 4 and sector.lower() == 'conus':  
+          date = date - timedelta(minutes = 5)
   d_str = date.strftime("%Y-%m-%d")                                                                                                                                         #Extract date string. Used for file directory paths
   if use_chkpnt != None:                                                                                                                                                    #Get information about model from model check point filenames and paths                                                                                                                                                    #Get information about model from model check point filenames and paths
     if len(re.split('glm', use_chkpnt)) != 1:
@@ -325,10 +350,14 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
       mod_pat = 'plume_day_model'
       mod00   = ' AACP Detection'
 
-  if use_native_ir == True:
+  if use_native_ir:
     no_vis = True
   else:
     no_vis = False
+
+  if 'mtg' in sat.lower(): 
+    use_glm   = False
+    use_glm0  = False 
 
   inroot  = os.path.realpath(inroot)                                                                                                                                        #Create link to real input root directory path so compatible with Mac
   outroot = os.path.realpath(outroot)                                                                                                                                       #Create link to real path so compatible with Mac
@@ -339,24 +368,45 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
   #Download real time file (glm_gridder)   
   if verbose == True and no_download == False: print('Downloading model input data')   
   t00 = time.time()                                                                                                                                                         #Start clock to time the download job process
-  if run_gcs == True:
+  if run_gcs:
     og_bucket_name2 = og_bucket_name
   else:  
     og_bucket_name2 = None
-  if rt == True:
-    og_dir = run_download_goes_ir_vis_l1b_glm_l2_data(date1          = date1, date2 = date2,                                                                                #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
-                                                      outroot        = outroot, 
-                                                      sat            = sat, 
-                                                      sector         = sector, 
-                                                      no_glm         = not use_glm, 
-                                                      no_vis         = no_vis, 
-                                                      no_irdiff      = no_irdiff, 
-                                                      no_dirtyir     = no_dirtyirdiff, 
-                                                      no_cirrus      = no_cirrus, 
-                                                      no_snowice     = no_snowice,
-                                                      gcs_bucket     = og_bucket_name2,
-                                                      del_local      = False,
-                                                      verbose        = verbose)
+  if rt:
+    if not no_download:
+      if 'mtg' in sat.lower():
+        og_dir, d_strs = run_download_mtg_fci_data(date1     = date1, date2 = date2,
+                                                   outroot   = outroot, 
+                                                   sat       = sat, 
+                                                   sector    = sector, 
+                                                   no_vis    = no_vis,
+                                                   no_native = no_irdiff and no_dirtyirdiff and no_cirrus and no_snowice,
+                                                   essl      = essl,
+                                                   verbose   = verbose)
+      else:
+        og_dir = run_download_goes_ir_vis_l1b_glm_l2_data(date1          = date1, date2 = date2,                                                                              #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
+                                                          outroot        = outroot, 
+                                                          sat            = sat, 
+                                                          sector         = sector, 
+                                                          no_glm         = not use_glm, 
+                                                          no_vis         = no_vis, 
+                                                          no_irdiff      = no_irdiff, 
+                                                          no_dirtyir     = no_dirtyirdiff, 
+                                                          no_cirrus      = no_cirrus, 
+                                                          no_snowice     = no_snowice,
+                                                          gcs_bucket     = og_bucket_name2,
+                                                          del_local      = False,
+                                                          verbose        = verbose)
+
+        d_strs = [os.path.basename(og_dir[0])]
+    else:
+      date1  = date.strftime("%Y-%m-%d %H:%M:%S")
+      date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S") 
+      if essl and 'mtg' in sat.lower():
+        og_dir = [os.path.join(outroot, date01.strftime("%Y"), date01.strftime("%m"), date01.strftime("%d"))]
+      else:
+        og_dir = [os.path.join(outroot, date01.strftime("%Y%m%d"))]
+      d_strs = [date01.strftime("%Y%m%d")]
     
     #Download GFS tropopause grib files if needed to run model
     if no_tropdiff == False:
@@ -365,49 +415,78 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                               gfs_bucket_name = 'global-forecast-system', 
                                               write_gcs       = False,
                                               del_local       = True,
+                                              real_time       = True,
                                               verbose         = verbose)
-    
-    
+
   else:  
-    if no_download == False:
-      og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1          = date1, date2 = date2,                                                                     #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
-                                                                 outroot        = outroot, 
-                                                                 sat            = sat, 
-                                                                 sector         = sector, 
-                                                                 no_glm         = not use_glm, 
-                                                                 no_vis         = no_vis, 
-                                                                 no_irdiff      = no_irdiff, 
-                                                                 no_dirtyir     = no_dirtyirdiff, 
-                                                                 no_cirrus      = no_cirrus, 
-                                                                 no_snowice     = no_snowice,
-                                                                 gcs_bucket     = og_bucket_name2,
-                                                                 del_local      = False,
-                                                                 verbose        = verbose)
-      #Download GFS tropopause grib files if needed to run model
-      if no_tropdiff == False:
-        download_gfs_analysis_files(date1, date2,
-                                    GFS_ANALYSIS_DT = 21600,
-                                    outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
-                                    c_bucket_name   = 'ir-vis-sandwhich',
-                                    write_gcs       = False,
-                                    del_local       = True,
-                                    verbose         = verbose)
+    #Download GFS tropopause grib files if needed to run model
+    if no_tropdiff == False:
+      download_gfs_analysis_files(date1, date2,
+                                  GFS_ANALYSIS_DT = 21600,
+                                  outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                  c_bucket_name   = 'ir-vis-sandwhich',
+                                  write_gcs       = False,
+                                  del_local       = True,
+                                  real_time       = False,
+                                  verbose         = verbose)
 
-
+    if not no_download:
+      if 'mtg' in sat.lower():
+        og_dir, d_strs = run_download_mtg_fci_data_parallel(date1     = date1, date2 = date2,
+                                                            outroot   = outroot, 
+                                                            sat       = sat, 
+                                                            sector    = sector, 
+                                                            no_native = no_irdiff and no_dirtyirdiff and no_cirrus and no_snowice,
+                                                            no_vis    = no_vis,
+                                                            essl      = essl,
+                                                            verbose   = verbose)
+      else:
+        og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1          = date1, date2 = date2,                                                                   #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
+                                                                   outroot        = outroot, 
+                                                                   sat            = sat, 
+                                                                   sector         = sector, 
+                                                                   no_glm         = not use_glm, 
+                                                                   no_vis         = no_vis, 
+                                                                   no_irdiff      = no_irdiff, 
+                                                                   no_dirtyir     = no_dirtyirdiff, 
+                                                                   no_cirrus      = no_cirrus, 
+                                                                   no_snowice     = no_snowice,
+                                                                   gcs_bucket     = og_bucket_name2,
+                                                                   del_local      = False,
+                                                                   verbose        = verbose)
+ 
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
-      if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
-        og_dir = og_dir[:-1]
+      if essl and 'mtg' in sat.lower():
+        if d_strs[-1] > date02.strftime("%Y%m%d"):
+          og_dir = og_dir[:-1]      
+          d_strs = d_strs[:-1]    
+      else:
+        if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
+          og_dir = og_dir[:-1]
+        d_strs = [os.path.basename(o) for o in og_dir]
     else:
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
-      og_dir = sorted(list(set([os.path.join(outroot, (date01 + timedelta(hours = x)).strftime("%Y%m%d")) for x in range(int((date02-date01).days*24 + ceil((date02-date01).seconds/3600.0))+1)])))   #Extract all date hours between date1 and date2 based on hour of satellite scan
-      if os.path.basename(og_dir[-1]) > date02.strftime("%Y%m%d"):
-        og_dir = og_dir[:-1]
-#       date_list = [date01 + timedelta(hours = x) for x in range(int((date02-date01).days*24 + (date02-date01).seconds/3600.0)+1)]                                           #Extract all date hours between date1 and date2 based on hour of satellite scan
-#       og_dir    = []                                                                                                                                                        #Initialize list to store the output root directories for each date 
-#       for d in date_list:
-#         og_dir.append(os.path.join(outroot, d.strftime("%Y%m%d")))                                                                                                          #Store all output storage directories of the downloaded data
-#       og_dir = sorted(list(set(og_dir)))                                                                                                                                    #Extract only the unique output IR/VIS/GLM directories given the date
+      if essl and 'mtg' in sat.lower():
+        # Generate directories in "/yyyy/mm/dd/" format and store full "yyyymmdd" dates
+        og_dir = sorted(list(set([
+            os.path.join(outroot, 
+                         (date01 + timedelta(hours=x)).strftime("%Y"),
+                         (date01 + timedelta(hours=x)).strftime("%m"),
+                         (date01 + timedelta(hours=x)).strftime("%d"))
+            for x in range(int((date02 - date01).days * 24 + ceil((date02 - date01).seconds / 3600.0)) + 1)
+        ])))
+        d_strs = sorted(list(set([
+            (date01 + timedelta(hours=x)).strftime("%Y%m%d")
+            for x in range(int((date02 - date01).days * 24 + ceil((date02 - date01).seconds / 3600.0)) + 1)
+        ])))
+      else:
+        og_dir = sorted(list(set([os.path.join(outroot, (date01 + timedelta(hours = x)).strftime("%Y%m%d")) for x in range(int((date02-date01).days*24 + ceil((date02-date01).seconds/3600.0))+1)])))   #Extract all date hours between date1 and date2 based on hour of satellite scan
+        d_strs = sorted(list(set([(date01 + timedelta(hours = x)).strftime("%Y%m%d") for x in range(int((date02-date01).days*24 + ceil((date02-date01).seconds/3600.0))+1)]))) 
+
+    if d_strs[-1] > date02.strftime("%Y%m%d"):
+      og_dir = og_dir[:-1]      
+      d_strs = d_strs[:-1]    
 
   if len(og_dir) == 0: print('No download output directory roots???')
   if verbose == True and no_download == False: 
@@ -415,11 +494,11 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
     print('Output directory of downloaded netCDF files = ' + outroot)
     print()
   
-  img_path = [datetime.strptime(os.path.basename(o), "%Y%m%d").strftime("%Y%j") for o in og_dir]
+  img_path = [datetime.strptime(o, "%Y%m%d").strftime("%Y%j") for o in d_strs]
   if len(img_path) > 1 and img_path[0] != img_path[-1]:
-    img_path = datetime.strptime(os.path.basename(og_dir[0]), "%Y%m%d").strftime("%Y%j") + '-' + datetime.strptime(os.path.basename(og_dir[-1]), "%Y%m%d").strftime("%Y%j")
+    img_path = datetime.strptime(d_strs[0], "%Y%m%d").strftime("%Y%j") + '-' + datetime.strptime(d_strs[-1], "%Y%m%d").strftime("%Y%j")
   else:
-    img_path = datetime.strptime(os.path.basename(og_dir[0]), "%Y%m%d").strftime("%Y%j")
+    img_path = datetime.strptime(d_strs[0], "%Y%m%d").strftime("%Y%j")
 
   d_range  = []
   outdate  = []
@@ -427,11 +506,11 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
   tods     = []
   ir_files = []
   res_dirs = []
-  for o in og_dir:
-    d_str2 = datetime.strptime(os.path.basename(o), "%Y%m%d").strftime("%Y%j")                                                                                              #Extract date string in terms of Year and Julian date
+  for idx0, o in enumerate(og_dir):
+    d_str2 = datetime.strptime(d_strs[idx0], "%Y%m%d").strftime("%Y%j")                                                                                                     #Extract date string in terms of Year and Julian date
     outdate.append(d_str2)
     #Create VIS/IR/GLM combined netCDF file (glm_gridder)
-    if verbose == True: print('Combining model input data into a netCDF file for date ' + os.path.basename(o))
+    if verbose == True: print('Combining model input data into a netCDF file for date ' + d_strs[idx0])
     if use_chkpnt == None:
       if use_glm == True:
         mod0 = 'IR+GLM'
@@ -499,12 +578,84 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
       res_dir = os.path.join(outroot, 'aacp_results', mod1, mod_pat, pat, d_str)                                                                                            #Location of the results predictions and blob_results_positioning.csv file
       
     t00 = time.time()                                                                                                                                                       #Start clock to time how long the following process takes
-    if rt == True:
-      img_names, nc_names, proj, p = run_create_image_from_three_modalities(inroot               = o,                                                                       #Create combined netCDF file (do not create image)
+    if 'mtg' in sat.lower():
+      if rt:
+        img_names, nc_names, proj, p = run_mtg_create_image_from_three_modalities(inroot               = o,                                                                 #Create combined netCDF file (do not create image)
+                                                                                  glm_out_dir          = os.path.join(outroot, 'out_dir'), 
+                                                                                  layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
+                                                                                  img_out_dir          = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, d_str2, str(sector)),
+                                                                                  no_plot              = no_plot, grid_data = grid_data,  
+                                                                                  no_write_glm         = not use_glm, 
+                                                                                  no_write_vis         = use_native_ir, 
+                                                                                  no_write_irdiff      = no_irdiff, 
+                                                                                  no_write_cirrus      = no_cirrus, 
+                                                                                  no_write_snowice     = no_snowice, 
+                                                                                  no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                                  domain_sector        = sector, 
+                                                                                  run_gcs              = run_gcs, 
+                                                                                  write_combined_gcs   = False, 
+                                                                                  append_nc            = True, 
+                                                                                  region               = region, xy_bounds = xy_bounds, 
+                                                                                  real_time            = rt, del_local = False, 
+                                                                                  plt_model            = os.path.join(res_dir, d_str2, str(sector)), 
+                                                                                  model                = mod0 + mod00, 
+                                                                                  satellite            = sat, 
+                                                                                  pthresh              = pthresh, 
+                                                                                  in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
+                                                                                  verbose              = verbose)
+      else:
+        img_names, nc_names, proj = run_mtg_create_image_from_three_modalities2(inroot               = o,                                                                   #Create combined netCDF file (do not create image)
+                                                                                glm_out_dir          = os.path.join(outroot, 'out_dir'), 
+                                                                                layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
+                                                                                date_range           = date_range,
+                                                                                no_plot              = True, grid_data = grid_data,  
+                                                                                no_write_glm         = not use_glm, 
+                                                                                no_write_vis         = use_native_ir, 
+                                                                                no_write_irdiff      = no_irdiff, 
+                                                                                no_write_cirrus      = no_cirrus, 
+                                                                                no_write_snowice     = no_snowice, 
+                                                                                no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                                domain_sector        = sector, 
+                                                                                run_gcs              = run_gcs, 
+                                                                                write_combined_gcs   = False, 
+                                                                                append_nc            = True, 
+                                                                                region               = region, xy_bounds = xy_bounds,  
+                                                                                real_time            = rt, del_local = False, 
+                                                                                satellite            = sat, 
+                                                                                in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
+                                                                                verbose              = verbose)
+    
+    else:
+      if rt:
+        img_names, nc_names, proj, p = run_create_image_from_three_modalities(inroot               = o,                                                                     #Create combined netCDF file (do not create image)
+                                                                              glm_out_dir          = os.path.join(outroot, 'out_dir'), 
+                                                                              layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
+                                                                              img_out_dir          = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, d_str2, str(sector00)),
+                                                                              no_plot              = no_plot, grid_data = grid_data,  
+                                                                              no_write_glm         = not use_glm, 
+                                                                              no_write_vis         = use_native_ir, 
+                                                                              no_write_irdiff      = no_irdiff, 
+                                                                              no_write_cirrus      = no_cirrus, 
+                                                                              no_write_snowice     = no_snowice, 
+                                                                              no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                              meso_sector          = m_sector, 
+                                                                              domain_sector        = sector0, 
+                                                                              run_gcs              = run_gcs, 
+                                                                              write_combined_gcs   = False, 
+                                                                              append_nc            = True, 
+                                                                              region               = region, xy_bounds = xy_bounds, 
+                                                                              real_time            = rt, del_local = False, 
+                                                                              plt_model            = os.path.join(res_dir, d_str2, str(sector00)), 
+                                                                              model                = mod0 + mod00, 
+                                                                              pthresh              = pthresh, 
+                                                                              in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
+                                                                              verbose              = verbose)
+      else:
+        img_names, nc_names, proj = run_create_image_from_three_modalities2(inroot               = o,                                                                       #Create combined netCDF file (do not create image)
                                                                             glm_out_dir          = os.path.join(outroot, 'out_dir'), 
                                                                             layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
-                                                                            img_out_dir          = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, d_str2, str(sector00)),
-                                                                            no_plot              = no_plot, grid_data = grid_data,  
+                                                                            date_range           = date_range,
+                                                                            no_plot              = True, grid_data = grid_data,  
                                                                             no_write_glm         = not use_glm, 
                                                                             no_write_vis         = use_native_ir, 
                                                                             no_write_irdiff      = no_irdiff, 
@@ -518,74 +669,73 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                             append_nc            = True, 
                                                                             region               = region, xy_bounds = xy_bounds, 
                                                                             real_time            = rt, del_local = False, 
-                                                                            plt_model            = os.path.join(res_dir, d_str2, str(sector00)), 
-                                                                            model                = mod0 + mod00, 
-                                                                            pthresh              = pthresh, 
                                                                             in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
                                                                             verbose              = verbose)
-    else:
-      img_names, nc_names, proj = run_create_image_from_three_modalities2(inroot               = o,                                                                         #Create combined netCDF file (do not create image)
-                                                                          glm_out_dir          = os.path.join(outroot, 'out_dir'), 
-                                                                          layered_dir          = os.path.join(outroot, 'combined_nc_dir'), 
-                                                                          date_range           = date_range,
-                                                                          no_plot              = True, grid_data = grid_data,  
-                                                                          no_write_glm         = not use_glm, 
-                                                                          no_write_vis         = use_native_ir, 
-                                                                          no_write_irdiff      = no_irdiff, 
-                                                                          no_write_cirrus      = no_cirrus, 
-                                                                          no_write_snowice     = no_snowice, 
-                                                                          no_write_dirtyirdiff = no_dirtyirdiff, 
-                                                                          meso_sector          = m_sector, 
-                                                                          domain_sector        = sector0, 
-                                                                          run_gcs              = run_gcs, 
-                                                                          write_combined_gcs   = False, 
-                                                                          append_nc            = True, 
-                                                                          region               = region, xy_bounds = xy_bounds,  
-                                                                          real_time            = rt, del_local = False, 
-                                                                          in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
-                                                                          verbose              = verbose)
    
     if no_tropdiff == False:
-      run_write_gfs_trop_temp_to_combined_ncdf(inroot        = os.path.join(outroot, 'combined_nc_dir', os.path.basename(o)), 
+      run_write_gfs_trop_temp_to_combined_ncdf(inroot        = os.path.join(outroot, 'combined_nc_dir', d_strs[idx0]), 
                                                gfs_root      = os.path.join(os.path.dirname(outroot), 'gfs-data'),
                                                use_local     = True, write_gcs = run_gcs, del_local = del_local,
                                                c_bucket_name = c_bucket_name,
                                                real_time     = rt,
+                                               sector        = sector00,
                                                verbose       = verbose)
     
     if len(img_names) > 0:
       nc_files.extend(sorted(nc_names))
-      if verbose == True: 
-        print('Data combined into a netCDF file for date ' + os.path.basename(o))
+      if verbose:
+        print('Data combined into a netCDF file for date ' + d_strs[idx0])
         print('Time to create combined netCDF file ' + str(time.time() - t00) + ' sec')
         print('Output directory of combined netCDF files = ' + os.path.join(outroot, 'combined_nc_dir'))
         print()
-        print('Creating numpy files for date ' + os.path.basename(o))
+        print('Creating numpy files for date ' + d_strs[idx0])
       #Create VIS/IR/GLM numpy files (EDA)
       t00 = time.time()                                                                                                                                                     #Start clock to time how long the following process takes
-      ir_file0, dims = create_vis_ir_numpy_arrays_from_netcdf_files2(inroot               = o,                                                                              #Create VIS, IR, GLM and solar zenith angle numpy arrays. (returns ir.npy file name and path as well as image dimensions)
-                                                                     layered_root         = os.path.join(outroot, 'combined_nc_dir'),
-                                                                     outroot              = os.path.join(outroot, 'labelled', pat),
-                                                                     json_root            = os.path.join(outroot, 'labelled'),  
-                                                                     date_range           = date_range, 
-                                                                     meso_sector          = m_sector, 
-                                                                     domain_sector        = sector0, 
-                                                                     no_write_glm         = not use_glm, 
-                                                                     no_write_vis         = use_native_ir, 
-                                                                     no_write_irdiff      = no_irdiff, 
-                                                                     no_write_cirrus      = no_cirrus, 
-                                                                     no_write_snowice     = no_snowice, 
-                                                                     no_write_dirtyirdiff = no_dirtyirdiff, 
-                                                                     no_write_trop        = no_tropdiff, 
-                                                                     run_gcs              = run_gcs, real_time = rt, del_local = del_local, use_local = True,
-                                                                     og_bucket_name       = og_bucket_name, 
-                                                                     comb_bucket_name     = c_bucket_name, 
-                                                                     proc_bucket_name     = p_bucket_name, 
-                                                                     verbose              = verbose)
+      if 'mtg' in sat.lower():
+        ir_file0, dims = mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot               = o,                                                                        #Create VIS, IR, GLM and solar zenith angle numpy arrays. (returns ir.npy file name and path as well as image dimensions)
+                                                                           layered_root         = os.path.join(outroot, 'combined_nc_dir'),
+                                                                           outroot              = os.path.join(outroot, 'labelled', pat),
+                                                                           json_root            = os.path.join(outroot, 'labelled'),  
+                                                                           date_range           = date_range, 
+                                                                           domain_sector        = sector, 
+                                                                           use_native_ir        = use_native_ir, 
+                                                                           no_write_glm         = not use_glm, 
+                                                                           no_write_vis         = use_native_ir, 
+                                                                           no_write_irdiff      = no_irdiff, 
+                                                                           no_write_cirrus      = no_cirrus, 
+                                                                           no_write_snowice     = no_snowice, 
+                                                                           no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                           no_write_trop        = no_tropdiff, 
+                                                                           run_gcs              = run_gcs, real_time = rt, del_local = del_local, use_local = True,
+                                                                           og_bucket_name       = og_bucket_name, 
+                                                                           comb_bucket_name     = c_bucket_name, 
+                                                                           proc_bucket_name     = p_bucket_name, 
+                                                                           verbose              = verbose)
+        
+      else:  
+        ir_file0, dims = create_vis_ir_numpy_arrays_from_netcdf_files2(inroot               = o,                                                                            #Create VIS, IR, GLM and solar zenith angle numpy arrays. (returns ir.npy file name and path as well as image dimensions)
+                                                                       layered_root         = os.path.join(outroot, 'combined_nc_dir'),
+                                                                       outroot              = os.path.join(outroot, 'labelled', pat),
+                                                                       json_root            = os.path.join(outroot, 'labelled'),  
+                                                                       date_range           = date_range, 
+                                                                       meso_sector          = m_sector, 
+                                                                       domain_sector        = sector0, 
+                                                                       no_write_glm         = not use_glm, 
+                                                                       no_write_vis         = use_native_ir, 
+                                                                       no_write_irdiff      = no_irdiff, 
+                                                                       no_write_cirrus      = no_cirrus, 
+                                                                       no_write_snowice     = no_snowice, 
+                                                                       no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                       no_write_trop        = no_tropdiff, 
+                                                                       run_gcs              = run_gcs, real_time = rt, del_local = del_local, use_local = True,
+                                                                       og_bucket_name       = og_bucket_name, 
+                                                                       comb_bucket_name     = c_bucket_name, 
+                                                                       proc_bucket_name     = p_bucket_name, 
+                                                                       verbose              = verbose)
       
       ir_files.append(ir_file0)                                                                                                                                             #Append array storing IR file names
       if verbose == True: 
-        print('Data numpy files created for date ' + os.path.basename(o))
+        print('Data numpy files created for date ' + d_strs[idx0])
         print('Time to create numpy files = ' + str(time.time() - t00) + ' sec')
         print('Output directory of numpy files = ' + os.path.join(outroot, 'labelled', pat))
         print()
@@ -711,62 +861,64 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
 #         pref = re.split('aacp_results/', outdir)[1]
 #         write_to_gcs(f_bucket_name, 'Cooney_testing/' + pref + '/', os.path.join(outdir, 'blob_results_positioning.csv'))                                                   #Write results csv file to Google Cloud Storage Bucket
 
-    if del_local == True:
+    if del_local:
       del_files = sorted(glob.glob(os.path.join(o, '**', '*.nc'), recursive = True))   
       if len(del_files) > 0:     
         [os.remove(x) for x in del_files]                                                                                                                                   #Remove all combined netCDF files from local storage
-#Create csv file used by plotting codes to determine how model was run 
-  if os.path.exists(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv')) == True:
-    df0 = pd.read_csv(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'), index_col = 0)                                                        #Read previous csv file
-  else:
-    if use_local == True:
-      df0 = pd.DataFrame()                                                                                                                                                  #Create empty data frame
-      os.makedirs(outdir, exist_ok = True) 
+  
+  if len(img_names) > 0:
+    #Create csv file used by plotting codes to determine how model was run 
+    if os.path.exists(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv')) == True:
+      df0 = pd.read_csv(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'), index_col = 0)                                                      #Read previous csv file
     else:
+      if use_local == True:
+        df0 = pd.DataFrame()                                                                                                                                                #Create empty data frame
+        os.makedirs(outdir, exist_ok = True) 
+      else:
+        if 'day_night_optimal' in outdir:
+          pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
+        else:
+          pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split(mod1, outdir)[0]))[0], d_str)
+        csv_ftype = list_csv_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), 'dates_with_ftype.csv')                                                               #Find dates_wtih_ftype csv file to see if exists or not
+        if len(csv_ftype) == 0:
+          df0 = pd.DataFrame()                                                                                                                                              #Create empty data frame
+        else:
+          if len(csv_ftype) > 0:
+            df0 = load_csv_gcs(f_bucket_name, csv_ftype[0])                                                                                                                 #Read specified csv file
+  
+    df_out2  = pd.DataFrame({'out_date'   : outdate}) 
+    df_ftype = pd.DataFrame({'ftype'      : ['test']*len(outdate)}) 
+    df_sec   = pd.DataFrame({'sector'     : [str(sector00).upper()]*len(outdate)}) 
+    df_rev   = pd.DataFrame({'reviewers'  : [None]*len(outdate)})
+    df_nrev  = pd.DataFrame({'nreviewers' : [0]*len(outdate)})
+    df_night = pd.DataFrame({'use_night'  : [use_night]*len(outdate)})
+    if len(d_range) > 0:
+      df_range = pd.DataFrame({'date_range' : d_range})
+      df_merge = pd.concat([df_out2, df_sec, df_ftype, df_rev, df_nrev, df_night, df_range], axis = 1, join = 'inner')
+    else:
+      df_merge = pd.concat([df_out2, df_sec, df_ftype, df_rev, df_nrev, df_night], axis = 1, join = 'inner')
+    if len(df0) > 0:
+      df0 = pd.concat([df0, df_merge], axis = 0, join = 'inner', sort = True)                                                                                               #Concatenate the dataframes and sort by date 
+      df0 = df0.astype({'out_date' : str})
+      df0.sort_values(by = 'out_date', axis =0, inplace = True)
+      df0.drop_duplicates(inplace = True)
+      df0.reset_index(inplace = True)
+      header = list(df0.head(0))                                                                                                                                            #Extract header of csv file
+      if 'Unnamed: 0' in header:
+        df0.drop('Unnamed: 0', axis = 'columns', inplace = True)                                                                                                            #Remove 'Unnamed: 0' column from dataframe. This is created when appending data frames.
+      if 'index' in header:
+        df0.drop(columns = 'index', axis = 'columns', inplace = True)                                                                                                       #Remove index column that was created by reset_index.
+      
+      df_merge = df0        
+      df_merge = df_merge.astype({'out_date' : str})
+    df_merge.to_csv(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'))                                                                         #Write output file
+    if run_gcs == True:
       if 'day_night_optimal' in outdir:
         pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
       else:
         pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split(mod1, outdir)[0]))[0], d_str)
-      csv_ftype = list_csv_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), 'dates_with_ftype.csv')                                                                 #Find dates_wtih_ftype csv file to see if exists or not
-      if len(csv_ftype) == 0:
-        df0 = pd.DataFrame()                                                                                                                                                #Create empty data frame
-      else:
-        if len(csv_ftype) > 0:
-          df0 = load_csv_gcs(f_bucket_name, csv_ftype[0])                                                                                                                   #Read specified csv file
-
-  df_out2  = pd.DataFrame({'out_date'   : outdate}) 
-  df_ftype = pd.DataFrame({'ftype'      : ['test']*len(outdate)}) 
-  df_sec   = pd.DataFrame({'sector'     : [str(sector00).upper()]*len(outdate)}) 
-  df_rev   = pd.DataFrame({'reviewers'  : [None]*len(outdate)})
-  df_nrev  = pd.DataFrame({'nreviewers' : [0]*len(outdate)})
-  df_night = pd.DataFrame({'use_night'  : [use_night]*len(outdate)})
-  if len(d_range) > 0:
-    df_range = pd.DataFrame({'date_range' : d_range})
-    df_merge = pd.concat([df_out2, df_sec, df_ftype, df_rev, df_nrev, df_night, df_range], axis = 1, join = 'inner')
-  else:
-    df_merge = pd.concat([df_out2, df_sec, df_ftype, df_rev, df_nrev, df_night], axis = 1, join = 'inner')
-  if len(df0) > 0:
-    df0 = pd.concat([df0, df_merge], axis = 0, join = 'inner', sort = True)                                                                                                 #Concatenate the dataframes and sort by date 
-    df0 = df0.astype({'out_date' : str})
-    df0.sort_values(by = 'out_date', axis =0, inplace = True)
-    df0.drop_duplicates(inplace = True)
-    df0.reset_index(inplace = True)
-    header = list(df0.head(0))                                                                                                                                              #Extract header of csv file
-    if 'Unnamed: 0' in header:
-      df0.drop('Unnamed: 0', axis = 'columns', inplace = True)                                                                                                              #Remove 'Unnamed: 0' column from dataframe. This is created when appending data frames.
-    if 'index' in header:
-      df0.drop(columns = 'index', axis = 'columns', inplace = True)                                                                                                         #Remove index column that was created by reset_index.
-    
-    df_merge = df0        
-    df_merge = df_merge.astype({'out_date' : str})
-  df_merge.to_csv(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'))                                                                           #Write output file
-  if run_gcs == True:
-    if 'day_night_optimal' in outdir:
-      pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
-    else:
-      pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split(mod1, outdir)[0]))[0], d_str)
-    write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'))                       #Write results csv file to Google Cloud Storage Bucket
-  nc_files = sorted(list(set(nc_files)))
+      write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'))                     #Write results csv file to Google Cloud Storage Bucket
+    nc_files = sorted(list(set(nc_files)))
 #   if rt != True and no_plot == False:
 #     if 'day_night_optimal' in outdir:
 #       pref0 = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
@@ -864,7 +1016,7 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
 #       pat3 = d1 + '-' + d2
 #     write_plot_model_result_predictions(nc_files, ir_files, tod = tods, res = results, res_dir = outdir, write_gcs = run_gcs, use_local = use_local, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, date_range = date_range2, outroot = os.path.join(outroot, 'aacp_results_imgs', pref0, 'time_ag_figs', pat3, str(sector00).upper()), time_ag = True, verbose = verbose)
     
-  if del_local == True: 
+  if del_local: 
     if len(nc_files) > 0: 
       [os.remove(x) for x in nc_files]                                                                                                                                      #Remove all combined netCDF files from local storage
   print('Time to run entire model prediction ' + str(time.time() - t0) + ' sec')
@@ -955,12 +1107,22 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                        DEFAULT = True which implies to print verbose informational messages
   Returns:
       Numpy files with the model results for real time date or specified date range.
-  '''  
+  '''
   backend.clear_session()
   if night_only == True:
     use_night = True
   if d_str == None: d_str = datetime.utcnow().strftime("%Y-%m-%d")
-  d_str2 = datetime.strptime(os.path.basename(os.path.realpath(inroot)), "%Y%m%d").strftime("%Y%j")                                                                         #Extract date string in terms of Year and Julian date
+  try:
+      # First attempt: Parse last directory as "yyyymmdd"
+      d_str2 = datetime.strptime(os.path.basename(os.path.realpath(inroot)), "%Y%m%d").strftime("%Y%j")                                                                     #Extract date string in terms of Year and Julian date
+  except ValueError:
+      try:
+          # Second attempt: Parse last three directories as "yyyy/mm/dd"
+          parts = os.path.normpath(os.path.realpath(inroot)).split(os.sep)
+          d_str2 = datetime.strptime(f"{parts[-3]}{parts[-2]}{parts[-1]}", "%Y%m%d").strftime("%Y%j")
+      except (ValueError, IndexError):
+          print("Error: Could not parse date from inroot.")
+          d_str2 = None
   if rt == True:  
     pat = 'real_time'                                                                                                                                                       #Real-time file path subdirectory name
   else: 
@@ -1081,7 +1243,10 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     df.reset_index(inplace = True)                                                                                                                                          #Reset the index so it is 0 to number of scans within time range
     df.drop(columns = 'index', inplace = True)                                                                                                                              #Remove index column that was created by reset_index.
     dstr = pd.Series([dd[0:16] for dd in list(df['date_time'])])
-    df   = df[(df['date_time'] >= date_range[0]) & (dstr <= date_range[1])]                                                                                                 #Extract list of dates to see which dates are within the specified date range
+    if 'goes' not in inroot.lower():
+      df   = df[(df['date_time'] >= date_range[0]) & (df['date_time'] <= date_range[1])]                                                                                    #Extract list of dates to see which dates are within the specified date range
+    else:
+      df   = df[(df['date_time'] >= date_range[0]) & (dstr <= date_range[1])]                                                                                               #Extract list of dates to see which dates are within the specified date range
  
   df.reset_index(inplace = True)                                                                                                                                            #Reset the index so it is 0 to number of scans within time range
   df.drop(columns = 'index', inplace = True)                                                                                                                                #Remove index column that was created by reset_index.
@@ -1137,7 +1302,8 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         exit()
   
   if verbose == True:
-    print('Model type being used = ' + mod_type)  
+    print('Model type being used = ' + mod_type)
+    print(dims)
  
   if use_native_ir == True:
   #  if dims[1] <= 3500 and dims[2] <= 3500:
@@ -1199,7 +1365,7 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   if dims[1] <= 3500 and dims[2] <= 3500:
     model.load_weights(use_chkpnt).expect_partial()                                                                                                                         #Load the weights from previous checkpoint file specified by string
 
-    if del_local == True:   
+    if del_local:   
       chk_files = sorted(glob.glob(os.path.join(outdir, '*checkpoint*'), recursive = True))  
       [os.remove(c) for c in chk_files]
           
@@ -1211,8 +1377,8 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   if rt == True:
     s_ind = len(df)-1
   else:
-    s_ind = 0  
-  if use_local == True:
+    s_ind = 0
+  if use_local:
     p_bucket_name2 = None
   else:
     p_bucket_name2 = p_bucket_name
@@ -1225,7 +1391,7 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     if rt == False and rewrite_model == False:
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', dims[1]) + '_results.npy')                                               #Save file path and name in case want to write results to google cloud storage bucket
       if use_local == True:
-        if os.path.exists(fname) == True:                                                                                                                                   #Check if results file exist in google cloud storage bucket
+        if os.path.exists(fname):                                                                                                                                           #Check if results file exist in google cloud storage bucket
           exist = 1
       else:
         exist = list_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), [os.path.basename(fname)], delimiter = '/')                                                   #Check if results file exist in google cloud storage bucket
@@ -1286,14 +1452,20 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           print(mod1)
           exit()
       
-      na  = (imgs[:, :, :, 0] < 0)                                                                                                                                          #Find instances in which the IR data are NaNs so they can be removed from results
-      na2 = (imgs[:, :, :, 0] <= 0)
+      if mod1 == 'vis_tropdiff':
+        na  = (imgs[:, :, :, 1] < 0)                                                                                                                                        #Find instances in which the IR data are NaNs so they can be removed from results
+        na2 = (imgs[:, :, :, 1] <= 0)
+#        na3 = (imgs[:, :, :, 1] == -2)
+      else:
+        na  = (imgs[:, :, :, 0] < 0)                                                                                                                                        #Find instances in which the IR data are NaNs so they can be removed from results
+        na2 = (imgs[:, :, :, 0] <= 0)
+#        na3 = (imgs[:, :, :, 0] == -2)
       if sector.lower() == 'c' or sector.lower() == 'f':
         imgs[na, :] = val_set                                                                                                                                               #Set NaN regions to 1 so that edges of domain are not mistakenly identified as an OT or AACP
       else:
         imgs[na, 0] = 0                                                                                                                                                     #Set NaN regions to 1 so that edges of domain are not mistakenly identified as an OT or AACP
    
-      if use_native_ir == True:
+      if use_native_ir:
         if dims[1] == 500 and dims[2] == 500:
           imgs2 = np.zeros((imgs.shape[0], 512, 512, imgs.shape[-1]))
           imgs2[:, 5:-7, 5:-7, :] = imgs
@@ -1317,12 +1489,17 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           dataset = tf.data.Dataset.from_tensor_slices((imgs2)).batch(16)                                                                                                   #Creates a Dataset whose elements are slices of the given tensors
       else:
         if dims[1] > 3500 or dims[2] > 3500:
-#          imgs = build_subset_tensor(imgs, 512, 512)                                                                                                                        #Create subset tensor so it does not overwhelm GPU memory
+#          imgs = build_subset_tensor(imgs, 512, 512)                                                                                                                       #Create subset tensor so it does not overwhelm GPU memory
           if dims[1] >= 6500 or dims[2] >= 6500:
-            imgs, chunks  = build_subset_tensor3(imgs, 512, 512)                                                                                                            #Create subset tensor so it does not overwhelm GPU memory
+            if 'plume_day_model' in use_chkpnt:
+              imgs, chunks  = build_subset_tensor3(imgs, 2000, 2000)                                                                                                        #Create subset tensor so it does not overwhelm GPU memory
+            else:
+              imgs, chunks  = build_subset_tensor3(imgs, 512, 512)                                                                                                          #Create subset tensor so it does not overwhelm GPU memory
           else:
-            imgs, chunks  = build_subset_tensor3(imgs, 512, 512)                                                                                                            #Create subset tensor so it does not overwhelm GPU memory
-          
+            if 'plume_day_model' in use_chkpnt:
+              imgs, chunks  = build_subset_tensor3(imgs, 2000, 2000)                                                                                                        #Create subset tensor so it does not overwhelm GPU memory
+            else:
+              imgs, chunks  = build_subset_tensor3(imgs, 512, 512)                                                                                                          #Create subset tensor so it does not overwhelm GPU memory
           if model == None:
             if mod_type.lower() == 'unet':  
               model = unet(input_size = (imgs.shape[1],imgs.shape[2],2))                                                                                                    #Run unet function
@@ -1345,23 +1522,26 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
             imgs2 = imgs[rem[0], :, :, :]
           else:
             imgs2 = imgs
-          dataset = tf.data.Dataset.from_tensor_slices((imgs2)).batch(16)                                                                                                   #Creates a Dataset whose elements are slices of the given tensors
+          batch_size = 16
+          if 'plume_day_model' in use_chkpnt:
+            batch_size = 10
+          dataset = tf.data.Dataset.from_tensor_slices((imgs2)).batch(batch_size)                                                                                                   #Creates a Dataset whose elements are slices of the given tensors
         else:
           dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(16)                                                                                                    #Creates a Dataset whose elements are slices of the given tensors
-  
-      dataset.cache                                                                                                                                                         #Cache the elements in the dataset
-      dataset.prefetch(1)                                                                                                                                                   #Creates a Dataset that prefetches elements from this dataset. Allows later elements to be prepared while current element is being processed
-      results = model.predict(dataset)  
-      if use_native_ir == True:
+
+      dataset.cache                                                                                                                                                       #Cache the elements in the dataset
+      dataset.prefetch(1)                                                                                                                                                 #Creates a Dataset that prefetches elements from this dataset. Allows later elements to be prepared while current element is being processed
+      results = model.predict(dataset)
+      if use_native_ir:
         if dims[1] == 500 and dims[2] == 500: 
           results = results[:, 5:-7, 5:-7, :]
         else:
 #          results = reconstruct_tensor_from_subset(results, dims[1], dims[2])                                                                                               #Reconstruct tensor back to original shape
-          if mod_type.lower() == 'multiresunet':  
-            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
-            results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
-            results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
-            results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0  
+#           if mod_type.lower() == 'multiresunet':  
+#             results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
+#             results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
+#             results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
+#             results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0  
           if len(rem[0]) > 0:
             results2 = np.zeros((imgs.shape[0], imgs.shape[1], imgs.shape[2], results.shape[3]))
             results2[rem[0], :, :, :] = results
@@ -1371,6 +1551,8 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         if mod_type.lower() == 'multiresunet':  
           results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
           results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
+          if mod1 == 'vis_tropdiff':
+            results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
         if dims[1] > 3500 or dims[2] > 3500:
 #          results = reconstruct_tensor_from_subset(results, dims[1], dims[2])                                                                                               #Reconstruct tensor back to original shape
           if len(rem[0]) > 0:
@@ -1390,6 +1572,10 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         results[0, :, :, 0] = r0
       if len(na2) > 0:
         results[na2, 0] = 0
+      
+      if sector.lower() == 'c' and dims[1] == 6000 and dims[2] == 10000:
+        results[0, :, dims[2]-16:dims[2], 0] = 0
+
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', results.shape[1]) + '_results.npy')                                      #Save file path and name in case want to write results to google cloud storage bucket
       results[results < 0.02] = 0
       if no_write_npy == False:
