@@ -255,9 +255,20 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                     gfs_file1 = ''          
                 
                 if no_f0 == 1 and no_f1 == 1:
-                    print('No file found for previous or future GFS file date??')
-                    print(nd_str0)
-                    exit()
+                    gdate     = datetime.strptime(gdates[-1], "%Y%m%d%H")
+                    if abs(gdate - date) <= timedelta(seconds = 12*60*60):
+                        gfs_file0 = gfs_files[-1]
+                        gfs_file1 = gfs_files[-1]
+                        no_f0 = 0
+                        no_f1 = 0
+                        near_date0 = gdate
+                        near_date1 = gdate
+                        nd_str0    = near_date0.strftime("%Y%m%d%H")                                                                                   #Extract nearest date to satellite scan as a string
+                        nd_str1    = near_date1.strftime("%Y%m%d%H")                                                                                   #Extract nearest date to satellite scan as a string
+                    else:    
+                        print('No file found for previous or future GFS file date??')
+                        print(nd_str0)
+                        exit()
                 
                 if no_f0 == 1:
                     print('No file found for previous GFS file date??')

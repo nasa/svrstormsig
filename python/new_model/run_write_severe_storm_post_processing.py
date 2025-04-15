@@ -703,10 +703,12 @@ def download_gfs_analysis_files_from_gcloud(date_str,
         print(file)    
     if len(file) == 1:
         outdir = os.path.join(os.path.realpath(outroot), date1.strftime('%Y'), date1.strftime('%Y%m%d'))
-        if os.path.exists(os.path.join(outdir, os.path.basename(file[0]))):
-            if verbose == True:
+        if os.path.exists(os.path.join(outdir, os.path.basename(file[0]))) or os.path.exists(os.path.join(outdir, 'gfs.0p25.' + date1.strftime('%Y%m%d%H') + '.f000.grib2')):
+            exist = True
+            if verbose:
                 print('GFS file already exists so do not need to download')
         else:        
+            exist = False
             os.makedirs(outdir, exist_ok = True)
             download_ncdf_gcs(gfs_bucket_name, file[0], outdir)
     else:        
@@ -717,12 +719,13 @@ def download_gfs_analysis_files_from_gcloud(date_str,
         print('File may not be available on Google Cloud??')
         exit()    
 
-    original_path = os.path.join(outdir, os.path.basename(file[0]))
-    new_filename = 'gfs.0p25.' + date1.strftime('%Y%m%d%H') + '.f000.grib2'
-    new_path = os.path.join(outdir, new_filename)
-    os.rename(original_path, new_path)
-    if verbose:
-        print(f"Renamed downloaded file {original_path} to {new_filename}")            
+    if not exist:
+        original_path = os.path.join(outdir, os.path.basename(file[0]))
+        new_filename = 'gfs.0p25.' + date1.strftime('%Y%m%d%H') + '.f000.grib2'
+        new_path = os.path.join(outdir, new_filename)
+        os.rename(original_path, new_path)
+        if verbose:
+            print(f"Renamed downloaded file {original_path} to {new_filename}")            
 
 def gfs_nearest_time(date, dt, ROUND = 'round'):
     '''
