@@ -686,22 +686,27 @@ def download_gfs_analysis_files_from_gcloud(date_str,
         date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                               #Extract minimum time of GFS files required to download to encompass data date range
         fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
         file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
-        if len(file) > 1:
+        try:
             file.remove(fpath + '.idx')
-
+        except:
+            nothing = 0
         if len(file) == 0:
             date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                                   #Extract minimum time of GFS files required to download to encompass data date range
             fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
             file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
-            if len(file) > 1:
+            try:
                 file.remove(fpath + '.idx')
+            except:
+                nothing = 0
     
             if len(file) == 0:
                 date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                               #Extract minimum time of GFS files required to download to encompass data date range
                 fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
                 file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
-                if len(file) > 1:
+                try:
                     file.remove(fpath + '.idx')
+                except:
+                    nothing = 0
     
         if verbose:
             print(file)    
@@ -732,8 +737,10 @@ def download_gfs_analysis_files_from_gcloud(date_str,
         yyyy       = os.path.basename(os.path.dirname(os.path.dirname(infile)))
         fpath      = 'gfs.' + yyyymmdd + '/' + yyyymmddhh[-2:] + '/atmos/gfs.t' + yyyymmddhh[-2:] + 'z.pgrb2.0p25.f000'
         file       = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
-        if len(file) > 1:
+        try:
             file.remove(fpath + '.idx')
+        except:
+            nothing = 0
         if len(file) == 1:
             outdir = os.path.join(os.path.realpath(outroot), yyyy, yyyymmdd)
             os.makedirs(outdir, exist_ok = True)
