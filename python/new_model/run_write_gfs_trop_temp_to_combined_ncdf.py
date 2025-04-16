@@ -60,6 +60,7 @@ sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(3, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, list_gcs, download_ncdf_gcs
+from new_model.run_write_severe_storm_post_processing import download_gfs_analysis_files_from_gcloud
 #from glm_gridder.dataScaler import DataScaler
 from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, convert_longitude
 #from visualize_results.gfs_contour_trop_temperature import gfs_contour_trop_temperature
@@ -331,7 +332,19 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                             tropT0 = np.copy(tropT1)
                         else:
                             grbs   = pygrib.open( gfile0 )                                                                                             #Open Grib file to read
-                            grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                      #Extract tropopause temperatures from the GRIB file
+                            try:
+                                grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                  #Extract tropopause temperatures from the GRIB file
+                            except:
+                                grbs.close()
+                                download_gfs_analysis_files('', '', infile = gfile0, verbose = True)
+                                grbs   = pygrib.open( gfile0 )                                                                                         #Open Grib file to read
+                                try:
+                                    grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                              #Extract tropopause temperatures from the GRIB file
+                                except:
+                                    print('Bad GFS file. Unable to find tropopause temperature within the file.')
+                                    print(os.path.realpath(gfile0))
+                                    print('Exiting')
+                                    exit()
                             tropT0 = np.copy(grb.values)                                                                                               #Copy tropopause temperatures from backward date into array
                             tropT0 = np.flip(tropT0, axis = 0)                                                                                         #Put latitudes in ascending order in order to be interpolated onto satellite grid
                     #        tropT0 = weighted_cold_bias(tropT0, 5, weight=0.3)
@@ -349,7 +362,20 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                 if gfile1 != gfile11 and real_time == False:
                     if gfile1 != '':
                         grbs1   = pygrib.open( gfile1 )                                                                                                #Open Grib file to read
-                        grb1    = grbs1.select(name='Temperature', typeOfLevel='tropopause')[0]                                                        #Extract tropopause temperatures from the GRIB file
+                        try:
+                            grb1    = grbs1.select(name='Temperature', typeOfLevel='tropopause')[0]                                                    #Extract tropopause temperatures from the GRIB file
+                        except:
+                            grbs1.close()
+                            download_gfs_analysis_files('', '', infile = gfile1, verbose = True)
+                            grbs1   = pygrib.open( gfile1 )                                                                                            #Open Grib file to read
+                            try:
+                                grb1    = grbs1.select(name='Temperature', typeOfLevel='tropopause')[0]                                                 #Extract tropopause temperatures from the GRIB file
+                            except:
+                                print('Bad GFS file. Unable to find tropopause temperature within the file.')
+                                print(os.path.realpath(gfile1))
+                                print('Exiting')
+                                exit()
+                        
                         tropT1  = np.copy(grb1.values)                                                                                                 #Copy tropopause temperatures from forward date into array
                         tropT1  = np.flip(tropT1, axis = 0)                                                                                            #Put latitudes in ascending order in order to be interpolated onto satellite grid
              #           tropT1  = weighted_cold_bias(tropT1, 5, weight=0.3)
@@ -466,6 +492,7 @@ def append_combined_ncdf_with_gfs_trop_temp(nc_file, tropT, files_used = [], rew
   return()
 
 def download_gfs_analysis_files(date_str1, date_str2,
+                                infile          = None,
                                 GFS_ANALYSIS_DT = 21600,
                                 outroot         = os.path.join('..', '..', '..', 'gfs-data'),
                                 c_bucket_name   = 'ir-vis-sandwhich',
@@ -479,6 +506,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
         date_str1 : Start date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
         date_str2 : End date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to end downloading 
     Keywords:
+        infile          : Name of GFS data file to download.
+                          DEFAULT = None -> use the date strings.
         GFS_ANALYSIS_DT : FLOAT keyword specifying the time between GFS files in sec. 
                           DEFAULT = 21600 -> seconds between GFS files
         write_gcs       : IF keyword set (True), write the output files to the google cloud in addition to local storage.
@@ -497,41 +526,28 @@ def download_gfs_analysis_files(date_str1, date_str2,
     Author and history:
         John W. Cooney           2023-06-14
     '''  
-    date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
-    date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
-    date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
-    date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                     #Extract maximum time of GFS files required to download to encompass data date range
-  #  aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
-    files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
-    files = [f for f in files if not f.endswith('.idx')]
-   # download the data file(s)
-    if verbose == True:
-        print('Downloading GFS files to extract tropopause temperatures.')
-        print(files)
-        print(os.path.realpath(outroot))
-    for file in files:
-        idx = file.rfind("/")
-        if (idx > 0):
-            ofile = file[idx+1:]
-        else:
-            ofile = file
-        
-        outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
-        if os.path.exists(os.path.join(outdir, ofile)) == False:
-            #Old?                        
-#            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
-            #New path?
-            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
-            if verbose:
-                print(response)
-                print(response.status_code)
-                print(file)
-            if response.status_code == 200:
-                os.makedirs(outdir, exist_ok = True)
-                with open(os.path.join(outdir, ofile), "wb") as f:
-                    f.write(response.content)
+    if infile is None:
+        date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                      #Convert start date string to datetime structure
+        date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                      #Convert start date string to datetime structure
+        date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                               #Extract minimum time of GFS files required to download to encompass data date range
+        date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                 #Extract maximum time of GFS files required to download to encompass data date range
+  #      aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
+        files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
+        files = [f for f in files if not f.endswith('.idx')]
+   #     download the data file(s)
+        if verbose == True:
+            print('Downloading GFS files to extract tropopause temperatures.')
+            print(files)
+            print(os.path.realpath(outroot))
+        for file in files:
+            idx = file.rfind("/")
+            if (idx > 0):
+                ofile = file[idx+1:]
             else:
-                time.sleep(1)
+                ofile = file
+            
+            outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
+            if os.path.exists(os.path.join(outdir, ofile)) == False:
                 #Old?                        
 #                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
                 #New path?
@@ -544,9 +560,58 @@ def download_gfs_analysis_files(date_str1, date_str2,
                     os.makedirs(outdir, exist_ok = True)
                     with open(os.path.join(outdir, ofile), "wb") as f:
                         f.write(response.content)
-                else:                
-                    print('No GFS files found to calculate tropopause temperature for post-processing')
-            
+                else:
+                    time.sleep(1)
+                    #Old?                        
+#                    response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
+                    #New path?
+                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                    if verbose:
+                        print(response)
+                        print(response.status_code)
+                        print(file)
+                    if response.status_code == 200:
+                        os.makedirs(outdir, exist_ok = True)
+                        with open(os.path.join(outdir, ofile), "wb") as f:
+                            f.write(response.content)
+                    else:                
+                        print('No GFS files found to calculate tropopause temperature')
+    else:
+        print('Trying to redownload bad GFS data file')
+        fb       = os.path.basename(infile)
+        yyyymmdd = os.path.basename(os.path.dirname(infile))
+        yyyy     = os.path.basename(os.path.dirname(os.path.dirname(infile)))
+        file     = yyyy + '/' + yyyymmdd + '/' + fb
+        outdir   = os.path.realpath(os.path.join(outroot, yyyy, yyyymmdd))
+        response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+        if verbose:
+            print(response)
+            print(response.status_code)
+            print(file)
+            print(outdir)
+        
+        if response.status_code == 200:
+            os.makedirs(outdir, exist_ok = True)
+            with open(os.path.join(outdir, fb), "wb") as f:
+                f.write(response.content)
+        else:
+            time.sleep(1)
+            #Old?                        
+#            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
+            #New path?
+            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            if verbose:
+                print(response)
+                print(response.status_code)
+                print(file)
+            if response.status_code == 200:
+                os.makedirs(outdir, exist_ok = True)
+                with open(os.path.join(outdir, fb), "wb") as f:
+                    f.write(response.content)
+            else:                
+               download_gfs_analysis_files_from_gcloud('',  infile = infile)
+               print('No GFS files found to calculate tropopause temperature')
+        
 def gfs_nearest_time(date, dt, ROUND = 'round'):
     '''
     Name:

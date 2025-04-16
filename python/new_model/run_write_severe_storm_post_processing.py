@@ -68,7 +68,7 @@ sys.path.insert(3, os.path.dirname(os.getcwd()))
 from new_model.gcs_processing import write_to_gcs, list_gcs, download_ncdf_gcs
 #from glm_gridder.dataScaler import DataScaler
 from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, convert_longitude
-from new_model.run_write_gfs_trop_temp_to_combined_ncdf import lanczos_kernel, circle_mean_with_offset, weighted_cold_bias
+#from new_model.run_write_gfs_trop_temp_to_combined_ncdf import lanczos_kernel, circle_mean_with_offset, weighted_cold_bias
 #from visualize_results.gfs_contour_trop_temperature import gfs_contour_trop_temperature
 def run_write_severe_storm_post_processing(inroot          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516'),
                                            gfs_root        = os.path.join('..', '..', '..', 'gfs-data'),
@@ -646,6 +646,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
 
 def download_gfs_analysis_files_from_gcloud(date_str, 
                                             GFS_ANALYSIS_DT = 21600,
+                                            infile          = None,
                                             outroot         = os.path.join('..', '..', '..', 'gfs-data'),
                                             gfs_bucket_name = 'global-forecast-system', 
                                             write_gcs       = False,
@@ -659,6 +660,8 @@ def download_gfs_analysis_files_from_gcloud(date_str,
     Keywords:
         GFS_ANALYSIS_DT : FLOAT keyword specifying the time between GFS files in sec. 
                           DEFAULT = 21600 -> seconds between GFS files
+        infile          : Name of GFS data file to download.
+                          DEFAULT = None -> use the date strings.
         write_gcs       : IF keyword set (True), write the output files to the google cloud in addition to local storage.
                           DEFAULT = False.
         del_local       : IF keyword set (True) AND run_gcs = True, delete local copy of output file.
@@ -678,15 +681,9 @@ def download_gfs_analysis_files_from_gcloud(date_str,
     Author and history:
         John W. Cooney           2024-02-20
     '''  
-    date1 = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")                                                                                           #Convert start date string to datetime structure
-    date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
-    fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
-    file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
-    if len(file) > 1:
-        file.remove(fpath + '.idx')
-
-    if len(file) == 0:
-        date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                                       #Extract minimum time of GFS files required to download to encompass data date range
+    if infile is None:
+        date1 = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")                                                                                       #Convert start date string to datetime structure
+        date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                               #Extract minimum time of GFS files required to download to encompass data date range
         fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
         file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
         if len(file) > 1:
@@ -698,26 +695,51 @@ def download_gfs_analysis_files_from_gcloud(date_str,
             file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
             if len(file) > 1:
                 file.remove(fpath + '.idx')
-
-    if verbose:
-        print(file)    
-    if len(file) == 1:
-        outdir = os.path.join(os.path.realpath(outroot), date1.strftime('%Y'), date1.strftime('%Y%m%d'))
-        if os.path.exists(os.path.join(outdir, os.path.basename(file[0]))) or os.path.exists(os.path.join(outdir, 'gfs.0p25.' + date1.strftime('%Y%m%d%H') + '.f000.grib2')):
-            exist = True
-            if verbose:
-                print('GFS file already exists so do not need to download')
+    
+            if len(file) == 0:
+                date1 = gfs_nearest_time(date1-timedelta(seconds = 30), GFS_ANALYSIS_DT, ROUND = 'down')                                               #Extract minimum time of GFS files required to download to encompass data date range
+                fpath = 'gfs.' + date1.strftime('%Y%m%d') + '/' + date1.strftime('%H') + '/atmos/gfs.t' + date1.strftime('%H') + 'z.pgrb2.0p25.f000'
+                file  = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
+                if len(file) > 1:
+                    file.remove(fpath + '.idx')
+    
+        if verbose:
+            print(file)    
+        if len(file) == 1:
+            outdir = os.path.join(os.path.realpath(outroot), date1.strftime('%Y'), date1.strftime('%Y%m%d'))
+            if os.path.exists(os.path.join(outdir, os.path.basename(file[0]))) or os.path.exists(os.path.join(outdir, 'gfs.0p25.' + date1.strftime('%Y%m%d%H') + '.f000.grib2')):
+                exist = True
+                if verbose:
+                    print('GFS file already exists so do not need to download')
+            else:        
+                exist = False
+                os.makedirs(outdir, exist_ok = True)
+                download_ncdf_gcs(gfs_bucket_name, file[0], outdir)
         else:        
-            exist = False
+            print('No GFS file found within 12 hours of date specified')
+            print(date_str)
+            print(fpath)
+            print(gfs_bucket_name)
+            print('File may not be available on Google Cloud??')
+            exit()    
+    else:
+        print('Trying google cloud redownload')
+        exist      = False
+        fb         = os.path.basename(infile)
+        yyyymmddhh = re.split(r'\.', fb)[2]
+        date1      = datetime.strptime(yyyymmddhh, '%Y%m%d%H')
+        yyyymmdd   = os.path.basename(os.path.dirname(infile))
+        yyyy       = os.path.basename(os.path.dirname(os.path.dirname(infile)))
+        fpath      = 'gfs.' + yyyymmdd + '/' + yyyymmddhh[-2:] + '/atmos/gfs.t' + yyyymmddhh[-2:] + 'z.pgrb2.0p25.f000'
+        file       = list_gcs(gfs_bucket_name, os.path.dirname(fpath), [os.path.basename(fpath)])
+        if len(file) > 1:
+            file.remove(fpath + '.idx')
+        if len(file) == 1:
+            outdir = os.path.join(os.path.realpath(outroot), yyyy, yyyymmdd)
             os.makedirs(outdir, exist_ok = True)
             download_ncdf_gcs(gfs_bucket_name, file[0], outdir)
-    else:        
-        print('No GFS file found within 12 hours of date specified')
-        print(date_str)
-        print(fpath)
-        print(gfs_bucket_name)
-        print('File may not be available on Google Cloud??')
-        exit()    
+        else:
+            exist = True
 
     if not exist:
         original_path = os.path.join(outdir, os.path.basename(file[0]))
@@ -766,6 +788,52 @@ def gfs_nearest_time(date, dt, ROUND = 'round'):
     
     return(datetime(date.year, date.month, date.day) + timedelta(seconds = k*dt))                                                                      #Return requested date and time
 
+def circle_mean_with_offset(arr, radius, offset):
+    def circle_mean(x):
+        return(np.mean(x) + offset * np.std(x))
+    
+    return(generic_filter(arr, circle_mean, size=2*radius+1, mode='wrap'))
+
+def lanczos_kernel(size, cutoff):
+    """
+    Generate a Lanczos kernel.
+
+    Parameters:
+        - size: The size of the kernel (should be an odd number).
+        - cutoff: The cutoff frequency, which determines the width of the central lobe.
+
+    Returns:
+        - A 1D numpy array representing the Lanczos kernel.
+    """
+    if size % 2 == 0:
+        raise ValueError("Kernel size should be an odd number")
+
+    half_size = size // 2
+    kernel = np.zeros((size, size), dtype=float)
+    for x in range(-half_size, half_size + 1):
+            for y in range(-half_size, half_size + 1):
+                distance = np.sqrt(x**2 + y**2)
+                if distance == 0:
+                    kernel[x + half_size, y + half_size] = 1.0
+                elif distance <= cutoff:
+                    kernel[x + half_size, y + half_size] = (
+                        np.sinc(x / cutoff) * np.sinc(y / cutoff)
+                    )
+
+#     for x in range(-half_size, half_size + 1):
+#         if x == 0:
+#             kernel[x + half_size] = 1.0
+#         elif abs(x) <= cutoff:
+#             kernel[x + half_size] = np.sinc(x / cutoff) * np.sinc(x / half_size)
+
+    return(kernel / kernel.sum())
+
+def weighted_cold_bias(arr, radius, weight=0.1):
+    def func(x):
+        sorted_vals = np.sort(x)
+        idx = max(0, int(weight * len(sorted_vals)))  # Avoid index errors
+        return(sorted_vals[idx])  # Pick a colder value
+    return(generic_filter(arr, func, size=2*radius+1, mode='wrap'))
         
 def main():
     run_write_severe_storm_post_processing()
