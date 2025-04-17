@@ -179,7 +179,7 @@ from visualize_results.visualize_time_aggregated_results import visualize_time_a
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
 backend.clear_session()
 tf.get_logger().setLevel('ERROR')
-def run_all_plume_updraft_model_predict(verbose     = True, 
+def run_all_plume_updraft_model_predict(verbose     = True,
                                         drcs        = False,
                                         essl        = False, 
                                         config_file = None):
