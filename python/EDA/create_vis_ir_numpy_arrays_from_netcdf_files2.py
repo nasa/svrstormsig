@@ -138,7 +138,7 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, min_value = -15.0, ma
         ir_dat = cv2.resize(ir_dat, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)                                             #Upscale the ir data array to VIS resolution
         tr_dat = cv2.resize(tr_dat, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)                                             #Upscale the ir data array to VIS resolution
     d_dat = ir_dat - tr_dat
-    na = (ir_dat < 0)
+    na = (ir_dat < 0) | (ir_dat >= 250)
     d_dat[d_dat < min_value] = min_value                                                                                                       #Clip all BT-tropT below min value to min value
     d_dat[d_dat > max_value] = max_value                                                                                                       #Clip all BT-tropT above max value to max value
     d_dat = np.true_divide(d_dat - min_value, min_value - max_value)                                                                           #Normalize the IR BT-tropT data by the max and min values
