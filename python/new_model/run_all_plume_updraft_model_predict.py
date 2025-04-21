@@ -209,6 +209,8 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
+  print('SVRSTORMSIG Software VERSION: 3.0.1')
+  print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
 
