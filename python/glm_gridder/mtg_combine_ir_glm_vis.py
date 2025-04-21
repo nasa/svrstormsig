@@ -364,6 +364,7 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
             y_inds  = list(f.y_inds)
             lon_arr = np.asarray(f.variables['longitude'])
             keys0   = f.variables.keys()
+            keys1   = list(keys0)
             if ('solar_zenith_angle' not in keys0) and (no_write_vis == False or no_write_cirrus == False or no_write_snowice == False):
                 date   = netCDF4.num2date( ir.variables['time'][:], ir.variables['time'].units)                                             #Read in date
                 date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
@@ -377,6 +378,7 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
                 coszen = np.cos(np.deg2rad(zen))
         else:
             keys0 = {}
+            keys1 = list(keys0)
             f = netCDF4.Dataset(out_nc,'w', format='NETCDF4')                                                                               #'w' stands for write (write netCDF file of combined datasets)
             
             # latitude and longitude definition
@@ -622,7 +624,7 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
                   if len(snowice_img) > 0:
 #                      print(np.max(snowice_img))
                       snowice_img = snowice_img/coszen                                                                                      #Calculate reflectance by normalizing by solar zenith angle
-        if no_write_vis == False and 'visible_reflectance' not in keys0:
+        if no_write_vis == False and 'visible_reflectance' not in keys1:
             with warnings.catch_warnings():
               warnings.simplefilter("ignore", category=RuntimeWarning)
               vis_img = vis_img/coszen                                                                                                      #Calculate reflectance by normalizing by solar zenith angle
@@ -640,62 +642,62 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
             var_t[:]    = netCDF4.date2num(date, dd.variables['time'].attrs['units'])
         bt      = np.copy(np.asarray(bt))
         rm_inds = ((bt < 163.0) | (np.isnan(bt)) | (bt > 500.0))
-        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys0: 
+        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys1: 
             bt2 = np.copy(np.asarray(bt2))
             bt2[rm_inds]   = -500.0                                                                                                         #Remove likely untrue values by setting them to -500 K
 #            bt2[bt < 163.0]   = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
 #            bt2[np.isnan(bt)] = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
-        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys0: 
+        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys1: 
             bt3 = np.copy(np.asarray(bt3))
             bt3[rm_inds]   = 500.0                                                                                                          #Remove likely untrue values by setting them to -500 K
 #            bt2[np.isnan(bt)] = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
-        if 'ir_brightness_temperature' not in keys0:
+        if 'ir_brightness_temperature' not in keys1:
             bt[rm_inds]   = np.nan                                                                                                            #Remove likely untrue values by setting them to 500 K
 #            bt[rm_inds]   = 500.0                                                                                                            #Remove likely untrue values by setting them to 500 K
 #            bt[np.isnan(bt)] = 500.0                                                                                                       #Remove NaN values by setting them to 500 K
 #            t0 = time.time()
             data, scale_ir, offset_ir = Scaler.scaleData(bt)                                                                                #Extract data, scale factor and offsets that is scaled from Float to short
             var_ir[0, :, :]   = data
-        if no_write_vis == False and 'visible_reflectance' not in keys0:
+        if no_write_vis == False and 'visible_reflectance' not in keys1:
             data, scale_vis, offset_vis = Scaler.scaleData(np.copy(np.asarray(vis_img)))                                                    #Extract data, scale factor and offsets that is scaled from Float to short
             var_vis[0, :, :]  = data
             var_vis.add_offset    = offset_vis
             var_vis.scale_factor  = scale_vis
             vis.close()
-            if 'solar_zenith_angle' not in keys0:
+            if 'solar_zenith_angle' not in keys1:
                 data, scale_zen, offset_zen = Scaler.scaleData(np.copy(np.asarray(np.rad2deg(zen))))                                        #Extract data, scale factor and offsets that is scaled from Float to short
                 var_zen[0, :, :]  = data
                 var_zen.add_offset    = offset_zen
                 var_zen.scale_factor  = scale_zen
         elif no_write_vis == False:
             vis.close()
-        if no_write_glm == False and 'glm_flash_extent_density' not in keys0:
+        if no_write_glm == False and 'glm_flash_extent_density' not in keys1:
             data, scale_glm, offset_glm = Scaler.scaleData(glm_raw_img)
             var_glm[0, :, :]     = data    
             var_glm.add_offset   = offset_glm
             var_glm.scale_factor = scale_glm
-        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys0: 
+        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys1: 
             data, scale_ir2, offset_ir2 = Scaler.scaleData(bt2)
             var_ir2[0, :, :]     = data    
             var_ir2.add_offset   = offset_ir2
             var_ir2.scale_factor = scale_ir2
-        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys0: 
+        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys1: 
             data, scale_ir3, offset_ir3 = Scaler.scaleData(bt3)
             var_ir3[0, :, :]     = data    
             var_ir3.add_offset   = offset_ir3
             var_ir3.scale_factor = scale_ir3
-        if no_write_cirrus == False and 'cirrus_reflectance' not in keys0: 
+        if no_write_cirrus == False and 'cirrus_reflectance' not in keys1: 
             data, scale_cirrus, offset_cirrus = Scaler.scaleData(cirrus_img)
             var_cirrus[0, :, :]     = data    
             var_cirrus.add_offset   = offset_cirrus
             var_cirrus.scale_factor = scale_cirrus
-        if no_write_snowice == False and 'snowice_reflectance' not in keys0: 
+        if no_write_snowice == False and 'snowice_reflectance' not in keys1: 
             data, scale_snowice, offset_snowice = Scaler.scaleData(snowice_img)
             var_snowice[0, :, :]     = data    
             var_snowice.add_offset   = offset_snowice
             var_snowice.scale_factor = scale_snowice
 #        print('Time to scale and offset the data = '+ str(time.time() -t0) + 'sec')
-        if 'ir_brightness_temperature' not in keys0:
+        if 'ir_brightness_temperature' not in keys1:
             var_ir.add_offset     = offset_ir
             var_ir.scale_factor   = scale_ir
 
