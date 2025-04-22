@@ -114,6 +114,8 @@ def glm_gridder2(outfile     = None,
             loc = "west"
         elif '_G18_' in os.path.basename(files[0]):
             loc = "west"
+        elif '_G19_' in os.path.basename(files[0]):
+            loc = "east"
         else:
             print('Not set up currently to handle GOES GLM required!')
             exit()
