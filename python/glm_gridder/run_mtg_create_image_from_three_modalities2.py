@@ -129,7 +129,7 @@ def run_mtg_create_image_from_three_modalities2(inroot             = os.path.joi
                                                 layered_dir        = os.path.join('..', '..', '..', 'mtg-data', 'combined_nc_dir'), 
                                                 img_out_dir        = os.path.join('..', '..', '..', 'mtg-data', 'layered_img_dir'), 
                                                 no_plot_glm        = True, no_plot = False, 
-                                                no_write_glm       = False, no_write_vis = False, no_write_irdiff = True, no_write_cirrus = True, no_write_snowice = True, no_write_dirtyirdiff = True, 
+                                                no_write_glm       = True, no_write_vis = False, no_write_irdiff = True, no_write_cirrus = True, no_write_snowice = True, no_write_dirtyirdiff = True, 
                                                 xy_bounds          = [], 
                                                 domain_sector      = None, 
                                                 del_combined_nc    = False, universal_file = True, 
