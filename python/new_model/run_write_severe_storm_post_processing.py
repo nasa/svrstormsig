@@ -51,7 +51,7 @@ import glob
 import os
 import re
 from math import ceil, floor
-from scipy.ndimage import label, generate_binary_structure, convolve, generic_filter
+from scipy.ndimage import label, generate_binary_structure, convolve, generic_filter, distance_transform_edt, binary_dilation
 from scipy.interpolate import interpn
 import xarray as xr
 from datetime import datetime, timedelta
@@ -199,6 +199,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             print(pref)
         exit()
             
+    native_ir = False
+    
     x_sat0  = []
     y_sat0  = []
     gfsf    = 'kadshbfavbjfv'
@@ -227,8 +229,14 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                     xyres = '0.5km at nadir'
                 else:    
                     xyres = '2km at nadir'
-            bt = f['ir_brightness_temperature']
+                    native_ir = True
+            bt  = f['ir_brightness_temperature']
+            sat = f['imager_projection'].attrs['satellite_name']
         
+        if 'mtg' in sat.lower() or 'mti' in sat.lower():
+            aacp_thresh2 = 0.95
+        else:
+            aacp_thresh2 = 0.65
         xyres0 = np.float64(re.split('km', xyres)[0])
         anv_p  = int((15.0/xyres0)*2.0)                                                                                                                #Calculate number of pixels to be included as part of the anvil
         sigma  = int(36.0/(xyres0*2.0))                                                                                                                #Calculate the standard deviation for Gaussian kernel for smoothing tropopause temperatures on the satellite grid
@@ -239,7 +247,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         else: 
             bt0 = bt.values[0, :, :]
             for k in range(len(keys0)):
-                if keys0[k] + '_id_number' not in var_keys or rewrite == True:
+                if keys0[k] + '_id_number' not in var_keys or rewrite:
                     data = nc_dct[keys0[k]]
                     if pthresh == None:
                         pthresh0 = data.optimal_thresh
@@ -262,6 +270,60 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                     res2[res2 <  res50] = 0                                                                                            #Set pixels with confidence below 50% of max value in object to 0
                                     res2[res2 >= res50] = max_res                                                                                      #Set pixels with confidence ≥ 50% of max value in object to max value in object
                                     res[inds] = np.copy(res2)                                                                                          #Copy updated results array to res
+                        
+                        if object_type.lower() == 'aacp':
+                            res00 = res.copy()
+                            res00[res00 < pthresh0] = 0
+                            convective_proxy = bt0 <= 230
+                            labeled_cells0, num_cells = label(convective_proxy, structure = s) 
+                            ll = np.copy(labeled_cells0).astype(float)
+#                             ll[ll <= 0] = np.nan
+                            labeled_array0, num_updrafts0 = label(res00 > 0, structure = s)                                                            #Extract labels for each updraft location (make sure points at diagonals are part of same updrafts)
+                            for u0 in range(num_updrafts0):
+                                inds0 = (labeled_array0 == u0+1)
+                                if np.sum(inds0) > 0:                                                                                                  #Find if results has any overlapping indices with mask updraft. If so, then we have a match
+                                    #Get AACP blob coordinates
+                                    coords = np.argwhere(inds0)
+                                    if np.nanmax(ll[coords[:, 0], coords[:, 1]]) != np.nanmin(ll[coords[:, 0], coords[:, 1]]):
+                                        print('Coords cells do not match???')
+                                        print(np.nanmax(ll[coords[:, 0], coords[:, 1]]))
+                                        print(np.nanmin(ll[coords[:, 0], coords[:, 1]]))
+                                        exit()
+                                    
+                                    idxx = ll[coords[:, 0], coords[:, 1]][0]
+                                    local_bt = bt0[ll == idxx]
+                                    bt_thresh = np.percentile(local_bt, 5)
+                                    
+#                                     r0, c0 = np.mean(coords, axis=0).astype(int)
+#                                     rmin, rmax = max(r0 - 10, 0), min(r0 + 11, bt0.shape[0])
+#                                     cmin, cmax = max(c0 - 10, 0), min(c0 + 11, bt0.shape[1])
+                    
+                                    convective_proxy2 = bt0 < bt_thresh
+                                    dist_to_convection = distance_transform_edt(~convective_proxy2)
+                            
+                                    min_dist = np.min(dist_to_convection[inds0])
+                    
+                                    # Dilate the detection slightly
+                                    if native_ir:
+                                        dilated_inds0 = binary_dilation(inds0, iterations=3)
+                                        dist_thresh   = 3
+                                    else:
+                                        dilated_inds0 = binary_dilation(inds0, iterations=5)
+                                        dist_thresh   = 10
+                                    
+                                    ring_mask = np.logical_and(dilated_inds0, ~inds0)                                                                  #Only outer ring
+                            
+                                    #Check if max BT in ring is warm
+                                    if np.any(ring_mask):
+                                        max_ring_bt = np.nanmax(bt0[ring_mask])
+                                    else:
+                                        max_ring_bt = 0                                                                                                #Failsafe
+                    
+                                    if (min_dist > dist_thresh or max_ring_bt > 235) and np.nanmax(res00[inds0]) < aacp_thresh2:                    
+#                                         print('Removing detection')
+#                                         print(date)
+                                        res[inds0] = pthresh0-0.01              
+
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=RuntimeWarning)
                             maxc = np.nanmax(res)
@@ -271,8 +333,13 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                         else:
                             labeled_array2, num_updrafts2 = label(res >= pthresh0, structure = s)                                                      #Extract labels for each updraft location (make sure points at diagonals are part of same updrafts)
                             anvil_mask = (labeled_array2 <= 0)                                                                                         #Find all pixels that are not part of an OT/AACP object
-                            btd   = res*np.nan                                                                                                         #Initialize array to store objects detected data for time step
-                            ot_id = labeled_array2.astype('uint16')
+                            btd = res*np.nan                                                                                                           #Initialize array to store objects detected data for time step
+                            if object_type.lower() == 'ot':                                                                                            #Only calculate the anvil mean BTD if object we are identifying is OTs
+                                ot_id = np.full_like(res, 0).astype('uint16')
+                            else:
+                                ot_id = labeled_array2.astype('uint16')
+    
+                            ot_num = 1
                             for u in range(num_updrafts2):
                                 inds2 = (labeled_array2 == u+1)                                                                                        #Find locations of detected object region mask
                                 arr   = np.where(inds2 == True)                                                                                        #Find pixel indices in object detected
@@ -302,7 +369,13 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                                 print(nc_file)
                                                 exit()
                                             
-                                        btd[inds2] = min_bt0 - anvil_bt_mean                                                                           #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
+                                        val = min_bt0 - anvil_bt_mean
+                                        if val <= 0:
+                                           ot_id[inds2] = ot_num
+                                           btd[inds2]   = val                                                                                          #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
+                                           ot_num += 1
+#                                         else:
+#                                            ot_id[inds2] = 0
                         files_used = []            
                         if len(gfs_files) > 0 and 'tropopause_temperature' not in var_keys:
                             near_date = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'round')                                                       #Find nearest date to satellite scan
@@ -456,7 +529,7 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
   #  missin = np.where(np.isnan(btd))
   #  btd[missin] = 0.0
     vnames = list(f.variables.keys())
-    if vname + '_id_number' not in vnames or rewrite == True:
+    if vname + '_id_number' not in vnames or rewrite:
       if vname + '_id_number' in vnames:
         f[vname + '_id_number'][0, :, :] = object_id
         if pthresh != None:
@@ -585,6 +658,10 @@ def download_gfs_analysis_files(date_str1, date_str2,
     Author and history:
         John W. Cooney           2023-06-14
     '''  
+    class SimpleResponse:
+        status_code = 404
+        content = b""
+
     now = datetime.utcnow()
     date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
@@ -612,7 +689,11 @@ def download_gfs_analysis_files(date_str1, date_str2,
             #Old?            
 #            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
             #New path?
-            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            try:
+                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            except:
+                response = SimpleResponse()
+            
             if verbose:
                 print(response)
                 print(response.status_code)
@@ -626,7 +707,11 @@ def download_gfs_analysis_files(date_str1, date_str2,
                 #Old?            
 #                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
                 #New path?
-                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                try:
+                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                except:
+                    response = SimpleResponse()
+                
                 if verbose:
                     print('Trying again')
                     print(response)
