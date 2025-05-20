@@ -526,6 +526,10 @@ def download_gfs_analysis_files(date_str1, date_str2,
     Author and history:
         John W. Cooney           2023-06-14
     '''  
+    class SimpleResponse2:
+        status_code = 404
+        content = b""
+   
     if infile is None:
         date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                      #Convert start date string to datetime structure
         date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                      #Convert start date string to datetime structure
@@ -551,7 +555,10 @@ def download_gfs_analysis_files(date_str1, date_str2,
                 #Old?                        
 #                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
                 #New path?
-                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                try:
+                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                except:
+                    response = SimpleResponse2()
                 if verbose:
                     print(response)
                     print(response.status_code)
@@ -565,7 +572,10 @@ def download_gfs_analysis_files(date_str1, date_str2,
                     #Old?                        
 #                    response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
                     #New path?
-                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                    try:
+                        response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                    except:
+                        response = SimpleResponse2()
                     if verbose:
                         print(response)
                         print(response.status_code)
@@ -583,7 +593,10 @@ def download_gfs_analysis_files(date_str1, date_str2,
         yyyy     = os.path.basename(os.path.dirname(os.path.dirname(infile)))
         file     = yyyy + '/' + yyyymmdd + '/' + fb
         outdir   = os.path.realpath(os.path.join(outroot, yyyy, yyyymmdd))
-        response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+        try:
+            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+        except:
+            response = SimpleResponse2()
         if verbose:
             print(response)
             print(response.status_code)
@@ -599,7 +612,10 @@ def download_gfs_analysis_files(date_str1, date_str2,
             #Old?                        
 #            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
             #New path?
-            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            try:
+                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            except:
+                response = SimpleResponse2()
             if verbose:
                 print(response)
                 print(response.status_code)
