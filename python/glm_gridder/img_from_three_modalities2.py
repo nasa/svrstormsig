@@ -206,6 +206,8 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                                  2024-05-05. Added dirtyirdiff and other GOES channel plotting capabilities.
                                  test
     '''
+#     ir_min_value = 190
+#     ir_max_value = 260
     if plt_ir_max < plt_ir_min:
       plt_ir_maxt = plt_ir_min
       plt_ir_mint = plt_ir_max
@@ -282,7 +284,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
           plt_ir_max =  10.0
           no_plot_vis = True
         
-        if no_plot_vis == False: 
+        if not no_plot_vis: 
             vis_img = np.copy(np.asarray(combined_data.variables['visible_reflectance']))[0, :, :]           #Copy visible reflectance into variable
             zen     = np.copy(np.asarray(combined_data.variables['solar_zenith_angle']))[0, :, :]                                     #Copy solar zenith angle into variable
             tod     = 'day' if (np.nanmax(zen) < 85.0) else 'night'
@@ -297,7 +299,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             mid_zen = 90
 #        mid_zen = 90.0    
 #        vis_img = min_max_scale(vis_img)     
-        if no_plot_snowice == True and no_plot_cirrus == True and no_plot_dirtyirdiff == True and no_plot_tropdiff == True and no_plot_irdiff == True:
+        if no_plot_snowice and no_plot_cirrus and no_plot_dirtyirdiff and no_plot_tropdiff and no_plot_irdiff:
           ir_raw_img = ir_temp_scale(ir_raw_img2, min = ir_min_value, max = ir_max_value)                                           #Scale the IR BT data using the min and maximum temperatures specified
         else:
           ir_raw_img = ir_raw_img2
@@ -306,7 +308,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #             ir_raw_img = np.fliplr(ir_raw_img)
 #             if no_plot_vis == False: 
 #                 vis_img = np.fliplr(vis_img)
-        if proj == None and grid_data == True and 'seviri' not in os.path.basename(nc_file):                                                                                    #Set up satellite projections
+        if proj == None and grid_data and 'seviri' not in os.path.basename(nc_file):                                                                                    #Set up satellite projections
             globe = cartopy.crs.Globe(ellipse='GRS80', semimajor_axis=combined_data.variables['imager_projection'].semi_major_axis, semiminor_axis = combined_data.variables['imager_projection'].semi_minor_axis, inverse_flattening=combined_data.variables['imager_projection'].inverse_flattening)
             crs = ccrs.Geostationary(central_longitude=combined_data.variables['imager_projection'].longitude_of_projection_origin, satellite_height=combined_data.variables['imager_projection'].perspective_point_height, false_easting=0, false_northing=0, globe=globe, sweep_axis = combined_data.variables['imager_projection'].sweep_angle_axis)
   #          crs.proj4_params['units'] = 'degrees'
@@ -332,8 +334,8 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #             print('Max BT = ' + str(np.nanmax(ir_img)))         
                  
         # Resize GLM images to  fit Vis         
-        if no_plot_glm == False:          
-            if no_plot_vis == False: 
+        if not no_plot_glm:          
+            if not no_plot_vis: 
                 if glm_raw_img.shape != vis_img.shape: 
                     glm_img = upscale_img_to_fit(glm_raw_img, vis_img)                                                            #Resize GLM image to fit Visible data image                                               
 #                    glm_img = ndimage.gaussian_filter(glm_img, sigma=1.0, order=0)                                                #Smooth the GLM data using a Gaussian filter (higher sigma = more blurriness)
@@ -365,7 +367,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             aspect  = 'auto'         
         else:         
             aspect  = 'auto'             
-        if colorblind == True:          
+        if colorblind:          
             cpt_convert = ListedColormap(turbo_colormap.turbo_colormap_data)         
         else:         
             cpt = loadCPT(os.path.join(os.path.abspath(os.getcwd()), 'rainbow.cpt'))         
@@ -373,9 +375,9 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
         cpt_convert.set_under(turbo_colormap.turbo_colormap_data[0])                                                              #Set under color to be the same as the first color
         cpt_convert.set_over(turbo_colormap.turbo_colormap_data[-1])                                                              #Set over color to be the same as the last color
         
-        if no_plot_cirrus == False or no_plot_snowice == False:
+        if not no_plot_cirrus or not no_plot_snowice:
           cpt_convert = 'gray'
-        if plt_cbar == True:         
+        if plt_cbar:         
             multiplier = 2                                                                                                        #Make image larger if plot color bar
         else:         
             multiplier = 1                                                                                                        #Make sure image dimensions match lat/lon dimensions
@@ -385,7 +387,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
         height = 6
 #         width  = (multiplier*lon.shape[1]/my_dpi)         
 #         height = (multiplier*lon.shape[0]/my_dpi)         
-        if len(plane_data) == 0 and grid_data == True and lon.shape[0] <= 2000 and lon.shape[1] <= 2000:
+        if len(plane_data) == 0 and grid_data and lon.shape[0] <= 2000 and lon.shape[1] <= 2000:
             if width <= 3.0 or height <= 3.0:
                 if width <= 1.0 or height <= 1.0:
                     mplier = 4
@@ -395,19 +397,19 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             else:
                 fig = plt.figure(figsize=(width, height), dpi = my_dpi)                                                           #Set output image size 
         else:
-            if grid_data == True:
+            if grid_data:
                 fig = plt.figure(figsize=(8, 6))                                                                                  #Set output image size 
             else:
 #                fig = plt.figure(figsize=(width, height))                                                                         #Set output image size 
                 fig = plt.figure(figsize=(width, height), dpi = my_dpi)                                                           #Set output image size 
-        if grid_data == True:         
+        if grid_data:         
             extent = [np.nanmin(lon), np.nanmax(lon), np.nanmin(lat), np.nanmax(lat)]         
             #Set up a map         
             ax1 = fig.add_subplot(                                                                                                #Adds subplots to a figure
                   1,1,1,                                                                                                          #Number of and position of each subpanel (i.e. 1,1,1 refers to 1 row 1 column the first subplot)
                   projection = ccrs.PlateCarree()                                                                                 #Cartopy projection to make the axis mapable (i.e. a geoaxis)
                   )         
-            if plt_cbar == True:
+            if plt_cbar:
                 ax1.set_position([0.07, 0.14, 0.80, 0.80])
             else:
                 ax1.set_position([0.10, 0.10, 0.85, 0.85])
@@ -444,32 +446,32 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             ax1.add_feature(feature.COASTLINE, linewidth = 0.75, edgecolor='lightgray')                                           #Adds coastlines to the plot
 #            print('Starting plot')
 
-            if (mid_zen < 85.0) and no_plot_vis == False:         
+            if (mid_zen < 85.0) and not no_plot_vis:         
                 if proj == None:
                     if 'seviri' in os.path.basename(nc_file):
                       out_img2 = ax1.contourf(lon, lat, ir_img, vmin = plt_ir_min, vmax = plt_ir_max, transform = ccrs.PlateCarree(), cmap = cpt_convert)        #Create image from 2-D layered image (IR data)
                       out_img  = ax1.pcolormesh(lon, lat, vis_img, vmin = 0.0, vmax = 1.0, transform = ccrs.PlateCarree(), cmap= 'gray', alpha = 0.7)#Create image from 2-D layered image (VIS data)
                     else:
-                      if no_plot_glm == True:
+                      if no_plot_glm:
                           out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
                           out_img  = plt.imshow(vis_img, origin = origin, vmin = 0.0, vmax = 1.0, transform = crs, extent = extent0, cmap= 'gray', alpha = 0.7, interpolation = None)#Create image from 2-D layered image (VIS data)
                       else:
                           out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
                     
                 else:
-                    if no_plot_glm == True:
+                    if no_plot_glm:
                         out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform =proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)        #Create image from 2-D layered image (IR data)
                         out_img  = plt.imshow(vis_img, origin = origin, vmin = 0.0, vmax = 1.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap= 'gray', alpha = 0.7, interpolation = None)#Create image from 2-D layered image (VIS data)
                     else:
                         out_img  = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap= cpt_convert, interpolation = None)#Create image from 2-D layered image (VIS data)
             else:                                                                                      
                 if proj == None:
-                    if no_plot_glm == True:
+                    if no_plot_glm:
                         out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform = crs, extent = extent0, cmap = cpt_convert, interpolation = None)
                     else:
                         out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = ccrs.Geostationary(), extent = extent, cmap = cpt_convert, interpolation = None)
                 else:
-                    if no_plot_glm == True:
+                    if no_plot_glm:
                         out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)
                     else:
                         out_img2 = plt.imshow(glm_img, origin = origin, vmin = 0.0, vmax = 20.0, transform = proj[0], extent = (proj[1], proj[2], proj[3], proj[4]), cmap = cpt_convert, interpolation = None)
@@ -480,8 +482,8 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             ir_img      = None
             vis_img     = None
             glm_img     = None
-            if plt_cbar == True:  
-                if no_plot_glm == True and no_plot_cirrus == True and no_plot_tropdiff == True and no_plot_snowice == True and no_plot_dirtyirdiff == True:
+            if plt_cbar:  
+                if no_plot_glm and no_plot_cirrus and no_plot_tropdiff and no_plot_snowice and no_plot_dirtyirdiff:
                     norm       = Normalize(vmin=plt_ir_min, vmax=plt_ir_max)
                     ir_ticks   = np.arange(plt_ir_min, plt_ir_max+5, 5)     
                     if (plt_ir_max < 230):
@@ -510,7 +512,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #                     cbar1.set_ticklabels(cbar_ticks)                                                                               #Set the colorbar tick labels
               
                 else:
-                    if no_plot_glm == False:
+                    if not no_plot_glm:
                         glm_ticks = np.arange(0.0, 25.0, 5)     
                         cbar1 = fig.colorbar(                                                                                         #Set up the colorbar
                               out_img2,                                                                                               #Plot a colorbar for this cartopy map
@@ -524,7 +526,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                               )         
                         cbar_ticks = [f'{x:.1f}' for x in glm_ticks]         
                         cbar1.set_ticklabels(glm_ticks)                                                                               #Set the colorbar tick labels
-                    elif no_plot_cirrus == False:
+                    elif not no_plot_cirrus:
                         glm_ticks = np.arange(plt_ir_min, plt_ir_max+0.1, 0.1)     
                         cbar1 = fig.colorbar(                                                                                         #Set up the colorbar
                               out_img2,                                                                                               #Plot a colorbar for this cartopy map
@@ -539,7 +541,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #                        cbar_ticks = [f'{x:.1f}' for x in glm_ticks]         
                         cbar_ticks = ['{0:1.1f}'.format(x) for x in glm_ticks] 
                         cbar1.set_ticklabels(cbar_ticks)                                                                               #Set the colorbar tick labels
-                    elif no_plot_tropdiff == False:
+                    elif not no_plot_tropdiff:
                         glm_ticks = np.arange(plt_ir_min, plt_ir_max+5, 5)    
                         cbar1 = fig.colorbar(                                                                                         #Set up the colorbar
                               out_img2,                                                                                               #Plot a colorbar for this cartopy map
@@ -553,7 +555,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                               )         
                         cbar_ticks = [f'{x:.1f}' for x in glm_ticks]         
                         cbar1.set_ticklabels(glm_ticks)                                                                               #Set the colorbar tick labels
-                    elif no_plot_snowice == False:
+                    elif not no_plot_snowice:
                         glm_ticks = np.arange(plt_ir_min, plt_ir_max+0.1, 0.1)     
                         cbar1 = fig.colorbar(                                                                                         #Set up the colorbar
                               out_img2,                                                                                               #Plot a colorbar for this cartopy map
@@ -568,7 +570,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #                        cbar_ticks = [f'{x:.1f}' for x in glm_ticks]         
                         cbar_ticks = ['{0:1.1f}'.format(x) for x in glm_ticks] 
                         cbar1.set_ticklabels(cbar_ticks)                                                                               #Set the colorbar tick labels
-                    elif no_plot_dirtyirdiff == False:
+                    elif not no_plot_dirtyirdiff:
                         glm_ticks = np.arange(plt_ir_min, plt_ir_max+0.25, 0.25)     
                         cbar1 = fig.colorbar(                                                                                         #Set up the colorbar
                               out_img2,                                                                                               #Plot a colorbar for this cartopy map
@@ -582,7 +584,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                               )         
                         cbar_ticks = [f'{x:.1f}' for x in glm_ticks]         
                         cbar1.set_ticklabels(glm_ticks)                                                                               #Set the colorbar tick labels
-                    elif no_plot_irdiff == False:
+                    elif not no_plot_irdiff:
                         glm_ticks = np.arange(plt_ir_min, plt_ir_max+5, 5)     
                         cbar1 = fig.colorbar(                                                                                         #Set up the colorbar
                               out_img2,                                                                                               #Plot a colorbar for this cartopy map
@@ -671,8 +673,8 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             else:
                 ax1.set_title('Model Results valid ' + d_str, fontsize = 6)      
 
-            if real_time == True:
-                if verbose == True:
+            if real_time:
+                if verbose:
                     print('Figure is open and waiting for model images to be created.')
                     print()
                 while not os.path.exists(plt_model):
@@ -732,10 +734,10 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                 plt_model0 = None
                 lon = None
                 lat = None
-                if real_time == False:
+                if not real_time:
                     plt_model = None
      #           print('Set to None')    
-            if plt_img_name == True:
+            if plt_img_name:
 #                 d_str     = file_attr[5]                                                                                          #Split file string in order to extract date string of scan
 #                 d_str     = datetime.strptime(d_str[0:4] + '-' + d_str[4:7] + 'T' + d_str[7:9] + ':' + d_str[9:11] + ':' + d_str[11:-1] + 'Z', "%Y-%jT%H:%M:%SZ").strftime("%Y-%m-%d %H:%M:%S")      
 #                plt.title(os.path.basename(d_str), fontsize = 0.003*len(lon), position = (0.5, 0.002), color = 'cyan')         
@@ -751,7 +753,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                 ax = plt.Axes(fig, [0.03, 0.03, 0.90, 0.90])
                 fig.add_axes(ax)
             
-            if (mid_zen < 85.0) and no_plot_vis == False: 
+            if (mid_zen < 85.0) and not no_plot_vis: 
 #                out_img2 = plt.imshow(ir_img, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
 #                out_img  = plt.imshow(vis_img, vmin = 0.0, vmax = 1.0, cmap= 'gray', alpha = 0.7, interpolation = None, aspect = aspect)#Create image from 2-D layered image (VIS data)
 
@@ -759,7 +761,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
 #                out_img2 = plt.imshow(ir_img, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
 #                out_img  = plt.imshow(vis_img, vmin = 0.0, vmax = 1.0, cmap= 'gray', alpha = 0.7, interpolation = None, 'aspect' = aspect, extent = [0, len(lon), 0, len(lat)])#Create image from 2-D layered image (VIS data)
 #               out_img2 = plt.imshow(ir_img, vmin = 195, vmax = 230, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
-               if no_plot_glm == True:
+               if no_plot_glm:
                    out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
                    out_img  = plt.imshow(vis_img, origin = origin, vmin = 0.0, vmax = 1.0, cmap= 'gray', alpha = 0.6, interpolation = None, aspect = aspect)#Create image from 2-D layered image (VIS data)
 #                   out_img  = plt.imshow(vis_img, vmin = 0.0, vmax = 100.0, cmap= 'gray', alpha = 0.6, interpolation = None, aspect = aspect)#Create image from 2-D layered image (VIS data) SEVIRI right now needs to 100
@@ -768,7 +770,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             else:
 #                 out_img  = plt.imshow(vis_img*0.0, vmin = 0.0, vmax = 1.0, cmap= 'gray', interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])         #Create image from 2-D layered image (VIS data)
 #                 out_img2 = plt.imshow(ir_img, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect, extent = [0, len(lon), 0, len(lat)])        #Create image from 2-D layered image (IR data)
-                if no_plot_glm == True:
+                if no_plot_glm:
                     out_img  = plt.imshow(vis_img*0.0, origin = origin, vmin = 0.0, vmax = 1.0, cmap= 'gray', interpolation = None, aspect = aspect)         #Create image from 2-D layered image (VIS data)
                     out_img2 = plt.imshow(ir_img, origin = origin, vmin = plt_ir_min, vmax = plt_ir_max, cmap = cpt_convert, interpolation = None, aspect = aspect)        #Create image from 2-D layered image (IR data)
                 else:
@@ -776,8 +778,8 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
             zen     = None
             ir_img  = None
             vis_img = None
-            if real_time == True:
-                if verbose == True:
+            if real_time:
+                if verbose:
                     print('Figure is open and waiting for model images to be created.')
                     print()
                 while not os.path.exists(plt_model):
@@ -811,8 +813,8 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                 plt_model0 = None
                 plt_model  = None
                 
-            if plt_cbar == True:  
-               if no_plot_glm == True:
+            if plt_cbar:  
+               if no_plot_glm:
                    ir_ticks  = np.arange(plt_ir_min, plt_ir_max+5, 5)     
                    cbar1 = fig.colorbar(                                                                                          #Set up the colorbar
                          out_img2,                                                                                                #Plot a colorbar for this cartopy map
@@ -842,7 +844,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                    cbar_ticks = [f'{x:.1f}' for x in glm_ticks]         
                    cbar1.set_ticklabels(glm_ticks)                                                                                #Set the colorbar tick labels
              
-            if plt_img_name == True:           
+            if plt_img_name:           
 #                d_str     = file_attr[5]                                                                                          #Split file string in order to extract date string of scan
                 d_str     = date_str                                                                                          #Split file string in order to extract date string of scan
            #     d_str     = d_str[0:7] + '  ' + d_str[7:-1]  
@@ -851,7 +853,7 @@ def img_from_three_modalities2(nc_file       = os.path.join('..', '..', '..', 'g
                 plt.text(50, 50, d_str[7:-1] + 'Z', fontsize = 'xx-small',color = 'cyan', ma = 'center')         
 #                plt.text(900, 1950, os.path.basename(d_str) + 'Z', fontsize = 'xx-small',color = 'cyan', ma = 'center')         
   #      print('Saving figure')
-        if grid_data == True:
+        if grid_data:
             plt.savefig(out_img_name, dpi = my_dpi, bbox_inches = 'tight')                                                        #Save figure
 #            plt.savefig(out_img_name, dpi = my_dpi)                                                        #Save figure
         else:
