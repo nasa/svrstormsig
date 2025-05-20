@@ -1552,7 +1552,10 @@ def tf_2_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           results[:, 64-8:64+8, results.shape[2]-64-8:results.shape[2]-64+8, :] = 0.0
           results[:, results.shape[1]-64-8:results.shape[1]-64+8, 64-8:64+8, :] = 0.0
           if mod1 == 'vis_tropdiff':
-            results[:, 64-8:64+8, 64-4:64+8, :] = 0.0  
+#            results[:, 64-8:64+8, 64-8:64+8, :] = 0.0  
+            results[:, 64-8:64+8, :, :] = 0.0  
+            results[:, :, results.shape[1]-64-8:results.shape[1]-64+8, :] = 0.0  
+
         if dims[1] > 3500 or dims[2] > 3500:
 #          results = reconstruct_tensor_from_subset(results, dims[1], dims[2])                                                                                               #Reconstruct tensor back to original shape
           if len(rem[0]) > 0:
