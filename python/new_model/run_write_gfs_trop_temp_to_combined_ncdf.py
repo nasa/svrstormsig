@@ -336,7 +336,8 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                                 grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                                  #Extract tropopause temperatures from the GRIB file
                             except:
                                 grbs.close()
-                                download_gfs_analysis_files('', '', infile = gfile0, verbose = True)
+#                                download_gfs_analysis_files('', '', infile = gfile0, verbose = True)
+                                download_gfs_analysis_files_from_gcloud('', infile = gfile0, verbose = True)
                                 grbs   = pygrib.open( gfile0 )                                                                                         #Open Grib file to read
                                 try:
                                     grb    = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]                                              #Extract tropopause temperatures from the GRIB file
