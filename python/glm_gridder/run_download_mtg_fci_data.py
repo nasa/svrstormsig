@@ -126,6 +126,10 @@ def run_download_mtg_fci_data(date1        = None, date2 = None,
 
     if date1 == None:
         date1 = datetime.utcnow()                                                                                                                                           #Extract current date (UTC)
+        if date1.minute == 9 or date1.minute == 19 or date1.minute == 29 or date1.minute == 39 or date1.minute == 49 or date1.minute == 59:
+            date1 = date1 - timedelta(minutes = 1)
+        if date1.minute == 0 or date1.minute == 10 or date1.minute == 20 or date1.minute == 30 or date1.minute == 40 or date1.minute == 50:
+            date1 = date1 + timedelta(minutes = 1)
         date1 = date1 - timedelta(minutes = 10)
         date2 = date1 + timedelta(minutes = 10)                                                                                                                             #Default set end date 
         rt    = True                                                                                                                                                        #Real-time download flag
@@ -143,7 +147,6 @@ def run_download_mtg_fci_data(date1        = None, date2 = None,
     token = eumdac.AccessToken(credentials)
     datastore = eumdac.DataStore(token)
     selected_collection = datastore.get_collection(res)
-
 
     stime = time.time()
     print(date1)
