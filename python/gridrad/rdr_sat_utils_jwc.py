@@ -656,7 +656,7 @@ def sat_time_intervals(sat, sector = None):
             print('Only full disk currently available')
             exit()
         if sector[0].lower() == 'f':
-            t_interval = 600.0                                                                                                                                                  #10 mins between full disk scans for MTG
+            t_interval = 300.0                                                                                                                                                  #10 mins between full disk scans for MTG
         else:
             print('sector specified not found??')
             print('Specified sector = ' + str(sector))
