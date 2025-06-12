@@ -90,6 +90,10 @@
 #                                          we remove detections where the mean anvil brightness temperature difference >= 0 (OT region warmer than surrounding anvil). Lastly, we removed VIS+TROPDIFF OTs within 
 #                                          a 64-8:64+8x64-8:64+8 pixel upper and right hand image border surrounding the 2000x2000 mesoscale images. It was found that there were spurious detections along this border.
 #                                          One last change. It seems that the rda.ucar no longer is being updated with tropopause files. The new methods check this and downloads data from Google Cloud instead.
+#                              2025-07-12. MINOR REVISION. VERSION 3.2 of software. Post-processing in real-time mode now post-processes latest file in a separate thread while waiting to download the next set
+#                                          of satellite files. MTG allows for you to not download the data in real-time runs. Waits 30 seconds for files to come online. This is because we want to make sure
+#                                          there isnt partial files in the directory before beginning the processing. Improved MTG real-time downloads. Print statements included for others testing that
+#                                          will be removed in subsequent releases.
 #
 #-
 
@@ -163,7 +167,7 @@ from new_model.gcs_processing import write_to_gcs, download_model_chk_file, list
 from new_model.run_tf_1_channel_plume_updraft_day_predict import run_tf_1_channel_plume_updraft_day_predict
 from new_model.run_tf_2_channel_plume_updraft_day_predict import run_tf_2_channel_plume_updraft_day_predict
 from new_model.run_tf_3_channel_plume_updraft_day_predict import run_tf_3_channel_plume_updraft_day_predict
-from new_model.run_write_severe_storm_post_processing import run_write_severe_storm_post_processing, download_gfs_analysis_files
+from new_model.run_write_severe_storm_post_processing import run_write_severe_storm_post_processing, download_gfs_analysis_files, download_gfs_analysis_files_from_gcloud
 from new_model.run_write_gfs_trop_temp_to_combined_ncdf import run_write_gfs_trop_temp_to_combined_ncdf
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data import *
 from glm_gridder.run_download_goes_ir_vis_l1b_glm_l2_data_parallel import *
@@ -214,7 +218,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 3.1.0')
+  print('SVRSTORMSIG Software VERSION: 3.2.0')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
@@ -1213,7 +1217,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
           if dd[0].lower() == 'y':
             no_download = False
           else:
-            no_download    = True
+            no_download = True
             raw_data_root0 = str(input('Enter the root directory to the raw IR/VIS/GLM data files. Do not include subdirectories for dates or ir, glm, vis, wv (ex. and default ' + raw_data_root + '). Just hit ENTER to use default : ')).replace("'", '')
             if raw_data_root0.lower() != '':
               raw_data_root = raw_data_root0        
@@ -1443,8 +1447,12 @@ def run_all_plume_updraft_model_predict(verbose     = True,
             print('Value entered = ' + str(nhours))
             print('Format type entered = ' + str(type(nhours)))
             exit()
+      
       if 'mtg' not in mod_sat.lower() and 'mti' not in mod_sat.lower():
-        no_download = False
+        if vals[4][0].lower() == 'y':
+          no_download = False
+        else:
+          no_download = True          
       else:
         if vals[4][0].lower() == 'y':                                                                                              #User specifies if raw data files need to be downloaded
           no_download = False
@@ -3423,7 +3431,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
             print('Invalid number entered.')
             print('You entered : ' + str(dd))
             print('Please try again.')
-  
+
     if mod_loc == 'OT':
       use_updraft = True
     else:
@@ -3564,6 +3572,38 @@ def run_all_plume_updraft_model_predict(verbose     = True,
       else: 
         print('Not set up for specified model. You have encountered a bug. Exiting program.')
         exit()
+    
+    object_type = 'OT' if use_updraft == True else 'AACP'
+    if transition == 'y':
+      mod_type = day['mod_type']
+    
+    print('Starting post-processing of ' + object_type + ' ' + mod_type + ' job')
+    if nhours != None:
+      time.sleep(2)
+  
+    if 'tropdiff' not in mod_inp and 'TROPDIFF' not in mod_inp:
+      download_gfs_analysis_files(ts, te,
+                                  GFS_ANALYSIS_DT = 21600,
+                                  write_gcs       = run_gcs,
+                                  del_local       = del_local,
+                                  verbose         = verbose)
+    
+    tstart0 = datetime.strptime(str(tstart), "%Y%m%d")
+    tend0   = datetime.strptime(str(tend), "%Y%m%d")
+    while tstart0 <= tend0:
+      u = tstart0.strftime("%Y%m%d")
+      directory0 = os.path.join(raw_data_root, 'combined_nc_dir', str(u))
+      if os.path.isdir(directory0) and any(os.scandir(directory0)):
+          run_write_severe_storm_post_processing(inroot        = directory0, 
+                                                 use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
+                                                 c_bucket_name = 'ir-vis-sandwhich',
+                                                 object_type   = object_type,
+                                                 mod_type      = mod_type,
+                                                 sector        = sector,
+                                                 pthresh       = pthresh,
+                                                 percent_omit  = percent_omit,
+                                                 verbose       = verbose)
+      tstart0 = tstart0 + timedelta(days=1)
   else:   
     if 'mtg' in sat.lower() or 'mti' in sat.lower():
         t_sec = sat_time_intervals(sat, sector = 'F')                                                                              #Extract time interval between satellite sector scan files (sec)    
@@ -3582,14 +3622,6 @@ def run_all_plume_updraft_model_predict(verbose     = True,
     tdiff  = 0.0                                                                                                                   #Initialize variable to calulate the amount of time that has passed
     lc     = 0                                                                                                                     #Initialize variable to store loop counter
     while (tdiff <= (nhours*3600.0)):
-      if tdiff != 0.0:
-        cc = 0
-        while (time.time()-t0) < lc*t_sec:
-          sleep(0.1)                                                                                                               #Wait until time has elapsed for new satellite scan file to be available
-          if cc == 0 and verbose == True:
-              print('Waiting for next model input files to come online')
-              cc = 1
-      lc = lc+1                                                                                                                    #Start counter to see when to start the next processing job
       if transition == 'y':
         if drcs:
           day['use_glm'] = True
@@ -3597,6 +3629,31 @@ def run_all_plume_updraft_model_predict(verbose     = True,
         pthresh = None
         mod_inp = day_inp
         mod_inp.extend(nig_inp)
+      else:
+        mod_inp = re.split(r'\+', mod_inputs)
+      
+      if 'tropdiff' not in mod_inp and 'TROPDIFF' not in mod_inp:
+        download_gfs_analysis_files_from_gcloud(ts, 
+                                                write_gcs       = run_gcs,
+                                                del_local       = del_local,
+                                                real_time       = True,
+                                                verbose         = verbose)
+
+      if tdiff != 0.0:
+        cc = 0
+        while (time.time()-t0) < lc*t_sec:
+          sleep(0.1)                                                                                                               #Wait until time has elapsed for new satellite scan file to be available
+          if cc == 0 and verbose:
+              print('Waiting for next model input files to come online')
+              cc = 1
+      lc = lc+1                                                                                                                    #Start counter to see when to start the next processing job
+      if transition == 'y':
+#         if drcs:
+#           day['use_glm'] = True
+#         chk_day_night = {'day': day, 'night': night}
+#         pthresh = None
+#         mod_inp = day_inp
+#         mod_inp.extend(nig_inp)
         run_tf_3_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                    use_updraft    = use_updraft, 
                                                    sat            = sat,
@@ -3621,7 +3678,6 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                    essl           = essl, 
                                                    verbose        = verbose)
       else:
-        mod_inp = re.split(r'\+', mod_inputs)
         if mod_inputs.count('+') == 0:
           run_tf_1_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                      use_updraft    = use_updraft, 
@@ -3713,37 +3769,6 @@ def run_all_plume_updraft_model_predict(verbose     = True,
     te   = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")                                                                         #Extract end date of job for post processing
     
   
-  object_type = 'OT' if use_updraft == True else 'AACP'
-  if transition == 'y':
-    mod_type = day['mod_type']
-  
-  print('Starting post-processing of ' + object_type + ' ' + mod_type + ' job')
-  if nhours != None:
-    time.sleep(2)
-
-  if 'tropdiff' not in mod_inp and 'TROPDIFF' not in mod_inp:
-    download_gfs_analysis_files(ts, te,
-                                GFS_ANALYSIS_DT = 21600,
-                                write_gcs       = run_gcs,
-                                del_local       = del_local,
-                                verbose         = verbose)
-  
-  tstart0 = datetime.strptime(str(tstart), "%Y%m%d")
-  tend0   = datetime.strptime(str(tend), "%Y%m%d")
-  while tstart0 <= tend0:
-    u = tstart0.strftime("%Y%m%d")
-    directory0 = os.path.join(raw_data_root, 'combined_nc_dir', str(u))
-    if os.path.isdir(directory0) and any(os.scandir(directory0)):
-        run_write_severe_storm_post_processing(inroot        = directory0, 
-                                               use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
-                                               c_bucket_name = 'ir-vis-sandwhich',
-                                               object_type   = object_type,
-                                               mod_type      = mod_type,
-                                               sector        = sector,
-                                               pthresh       = pthresh,
-                                               percent_omit  = percent_omit,
-                                               verbose       = verbose)
-    tstart0 = tstart0 + timedelta(days=1)
     
 def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, drcs = False):
   '''
@@ -3792,7 +3817,8 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, d
                 'TROPDIFF+DIRTYIRDIFF'     : ['TROPDIFF+DIRTYIRDIFF',     'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_dirtyirdiff',     'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
                 'IR+VIS+DIRTYIRDIFF'       : ['IR+VIS+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',       'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
                 'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
-                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+#                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+                'BEST_DAY'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
                 'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65]
 #                 'BEST_DAY'                 : ['IR+VIS+GLM',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_glm',               'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
 #                 'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
@@ -3818,7 +3844,8 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, d
                 'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
 #                'BEST_DAY'                 : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
 #                'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
-                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2025-03-31', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+#                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2025-03-31', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+                'BEST_DAY'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
                 'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65]
                 }
   
