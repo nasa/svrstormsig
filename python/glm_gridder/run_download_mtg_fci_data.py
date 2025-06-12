@@ -129,6 +129,7 @@ def run_download_mtg_fci_data(date1        = None, date2 = None,
         date1 = date1 - timedelta(minutes = 10)
         date2 = date1 + timedelta(minutes = 10)                                                                                                                             #Default set end date 
         rt    = True                                                                                                                                                        #Real-time download flag
+        pat   = os.path.join(outroot, 'tmp_dir')       
     else:
         date1 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                               #Year-month-day hour:minute:second of start time to download data
         rt    = False                                                                                                                                                       #Real-time download flag
@@ -143,38 +144,76 @@ def run_download_mtg_fci_data(date1        = None, date2 = None,
     datastore = eumdac.DataStore(token)
     selected_collection = datastore.get_collection(res)
 
-    products = selected_collection.search(
-        dtstart=date1,
-        dtend=date2)
-    
-    if len(products) == 0 and rt:
-        print('Waiting for MTG files to be available online')
-        while True:
-            time.sleep(1)
-            if verbose: print('Checking for MTG files to be online again')
+
+    stime = time.time()
+    print(date1)
+    tmp_dir_path  = os.path.join(outroot, 'tmp_dir')
+    tmp_file_path = os.path.join(tmp_dir_path, 'tmp_file.txt')
+    if rt:
+        last_processed_time = None
+        if os.path.exists(tmp_file_path):
+            with open(tmp_file_path, 'r') as ff:
+                date_str = ff.read().strip()                                                                                                                                #Read and remove any whitespace/newlines
+                try:
+                    last_processed_time = datetime.strptime(date_str, '%Y%m%d%H%M')
+                except Exception as e:
+                   print(f"Error parsing date from tmp_file: {e}")
+
+        #Set initial search time
+        search_time = date1 - timedelta(minutes=10)            
+        counter = 0
+        max_att = 602                                                                                                                                                       #Maximum number of attempts before breaking out of loop
+        while counter < max_att:
+            # Skip if already processed
+            if last_processed_time:
+                if search_time <= last_processed_time+timedelta(minutes=10):
+                    search_time += timedelta(minutes=10)
+                    counter += 1
+                    continue
+            if counter == 0 and verbose:
+                print(f"Searching MTG products for {search_time}")
             products = selected_collection.search(
-                dtstart=date1,
-                dtend=date2)
+                dtstart=search_time,
+                dtend=search_time
+            )
+    
             if len(products) > 0:
                 entries = [product.entries for product in products]
-                if len(entries) > 0:
-                    if len(entries[0]) > 10:
-                        break
-                else:
-                    print('run_download_mtg_fci_data.py')
-                    print(date1)
-                    print(date2)
-                    print()
-                    print(len(products))
-                    print(len(entries))
-                    print()
-                    print(products)
-                    print(entries)
+                if len(entries[0]) > 10:
+                    date1 = search_time
+                    date2 = search_time
+                    break                                                                                                                                                   #Exit loop
+            
+            time.sleep(1)
+            if counter == 2 and verbose:
+                print(f'Waiting for MTG files for {search_time} to be available online')
+                print(f'Checking for MTG files for {search_time} to be online again')
+            counter+=1
+        
+        if counter >= max_att:
+            print('No files were available to download for the time range specified?')
+            print(counter)
+            print(max_att)
+            print(search_time)
+            print(search_time + timedelta(minutes=10))
+            exit()
+    else:
+        products = selected_collection.search(
+            dtstart=date1,
+            dtend=date2)
+    
     outdirs   = []
     date_strs = []
     #Download all found products
     for product in products:
         date_str = product.sensing_start.strftime("%Y%m%d")
+        if rt:
+            print('Time spent waiting for new data files on EUMETSAT = ' + str(time.time() - stime) + ' sec')
+            print('Current Time = ' + datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+            d_str0 = product.sensing_start.strftime("%Y%m%d%H%M")
+            print(f'Scan Being Processed Start Time = {d_str0}')
+            with open(tmp_file_path, 'w') as ff:
+                ff.write(d_str0)
         if essl:
             outdir = os.path.join(outroot, date_str[0:4], date_str[4:6], date_str[6:])
         else:  
@@ -219,10 +258,15 @@ def run_download_mtg_fci_data(date1        = None, date2 = None,
     
     if len(res2) > 0:
         selected_collection = datastore.get_collection(res2)
-
-        products = selected_collection.search(
-            dtstart=date1,
-            dtend=date2)
+        
+        if rt:
+            products = selected_collection.search(
+                dtstart=date1,
+                dtend=date1)
+        else:
+            products = selected_collection.search(
+                dtstart=date1,
+                dtend=date2)
 
         if len(products) == 0 and rt:
             print('Waiting for MTG files to be available online')
