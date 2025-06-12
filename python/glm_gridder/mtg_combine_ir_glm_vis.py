@@ -134,27 +134,11 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
     de0 = datetime.datetime.strptime(de, "%Y%m%d%H%M%S")
     dc0 = ds0 + (de0 - ds0)/2.0
     if not no_write_vis:
-        with xr.open_dataset(infile, group = 'data/vis_06_hr') as dss:
-            xdim_vis = int(dss['number_of_rows'].values)
-            ydim_vis = int(dss['number_of_columns'].values)   
-            xyres    = int(dss['ssd'].values)*0.001
-        ir_pat = 'data/ir_105_hr'
+        xyres = 0.5
     else:
-        ir_pat = 'data/ir_105'
+        xyres = 1.0
         
-    with xr.open_dataset(infile, group = ir_pat) as dss:
-        xdim_ir = int(dss['number_of_rows'].values)
-        ydim_ir = int(dss['number_of_columns'].values)    
-        if no_write_vis:
-            xyres    = int(dss['ssd'].values)*0.001
-
-#     with xr.open_dataset(infile) as ds:
-#         geospatial_lat_min = ds.attrs['geospatial_lat_min']
-#         geospatial_lat_max = ds.attrs['geospatial_lat_max']
-#         geospatial_lon_min = ds.attrs['geospatial_lon_min']
-#         geospatial_lon_max = ds.attrs['geospatial_lon_max']  
-
-    #file patterns to use if high resolution data
+    #File patterns to use if high resolution data
     if domain_sector.lower() == 'q4':
         file_patterns = np.arange(29, 41) # chunks 29-40
     elif domain_sector.lower() == 'q3':
@@ -185,159 +169,133 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
 #        t0 = time.time()
         os.makedirs(os.path.dirname(out_nc), exist_ok = True)                                                                               #Create output file path if does not already exist
          
-        # Track min/max indices for subsetting
-        min_row, max_row = ydim_ir, 0
-        min_col, max_col = xdim_ir, 0
+#         # Track min/max indices for subsetting
+#         min_row, max_row = 22272, 0
+#         min_col, max_col = 22272, 0
+        
+        if no_write_vis:
+            shape = (5568, 5568)
+            bt = np.full(shape, np.nan)
+        else:
+            shape = (22272, 22272)
+      
+#         x = np.full(shape, np.nan)
+#         y = np.full(shape, np.nan)
+ 
         glm_raw_img = []
         bt2         = []
         bt3         = []
         snowice_img = []
         cirrus_img  = []
-        if no_write_vis:
-            x  = np.full((ydim_ir, xdim_ir), np.nan)
-            y  = np.full((ydim_ir, xdim_ir), np.nan)
-            bt = np.full((ydim_ir, xdim_ir), np.nan)
-            
-            if not no_write_irdiff:
-                bt2 = np.full((ydim_ir, xdim_ir), np.nan)
-            if not no_write_dirtyirdiff:
-                bt3 = np.full((ydim_ir, xdim_ir), np.nan)
-        else:
-            vis_img    = np.full((ydim_vis, xdim_vis), np.nan)   
-            x          = np.full((ydim_vis, xdim_vis), np.nan)
-            y          = np.full((ydim_vis, ydim_vis), np.nan)
-            bt         = np.full((ydim_vis, ydim_vis), np.nan)
-            
-            if not no_write_irdiff:
-                bt2 = np.full((ydim_vis, ydim_vis), np.nan)
-            if not no_write_dirtyirdiff:
-                bt3 = np.full((ydim_vis, ydim_vis), np.nan)
+        if not no_write_vis:
+            bt      = np.full((11136, 11136), np.nan)
+            vis_img = np.full(shape, np.nan)
             if not no_write_snowice:
-                snowice_img = np.full((ydim_vis, ydim_vis), np.nan)
+                snowice_img = np.full((11136, 11136), np.nan)
             if not no_write_cirrus:
-                cirrus_img = np.full((ydim_vis, ydim_vis), np.nan)
-                
-        ir = None
+                cirrus_img = np.full((11136, 11136), np.nan)
+            
+        if not no_write_irdiff:
+            bt2 = np.full((5568, 5568), np.nan)
+        
+        if not no_write_dirtyirdiff:
+            bt3 = np.full((5568, 5568), np.nan)
+        
         ### Dataset Creation ### 
         for ff, file in enumerate(files):            
-#             if verbose:
-#                 print(file)
-            cont = 1
+            cont = True
             if domain_sector.lower() != 'f':
                 chunk_num = int(re.split('_|-|,|\+|.nc', os.path.basename(file))[-2])
-                if chunk_num in file_patterns:
-                  cont = 1
-                else:
-                  cont = 0
+                cont = chunk_num in file_patterns
+            if not cont:
+                continue
                     
-            if cont:
-                if no_write_vis:
+            if no_write_vis:
+                with xr.open_dataset(file, group="data/ir_105/measured") as ir:
                     # IR datasets        
-                    ir  = xr.open_dataset(file, group="data/ir_105/measured")
                     ir0 = np.asarray(ir['effective_radiance'].values[:, :])
-                    # Track min/max extents
-                    start_position_row    = int(ir['start_position_row'])
-                    start_position_column = int(ir['start_position_column'])
-                    end_position_row      = int(ir['end_position_row'])
-                    end_position_column   = int(ir['end_position_column'])  
                     bt0 = mtg_get_ir_bt_from_rad(ir, ir0)
-                    bt[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = bt0                            #Calculate brightness temperature from radiance
-                    min_row, max_row = min(min_row, start_position_row-1), max(max_row, end_position_row)
-                    min_col, max_col = min(min_col, start_position_column-1), max(max_col, end_position_column)
-#                     if not no_write_irdiff or not no_write_dirtyirdiff:
-#                         ir  = xr.open_dataset(file, group="data/ir_105/measured")
-#                         ir0 = np.asarray(ir['effective_radiance'].values[:, :])
-#                         bt0 = mtg_get_ir_bt_from_rad(ir, ir0)                                                                               #Calculate IR Temperatures (K) 
-#                     
-#                     bt[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = bt0
-                    # Read water vapor at 2 km resolution and compare with IR BT at 2 km
+                
+                    sr, sc = int(ir['start_position_row']) - 1, int(ir['start_position_column']) - 1
+                    er, ec = int(ir['end_position_row']), int(ir['end_position_column'])
+                    
+                    bt[sr:er, sc:ec] = bt0
+#                     min_row, max_row = min(min_row, sr), max(max_row, er)
+#                     min_col, max_col = min(min_col, sc), max(max_col, ec)
+                
                     if not no_write_irdiff:
-                        ir2  = xr.open_dataset(file, group="data/wv_63/measured")
-                        ir00 = np.asarray(ir2['effective_radiance'].values[:, :])
-                        bt00 = mtg_get_ir_bt_from_rad(ir2, ir00)
-                        bt2[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = np.copy(bt00 - bt0)
-                        ir2.close()
-                    
-                    # Read dirtyIR at 2 km resolution and compare with IR BT at 2 km
+                        with xr.open_dataset(file, group="data/wv_63/measured") as ir2:
+                            bt00 = mtg_get_ir_bt_from_rad(ir2, ir2['effective_radiance'].values)
+                            bt2[sr:er, sc:ec] = bt00 - bt0
+
                     if not no_write_dirtyirdiff:
-                        ir2  = xr.open_dataset(file, group="data/ir_123/measured")
-                        ir00 = np.asarray(ir2['effective_radiance'].values[:, :])
-                        bt00 = mtg_get_ir_bt_from_rad(ir2, ir00)
-                        bt3[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = np.copy(bt00 - bt0)
-                        ir2.close()
-                else:
-                    # IR datasets at 1 km resolution (does not need to be used in conjunction with WV or DIRTYIR channels        
-                    if no_write_irdiff and no_write_dirtyirdiff:
-                        ir  = xr.open_dataset(file, group="data/ir_105_hr/measured")
-                        ir0 = np.asarray(ir['effective_radiance'].values[:, :])
-                        bt0 = mtg_get_ir_bt_from_rad(ir, ir0)                                                                               #Calculate IR Temperatures (K) 
-                    vis = xr.open_dataset(file, group="data/vis_06_hr/measured")
-                    start_position_row    = int(vis['start_position_row'])
-                    start_position_column = int(vis['start_position_column'])
-                    end_position_row      = int(vis['end_position_row'])
-                    end_position_column   = int(vis['end_position_column'])  
-                    # Track min/max extents
-                    min_row, max_row = min(min_row, start_position_row-1), max(max_row, end_position_row)
-                    min_col, max_col = min(min_col, start_position_column-1), max(max_col, end_position_column)
-
-                    # Match BT dimensions with VIS image dimensions
-                    vis0 = np.full((end_position_row-(start_position_row-1), end_position_column-(start_position_column-1)), np.nan)
-
-                    sun = xr.open_dataset(file, group="state/celestial")
-                    if not no_write_irdiff or not no_write_cirrus or not no_write_snowice or not no_write_dirtyirdiff:
-                        chunk_num2 = int(re.split('_|-|,|\+|.nc', os.path.basename(native_files[ff]))[-2])
-                        if (chunk_num2 != chunk_num):
-                            print('File chunk numbers of high resolution and native resolution do not match!?!?!?!?')
-                            print('Check to see why they do not match??')
-                            print(file)
-                            print(native_files[ff])
-                            exit()
-                        
-                        # IR datasets at 2 km resolution and needs to be used in conjunction with WV or DIRTYIR channels which are both at 2 km    
-                        if not no_write_irdiff or not no_write_dirtyirdiff:
-                            ir  = xr.open_dataset(native_files[ff], group="data/ir_105/measured")
-                            ir0 = np.asarray(ir['effective_radiance'].values[:, :])
-                            bt0 = mtg_get_ir_bt_from_rad(ir, ir0)                                                                           #Calculate IR Temperatures (K) 
-
-                        # Calculate water vapor difference at 2 km resolution and then interpolate that to VIS data resolution
-                        if not no_write_irdiff:
-                            ir2  = xr.open_dataset(native_files[ff], group="data/wv_63/measured")
-                            ir00 = np.asarray(ir2['effective_radiance'].values[:, :])
-                            bt00 = mtg_get_ir_bt_from_rad(ir2, ir00)
-                            bt2[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = upscale_img_to_fit(np.copy(bt00 - bt0), vis0)
-                            ir2.close()
-
-                        # Calculate dirtyIR difference at 2 km resolution and then interpolate that to VIS data resolution
-                        if not no_write_dirtyirdiff:
-                            ir2  = xr.open_dataset(native_files[ff], group="data/ir_123/measured")
-                            ir00 = np.asarray(ir2['effective_radiance'].values[:, :])
-                            bt00 = mtg_get_ir_bt_from_rad(ir2, ir00)
-                            bt3[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = upscale_img_to_fit(np.copy(bt00 - bt0), vis0)
-                            ir2.close()
-
-                        # Read snowice data at 1 km resolution and then interpolate that to VIS data resolution
-                        if not no_write_snowice:
-                            snowice = xr.open_dataset(native_files[ff], group="data/nir_16/measured")
-                            snowice_img[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = upscale_img_to_fit(mtg_get_ref_from_rad(snowice, sun), vis0)
-                            snowice.close()
+                        with xr.open_dataset(file, group="data/ir_123/measured") as ir2:
+                            bt00 = mtg_get_ir_bt_from_rad(ir2, ir2['effective_radiance'].values)
+                            bt3[sr:er, sc:ec] = bt00 - bt0
+            else:
+                with xr.open_dataset(file, group="data/vis_06_hr/measured") as vis, \
+                     xr.open_dataset(file, group="state/celestial") as sun:
                     
-                        # Read cirrus data at 1 km resolution and then interpolate that to VIS data resolution
-                        if not no_write_cirrus:
-                            cirrus = xr.open_dataset(native_files[ff], group="data/nir_13/measured")
-                            cirrus_img[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = upscale_img_to_fit(mtg_get_ref_from_rad(cirrus, sun), vis0)
-                            cirrus.close()
-
-                    bt[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = upscale_img_to_fit(bt0, vis0)  #Match IR BT dimensions with vis dimensions
-                    vis0 = None
-
-                    vis_img[start_position_row-1:end_position_row, start_position_column-1:end_position_column] = mtg_get_ref_from_rad(vis, sun)#Calculate reflectance from radiance
-
-                    ir.close()
-                    vis.close()
-                    sun.close()
+                    sr, sc = int(vis['start_position_row']) - 1, int(vis['start_position_column']) - 1
+                    er, ec = int(vis['end_position_row']), int(vis['end_position_column'])
+                    vis_img[sr:er, sc:ec] = mtg_get_ref_from_rad(vis, sun)                                                                  #Calculate reflectance from radiance
+         
+#                     min_row, max_row = min(min_row, sr), max(max_row, er)
+#                     min_col, max_col = min(min_col, sc), max(max_col, ec)
+         
+                    if not no_write_irdiff or not no_write_dirtyirdiff or not no_write_snowice or not no_write_cirrus:
+                        chunk_num2 = int(re.split('_|-|,|\+|.nc', os.path.basename(native_files[ff]))[-2])
+                        if chunk_num2 != chunk_num:
+                            raise ValueError(f"Chunk mismatch:\n{file}\n{native_files[ff]}")
+         
+                    if not no_write_irdiff or not no_write_dirtyirdiff:
+                        with xr.open_dataset(native_files[ff], group="data/ir_105/measured") as ir:
+                            bt0 = mtg_get_ir_bt_from_rad(ir, ir['effective_radiance'].values)
+         
+                    if not no_write_irdiff:
+                        with xr.open_dataset(native_files[ff], group="data/wv_63/measured") as ir2:
+                            bt00 = mtg_get_ir_bt_from_rad(ir2, ir2['effective_radiance'].values)
+                            sr2, sc2 = int(ir2['start_position_row']) - 1, int(ir2['start_position_column']) - 1
+                            er2, ec2 = int(ir2['end_position_row']), int(ir2['end_position_column'])
+                            bt2[sr2:er2, sc2:ec2] = bt00 - bt0
+         
+                    if not no_write_dirtyirdiff:
+                        with xr.open_dataset(native_files[ff], group="data/ir_123/measured") as ir2:
+                            bt00 = mtg_get_ir_bt_from_rad(ir2, ir2['effective_radiance'].values)
+                            sr2, sc2 = int(ir2['start_position_row']) - 1, int(ir2['start_position_column']) - 1
+                            er2, ec2 = int(ir2['end_position_row']), int(ir2['end_position_column'])
+                            bt3[sr2:er2, sc2:ec2] = bt00 - bt0
+         
+                    if not no_write_snowice:
+                        with xr.open_dataset(native_files[ff], group="data/nir_16/measured") as snowice:
+                            sr2, sc2 = int(snowice['start_position_row']) - 1, int(snowice['start_position_column']) - 1
+                            er2, ec2 = int(snowice['end_position_row']), int(snowice['end_position_column'])
+                            snowice_img[sr2:er2, sc2:ec2] = mtg_get_ref_from_rad(snowice, sun)
+         
+                    if not no_write_cirrus:
+                        with xr.open_dataset(native_files[ff], group="data/nir_13/measured") as cirrus:
+                            sr2, sc2 = int(cirrus['start_position_row']) - 1, int(cirrus['start_position_column']) - 1
+                            er2, ec2 = int(cirrus['end_position_row']), int(cirrus['end_position_column'])
+                            cirrus_img[sr2:er2, sc2:ec2] = mtg_get_ref_from_rad(cirrus, sun)
+                    
+                    with xr.open_dataset(file, group="data/ir_105_hr/measured") as ir:
+                        sr2, sc2 = int(ir['start_position_row']) - 1, int(ir['start_position_column']) - 1
+                        er2, ec2 = int(ir['end_position_row']), int(ir['end_position_column'])
+                        bt[sr2:er2, sc2:ec2] = mtg_get_ir_bt_from_rad(ir, ir['effective_radiance'].values[:, :])                            #Calculate IR Temperatures (K)
+        
+        if not no_write_vis:
+            bt = upscale_img_to_fit(bt, vis_img)
+            if not no_write_irdiff:
+                bt2 = upscale_img_to_fit(bt2, vis_img)            
+            if not no_write_dirtyirdiff:
+                bt3 = upscale_img_to_fit(bt3, vis_img)            
+            if not no_write_snowice:
+                snowice_img = upscale_img_to_fit(snowice_img, vis_img)            
+            if not no_write_cirrus:
+                cirrus_img = upscale_img_to_fit(cirrus_img, vis_img)            
             
         # Vis datasets 
-        if no_write_vis == False:
+        if not no_write_vis:
             ### VIS Data to reflectance ###      
             pat_proj = '_vis_'
 #            xyres    = 0#vis.spatial_resolution   #STOP here to provide resolution
