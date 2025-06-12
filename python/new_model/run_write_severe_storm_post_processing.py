@@ -71,6 +71,7 @@ from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, conver
 #from new_model.run_write_gfs_trop_temp_to_combined_ncdf import lanczos_kernel, circle_mean_with_offset, weighted_cold_bias
 #from visualize_results.gfs_contour_trop_temperature import gfs_contour_trop_temperature
 def run_write_severe_storm_post_processing(inroot          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516'),
+                                           infile          = None,
                                            gfs_root        = os.path.join('..', '..', '..', 'gfs-data'),
                                            outroot         = None, 
                                            GFS_ANALYSIS_DT = 21600,
@@ -100,8 +101,10 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
     Output:
         Numpy file of rewritten model results
     Keywords:
-        inroot          : STRING specifying input root directory to the vis_ir_glm_json csv files
+        inroot          : STRING specifying input root directory to the combined netCDF files
                           DEFAULT = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516')
+        infile          : STRING specifying input root directory to the vis_ir_glm_json csv files
+                          DEFAULT = None -> loop over all files in the input root directory
         gfs_root        : STRING output directory path for GFS data storage
                           DEFAULT = os.path.join('..', '..', '..', 'gfs-data')
         outroot         : STRING specifying output root directory to save the netCDF output files
@@ -147,6 +150,9 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         print('Model specified is not available!!')
         exit()
     
+    if infile is not None:
+        inroot = os.path.dirname(infile)
+        
     inroot = os.path.realpath(inroot)                                                                                                                  #Create link to real path so compatible with Mac
     d_str  = os.path.basename(inroot)                                                                                                                  #Extract date string from the input root directory
     yyyy   = d_str[0:4]
@@ -156,7 +162,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         outroot = os.path.realpath(outroot)                                                                                                            #Create link to real path so compatible with Mac
         os.makedirs(outroot, exist_ok = True)                                                                                                          #Create output directory file path if does not already exist
     
-    if use_local == True:
+    if use_local:
         gfs_files = sorted(glob.glob(os.path.join(gfs_root, '**', '**', '*.grib2'), recursive = True))                                                 #Search for all GFS model files
     else:
         gfs_files = sorted(list_gcs(m_bucket_name, 'gfs-data', ['.grib2'], delimiter = '*/*'))                                                         #Extract names of all of the GOES visible data files from the google cloud   
@@ -182,17 +188,20 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         frac_max_pix = 0.10                                                                                                                            #Keep all pixels that are at least 10% of the value of the maximum likelihood score in the plume
     else:
         frac_max_pix = 0.50                                                                                                                            #Keep all pixels that are at least 50% of the value of the maximum likelihood score in the plume
-   
-    if use_local == True:    
-        nc_files = sorted(glob.glob(os.path.join(inroot, '*_' + sector + '_*.nc')))                                                                    #Find netCDF files to postprocess
+    
+    if infile is not None:
+        nc_files = [infile]
     else:
-        pref     = os.path.join(os.path.basename(os.path.dirname(inroot)), os.path.basename(inroot))                                                   #Find netCDF files in GCP bucket to postprocess
-        nc_files = sorted(list_gcs(c_bucket_name, pref, ['_' + sector + '_']))                                                                         #Extract names of all of the GOES visible data files from the google cloud   
+        if use_local:    
+            nc_files = sorted(glob.glob(os.path.join(inroot, '*_' + sector + '_*.nc')))                                                                #Find netCDF files to postprocess
+        else:
+            pref     = os.path.join(os.path.basename(os.path.dirname(inroot)), os.path.basename(inroot))                                               #Find netCDF files in GCP bucket to postprocess
+            nc_files = sorted(list_gcs(c_bucket_name, pref, ['_' + sector + '_']))                                                                     #Extract names of all of the GOES visible data files from the google cloud   
     
     if len(nc_files) <= 0:
         print('No files found in specified directory???')
         print(sector)
-        if use_local == True:
+        if use_local:
             print(inroot)
         else:
             print(c_bucket_name)
@@ -242,8 +251,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         sigma  = int(36.0/(xyres0*2.0))                                                                                                                #Calculate the standard deviation for Gaussian kernel for smoothing tropopause temperatures on the satellite grid
         keys0  = list(nc_dct.keys())                                                                                                                   #Extract keys 
         if len(keys0) <= 0:
-            if verbose == True:
-                print('Anvil mean BT and/or tropoause temperature not found in combined netCDF file. Writing now.')
+            if verbose:
+                print('Anvil mean BT and/or tropopause temperature not found in combined netCDF file. Writing now.')
         else: 
             bt0 = bt.values[0, :, :]
             for k in range(len(keys0)):
@@ -521,7 +530,6 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
   Output:
       Appends the combined netCDF data files with post-processing data
   '''  
-
   with Dataset(nc_file, 'a', format="NETCDF4") as f:                                                                                                   #Open combined netCDF file to append with model results
     chan0  = re.split('_', mod_attrs['standard_name'])[0].upper()                                                                                      #Extract satellite channels input into model
     vname  = chan0.replace('+', '_').lower() + '_' + re.split('_', mod_attrs['standard_name'])[1].lower()                                              #Extract model info to create variable name
@@ -621,7 +629,7 @@ def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tro
 #           var_mod2.add_offset    = offset_btd                                                                                                        #Write the data offset to the combined netCDF file
 #           var_mod2.scale_factor  = scale_btd                                                                                                         #Write the data scale factor to the combined netCDF file
   
-    if verbose == True:
+    if verbose:
         print('Post-processing model output netCDF file name = ' + nc_file)
 #   f.close()                                                                                                                                          #Close combined netCDF file once finished appending
   return()

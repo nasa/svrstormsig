@@ -272,6 +272,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
   if date1 == None:     
     rt  = True                                                                                                                                                              #Real-time download flag
     pat = 'real_time'                                                                                                                                                       #Real-time file path subdirectory name
+    os.makedirs(os.path.join(outroot, 'tmp_dir'), exist_ok = True)
   else:    
     rt  = False                                                                                                                                                             #Real-time download flag
     pat = 'not_real_time' 
@@ -292,7 +293,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       m_sector = 2                                                                                                                                                          #Set default meso scale sector number
       sector0  = sector[0].upper()
       sector00 = sector0
-      if rt == True:
+      if rt:
         if date.minute < 10 and (sector.lower() == 'full' or sector.lower() == 'f'):
           date = date - timedelta(minutes = 10)
         elif date.minute < 4 and sector.lower() == 'conus':  
@@ -350,7 +351,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       use_glm        = True
       use_glm0       = True
       no_vis         = False
-      if use_updraft == True:
+      if use_updraft:
         mod_pat = 'updraft_day_model'
         mod00   = ' OT Detection'
       else:
@@ -380,7 +381,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       mod_pat     = 'plume_day_model'
       mod00       = ' AACP Detection'
     #Check to see if need to download WV-IRDIFF files
-    if day0['use_irdiff'] == True or night0['use_irdiff'] == True:
+    if day0['use_irdiff'] or night0['use_irdiff']:
       no_irdiff = False
     else:
       no_irdiff = True
@@ -402,22 +403,22 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       night0['use_glm'] = False    
 
     #Check to see if need to download tropopause files
-    if day0['use_trop'] == True or night0['use_trop'] == True:
+    if day0['use_trop'] or night0['use_trop']:
       no_tropdiff = False
     else:
       no_tropdiff = True
     #Check to see if need to download dirty IR files
-    if day0['use_dirtyirdiff'] == True or night0['use_dirtyirdiff'] == True:
+    if day0['use_dirtyirdiff'] or night0['use_dirtyirdiff']:
       no_dirtyirdiff = False
     else:
       no_dirtyirdiff = True
     #Check to see if need to download cirrus files
-    if day0['use_cirrus'] == True or night0['use_cirrus'] == True:
+    if day0['use_cirrus'] or night0['use_cirrus']:
       no_cirrus = False
     else:
       no_cirrus = True
     #Check to see if need to download snowice files
-    if day0['use_snowice'] == True or night0['use_snowice'] == True:
+    if day0['use_snowice'] or night0['use_snowice']:
       no_snowice = False
     else:
       no_snowice = True
@@ -434,9 +435,9 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
     xy_bounds = extract_us_lat_lon_region(region = region)[region]  
    
   #Download real time file (glm_gridder)   
-  if verbose == True and no_download == False: print('Downloading model input data')   
+  if verbose and not no_download: print('Downloading model input data')   
   t00 = time.time()                                                                                                                                                         #Start clock to time the download job process
-  if run_gcs == True:
+  if run_gcs:
     og_bucket_name2 = og_bucket_name
   else:  
     og_bucket_name2 = None
@@ -475,7 +476,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
         og_dir = [os.path.join(outroot, date01.strftime("%Y%m%d"))]
       d_strs = [date01.strftime("%Y%m%d")]
     #Download GFS tropopause grib files if needed to run model
-    if no_tropdiff == False:
+    if not no_tropdiff:
       download_gfs_analysis_files_from_gcloud(date.strftime("%Y-%m-%d %H:%M:%S"), 
                                               outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
                                               gfs_bucket_name = 'global-forecast-system', 
@@ -485,7 +486,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                               verbose         = verbose)
   else:  
     #Download GFS tropopause grib files if needed to run model
-    if no_tropdiff == False:
+    if not no_tropdiff:
       download_gfs_analysis_files(date1, date2,
                                   GFS_ANALYSIS_DT = 21600,
                                   outroot         = os.path.join(os.path.dirname(outroot), 'gfs-data'),
@@ -559,7 +560,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       d_strs = d_strs[:-1]    
 
   if len(og_dir) == 0: print('No download output directory roots???')
-  if verbose == True and no_download == False: 
+  if verbose and not no_download: 
     print('Time to download files ' + str(time.time() - t00) + ' sec')
     print('Output directory of downloaded netCDF files = ' + outroot)
     print()
@@ -580,10 +581,10 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
     d_str2 = datetime.strptime(d_strs[idx0], "%Y%m%d").strftime("%Y%j")                                                                                                     #Extract date string in terms of Year and Julian date
     outdate.append(d_str2)
     #Create VIS/IR/GLM combined netCDF file (glm_gridder)
-    if verbose == True: print('Combining model input data into a netCDF file for date ' + d_strs[idx0])
+    if verbose: print('Combining model input data into a netCDF file for date ' + d_strs[idx0])
     if len(chk_day_night) == 0:
       if use_chkpnt == None:
-        if use_night == True:
+        if use_night:
           mod0 = 'IR+IRDIFF+GLM'
           mod1 = 'ir_irdiff_glm'
           print('Model at night not available for 3 inputs. Try giving a checkpoint file.')
@@ -716,7 +717,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                             in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
                                                                             verbose              = verbose)
      
-    if no_tropdiff == False:
+    if not no_tropdiff:
       run_write_gfs_trop_temp_to_combined_ncdf(inroot        = os.path.join(outroot, 'combined_nc_dir', d_strs[idx0]), 
                                                gfs_root      = os.path.join(os.path.dirname(outroot), 'gfs-data'),
                                                use_local     = True, write_gcs = run_gcs, del_local = del_local,
@@ -727,7 +728,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
     
     if len(img_names) > 0:
       nc_files.extend(sorted(nc_names))
-      if verbose == True: 
+      if verbose: 
         print('Data combined into a netCDF file for date ' + d_strs[idx0])
         print('Time to create combined netCDF file ' + str(time.time() - t00) + ' sec')
         print('Output directory of combined netCDF files = ' + os.path.join(outroot, 'combined_nc_dir'))
@@ -777,7 +778,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       
       
       ir_files.append(ir_file0)                                                                                                                                             #Append array storing IR file names
-      if verbose == True: 
+      if verbose: 
         print('Data numpy files created for date ' + d_strs[idx0])
         print('Time to create numpy files = ' + str(time.time() - t00) + ' sec')
         print('Output directory of numpy files = ' + os.path.join(outroot, 'labelled', pat))
@@ -901,7 +902,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
           exit()
         
         outdir = day_outdir
-        if len(day_df) > 0 and rt == True:
+        if len(day_df) > 0 and rt:
           night_outdir = day_outdir
           night_df     = pd.DataFrame()
         else:
@@ -1004,7 +1005,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
           df = night_df.copy()
 
       res_dirs.append(outdir)
-      if verbose == True: 
+      if verbose: 
         print('Time to run prediction ' + str(time.time() - t00) + ' sec')
         print()
       if rt != True:
@@ -1016,7 +1017,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       else:
         d_range = []
       nc_names = sorted(list(df['glm_files']))
-      if rt == True:
+      if rt:
         if df.empty:
           tod      = []
           nc_names = []
@@ -1027,7 +1028,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
         tod = list(df['day_night'])
 
       tods.extend(tod)
-      if verbose == True:
+      if verbose:
         print(nc_names)
         print(ir_files)
         print(outdir)
@@ -1047,15 +1048,15 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
 
 #Plot and write locations of OTs
     if len(nc_names) > 0:
-      if rt == True:
+      if rt:
         im_names, df_out = write_plot_model_result_predictions(nc_names, [], tod = tod, res = [], use_local = use_local, no_plot = True, res_dir = outdir, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, model = mod0 + mod00, chk_day_night = chk_day_night, grid_data = grid_data, proj = proj, outroot = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, img_path, str(sector00).upper()), verbose = verbose)
-        if no_plot == False:
+        if not no_plot:
           p.join()
           p.close()
           while not os.path.exists(im_names[0]):
             time.sleep(1)                                                                                                                                                   #Wait until file exists, then write to gcs
       else:    
-        if no_plot == False:
+        if not no_plot:
           if len(img_names) > 0:
             im_names, df_out = write_plot_model_result_predictions(nc_names, [], tod = tod, res = [], use_local = use_local, no_plot = no_plot, res_dir = outdir, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, model = mod0 + mod00, chk_day_night = chk_day_night, grid_data = grid_data, proj = proj, outroot = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, img_path, str(sector00).upper()), verbose = verbose)
           else:
@@ -1063,12 +1064,12 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
         else:
           im_names = []
 
-      if run_gcs == True and no_plot == False:
+      if run_gcs and not no_plot:
         pref = os.path.relpath(os.path.dirname(im_names[0]), re.split('aacp_results_imgs', os.path.dirname(im_names[0]))[0])
         for i in im_names:
           write_to_gcs(f_bucket_name, pref, i, del_local = del_local)                                                                                                       #Write results to Google Cloud Storage Bucket
     else:
-      if rt == True and no_plot == False:
+      if rt and not no_plot:
         print('No image created because model you wanted to run cannot be used for night time operations')
         p.kill()
       
@@ -1116,7 +1117,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
     if os.path.exists(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv')) == True:
       df0 = pd.read_csv(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'), index_col = 0)                                                      #Read previous csv file
     else:
-      if use_local == True:
+      if use_local:
         df0 = pd.DataFrame()                                                                                                                                                #Create empty data frame
         os.makedirs(outdir, exist_ok = True) 
       else:
@@ -1157,7 +1158,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
       df_merge = df0        
       df_merge = df_merge.astype({'out_date' : str})
     df_merge.to_csv(os.path.join(os.path.dirname(os.path.dirname(outdir)), 'dates_with_ftype.csv'))                                                                         #Write output file
-    if run_gcs == True:
+    if run_gcs:
       if 'day_night_optimal' in outdir:
         pref = os.path.join(re.split(d_str, os.path.relpath(outdir, re.split('day_night_optimal', outdir)[0]))[0], d_str)
       else:
@@ -1362,7 +1363,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       Numpy files with the model results for real time date or specified date range.
   '''  
   backend.clear_session()
-  if night_only == True:
+  if night_only:
     use_night = True
   if d_str == None: d_str = datetime.utcnow().strftime("%Y-%m-%d")
   try:
@@ -1376,11 +1377,11 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       except (ValueError, IndexError):
           print("Error: Could not parse date from inroot.")
           d_str2 = None
-  if rt == True:  
+  if rt:  
     pat = 'real_time'                                                                                                                                                       #Real-time file path subdirectory name
   else: 
     pat = 'not_real_time' 
-  if use_updraft == True:
+  if use_updraft:
     mod_pat  = 'updraft_day_model'
     mod_name = 'OT'
     val_set  = 0
@@ -1389,7 +1390,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     mod_name = 'AACP'
     val_set  = 0
 
-  if use_local == True:
+  if use_local:
     csv_files = sorted(glob.glob(os.path.join(outroot, 'labelled', pat, d_str2, str(sector), 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), recursive = True))   #Extract names of all of the GOES visible data files
   else:                                   
     csv_files = list_csv_gcs(p_bucket_name, os.path.join(os.path.basename(os.path.realpath(outroot)), 'labelled', pat, d_str2, str(sector)), 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv') #Extract names of all of the GOES visible data files
@@ -1402,21 +1403,21 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     print('Multiple csv files found???')
     exit()
   dir_path, fb = os.path.split(csv_files[0])                                                                                                                                #Extract csv file directory path and file basename
-  if use_local == True:  
+  if use_local:  
     df = pd.read_csv(csv_files[0], index_col = 0)                                                                                                                           #Read specified csv file
   else:                                     
     df = load_csv_gcs(p_bucket_name, csv_files[0])                                                                                                                          #Read specified csv file
  
-  if rt == True:
+  if rt:
     df = df[-1:].copy()
-  if use_night == False:
+  if not use_night:
     df.dropna(subset = ['vis_files'], inplace = True)                                                                                                                       #Find night time scans and remove from model que
-  if night_only == True:
+  if night_only:
     df = df[(df['day_night'] == 'night')]
 
   if use_chkpnt == None:
-    if use_glm == True:
-      if use_night == True:
+    if use_glm:
+      if use_night:
         mod0 = 'IR+IRDIFF+GLM'
         mod1 = 'ir_irdiff_glm'
         print('Model not exists. Give a checkpoint file')
@@ -1436,7 +1437,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   else:
     indir   = os.path.realpath(os.path.dirname(use_chkpnt))                                                                                                                 #Real path to the checkpoint file 
     outdir  = os.path.realpath(os.path.dirname(use_chkpnt))                                                                                                                 #Location of the checkpoint file to be downloaded to 
-    if use_glm == True:                        
+    if use_glm:                        
       if len(re.split('ir_vis_glm', use_chkpnt)) > 1:                      
         mod0      = 'IR+VIS+GLM'
         mod1      = 'ir_vis_glm'
@@ -1471,7 +1472,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     else:
       outdir0 = os.path.join(outroot, 'aacp_results', 'day_night_optimal', mod_pat, pat, d_str)                                                                             #Location of the results predictions and blob_results_positioning.csv file
 
-  if rt == True and df.empty:
+  if rt and df.empty:
     return(os.path.join(outdir0, d_str2, str(sector)), pthresh, df)
   
   if len(date_range) > 0 and rt != True and df.empty == False:
@@ -1494,21 +1495,21 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
 #     df.reset_index(inplace = True)                                                                                                                                          #Reset the index so it is 0 to number of scans within time range
 #     df.drop(columns = 'index', inplace = True)                                                                                                                              #Remove index column that was created by reset_index.
 
-  if by_updraft == True:
+  if by_updraft:
     by_date = True
   if use_chkpnt == None:
     outdir  = os.path.join(indir, d_str)                                                                                                                                    #Set up output root directory path to current date
-    if subset == True:           
+    if subset:           
       indir  = os.path.join(indir, 'chosen_indices')           
       outdir = os.path.join(outdir, 'chosen_indices')           
-    if by_date == True:           
+    if by_date:           
       indir  = os.path.join(indir, 'by_date')           
       outdir = os.path.join(outdir, 'by_date')           
-    if by_updraft == True:  
+    if by_updraft:  
       indir  = os.path.join(indir, 'by_updraft')           
       outdir = os.path.join(outdir, 'by_updraft')  
   
-  if use_local == True:  
+  if use_local:  
     if os.path.exists(os.path.join(indir, 'dates_with_max_iou.csv')):  
       df_iou = pd.read_csv(os.path.join(indir, 'dates_with_max_iou.csv'), index_col = 0)                                                                                    #Read specified csv file
     else:  
@@ -1519,7 +1520,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
 #   if pthresh == None:
 #       pthresh = df_iou['threshold'][0]                                                                                                                                      #Use threshold that maximizes IoU if threshold not given
     
-  if df_iou.empty == False:  
+  if not df_iou.empty:  
     mod_type = str(df_iou['model'][0])                                                                                                                                      #Extract model type from file
   else:                                                                                                                                                           
     if use_chkpnt == None:
@@ -1536,7 +1537,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         print(use_chkpnt)
         exit()
   
-  if verbose == True:
+  if verbose:
     print('Model type being used = ' + mod_type)  
   if dims[1] <= 3500 and dims[2] <= 3500:
     if mod_type.lower() == 'unet':  
@@ -1553,7 +1554,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   mod_description = mod0 + ' ' + mod_name + ' ' + mod_type.lower().capitalize()                                                                                             #Create string specifying the model description which is written into the appended combined netCDF file
   
   os.makedirs(outdir, exist_ok = True)                                                                                                                                      #Create output directory if it does not already exist
-  if verbose == True: 
+  if verbose: 
     print('Checkpoint files output directory = ' + outdir)
     print('Loading test model weights')  
   if use_chkpnt == None:  
@@ -1581,7 +1582,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   if dims[1] <= 3500 and dims[2] <= 3500:
     model.load_weights(use_chkpnt).expect_partial()                                                                                                                         #Load the weights from previous checkpoint file specified by string
 
-    if del_local == True:   
+    if del_local:   
       chk_files = sorted(glob.glob(os.path.join(outdir, '*checkpoint*'), recursive = True))  
       [os.remove(c) for c in chk_files]
           
@@ -1590,7 +1591,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     pref = os.path.join(os.path.relpath(outdir0, re.split(mod1, outdir0)[0]), d_str2, str(sector))
   else:
     pref = os.path.join(os.path.relpath(outdir0, re.split('day_night_optimal', outdir0)[0]), d_str2, str(sector))
-  if rt == True:
+  if rt:
     s_ind = len(df)-1
   else:
     s_ind = 0  
@@ -1604,10 +1605,10 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     d_str0 = datetime.strptime(df['date_time'][d], "%Y-%m-%d %H:%M:%S").strftime("%Y%j%H%M%S")
     ncf    = os.path.realpath(df['glm_files'][d])                                                                                                                           #Extract name of combined netCDF so that it can be appended with model results
     exist  = 0
-    if rt == False and rewrite_model == False:
+    if not rt and not rewrite_model:
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', dims[1]) + '_results.npy')                                               #Save file path and name in case want to write results to google cloud storage bucket
-      if use_local == True:
-        if os.path.exists(fname) == True:                                                                                                                                   #Check if results file exist in google cloud storage bucket
+      if use_local:
+        if os.path.exists(fname):                                                                                                                                           #Check if results file exist in google cloud storage bucket
           exist = 1
       else:
         exist = list_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), [os.path.basename(fname)], delimiter = '/')                                                   #Check if results file exist in google cloud storage bucket
@@ -1618,14 +1619,14 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           print(os.path.join('Cooney_testing', pref))
           exit()
         if len(exist) > 0:
-          if del_local == False:
+          if not del_local:
             download_ncdf_gcs(f_bucket_name, exist[0], os.path.join(outdir0, d_str2, str(sector)))
           exist = 1
         else:
           exist = 0
 
     if exist == 0:    
-      if use_glm == True:
+      if use_glm:
         if mod1 == 'ir_vis_glm':
           imgs = build_imgs(df.loc[d].to_frame().T, [('ir_index', os.path.join(dir_path, 'ir', d_str0 + '_ir.npy')),                                                        #Build tensor array that will be subsetted
                                                      ('vis_index',os.path.join(dir_path, 'vis', d_str0 + '_vis.npy')),
@@ -1735,12 +1736,12 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       
       fname = os.path.join(outdir0, d_str2, str(sector), d_str0 + '_test_' + str.format('{0:.0f}', results.shape[1]) + '_results.npy')                                      #Save file path and name in case want to write results to google cloud storage bucket
       results[results < 0.02] = 0
-      if no_write_npy == False:
+      if not no_write_npy:
         np.save(fname, results)                                                                                                                                             #Save model results to numpy file in local storage
-        if verbose == True:
+        if verbose:
           print('Prediction file output file path/name = ' + fname)
-        if run_gcs == True:  
-          if rt == True:
+        if run_gcs:  
+          if rt:
             write_to_gcs(f_bucket_name, os.path.join('Cooney_testing', pref), fname, del_local = False)
           else:  
             t = Thread(target = write_to_gcs, args = (f_bucket_name, os.path.join('Cooney_testing', pref), fname), kwargs = {'del_local' : del_local})                      #Write results to Google Cloud Storage Bucket
@@ -1761,7 +1762,7 @@ def tf_3_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           print(dn)
           print(chk_day_night)
           exit()
-      t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'optimal_thresh' : opt_pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'verbose': verbose})     #Write results to combined netCDF file
+      t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'rt': rt, 'optimal_thresh' : opt_pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'verbose': verbose})     #Write results to combined netCDF file
       t2.start()
       counter = counter+1
 #Clear memory
