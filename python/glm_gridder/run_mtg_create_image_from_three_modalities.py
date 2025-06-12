@@ -475,7 +475,7 @@ def run_mtg_create_image_from_three_modalities(inroot             = os.path.join
     fcheck = 0
     while fcheck == 0:
         vis_files = sorted(glob.glob(os.path.join(inroot, '*MTI' + satellite[-1] + '*HRFI-' + sec + '-*-TRAIL-*.nc'), recursive = True), key = sort_mtg_irvis_files)  #Extract names of all of the MTG data files
-        if no_write_vis == False:
+        if not no_write_vis:
             ir_files = vis_files
             if (len(vis_files) != len(ir_files) or len(vis_files) <= 0):                                                                       #Check to make sure same number of IR and VIS files in directory
                 if len(vis_files) == 0 and not real_time:
@@ -539,13 +539,23 @@ def run_mtg_create_image_from_three_modalities(inroot             = os.path.join
 #                if ds0.day == 11:
                     return([], [], [], [])
                 else:
-                    print('Real time run specified not to download the data and so are waiting 60 seconds for new files to come online to process')
+                    if counter == 0:
+                        print(ir_files)
+                        print(inroot)
+                        print('*MTI' + satellite[-1] + '*FDHSI-' + sec + '-*-TRAIL-*.nc')
+                        print(cfiles)
+                        print(ds0)
+                    print('Real time run specified not to download the data and so are waiting 30 seconds for new files to come online to process')
                     counter +=1
-                    time.sleep(60)    
+                    time.sleep(30)    
         elif real_time and len(vis_files) == 0:
-            print('Real time run specified not to download the data and so are waiting 60 seconds for new files to come online to process')
+            if counter == 0:
+                print(ir_files)
+                print(inroot)
+                print('*MTI' + satellite[-1] + '*FDHSI-' + sec + '-*-TRAIL-*.nc')
+            print('Real time run specified not to download the data and so are waiting 30 seconds for new files to come online to process')
             counter +=1
-            time.sleep(60)    
+            time.sleep(30)    
         
         if not real_time:
             if len(ir_files) > 0:
