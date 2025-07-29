@@ -172,6 +172,10 @@ def run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1        = None, date2
         if date2 >= datetime(2025, 4, 7, 15):
             print('GOES-16 stopped operating on 2025-04-07 at 15Z. You likely want to use GOES-19')
             exit()
+    if sat.lower() == 'goes-19':
+        if date1 < datetime(2025, 4, 7, 15) and date2 < datetime(2025, 4, 7, 15):
+            print('GOES-19 not setup to work until in the GOES-E postion and did not start this until 2025-04-07 at 15Z. You likely want to use GOES-16')
+            exit()
     
     if verbose == True: print('Files downloaded to outroot ' + outroot)
     date      = date1
