@@ -130,7 +130,7 @@ def fetch_convert_ir(_combined_nc, lon_shape, lat_shape, min_value = 180.0, max_
    
     return(ir_dat)
 
-def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, min_value = -15.0, max_value = 20.0):
+def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, new_weighting, min_value = -12.0, max_value = 25.0):
     '''
     Reads the combined VIS/IR/GLM netCDF file. Clips edges of temperature data in degrees kelvin from min_value to max_value". 
     Values closer to min_value are masked closer to 1.
@@ -145,6 +145,10 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, min_value = -15.0, ma
     Returns:    
       ir_dat: 2000 x 2000 IR data numpy array after IR range conversion. Array is resized using cv2.resize with cv2.INTER_NEAREST interpolation
     '''
+    if not new_weighting: 
+      min_value = -15.0
+      max_value = 20.0
+      
     ir_dat = np.copy(np.asarray(_combined_nc.variables['ir_brightness_temperature'][:], dtype = np.float32))[0, :, :]                          #Copy IR data into a numpy array                        
     tr_dat = np.copy(np.asarray(_combined_nc.variables['tropopause_temperature'][:], dtype = np.float32))[0, :, :]                             #Copy tropopapuse data into a numpy array                        
     if ir_dat.shape[0] != lon_shape[0] or ir_dat.shape[1] != lon_shape[1]:
@@ -152,15 +156,24 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, min_value = -15.0, ma
         tr_dat = cv2.resize(tr_dat, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)                                             #Upscale the ir data array to VIS resolution
     d_dat = ir_dat - tr_dat
     na = (ir_dat < 0) | (ir_dat >= 250)
+#    na2 = ((ir_dat > 230) & (ir_dat <= 260))
     d_dat[d_dat < min_value] = min_value                                                                                                       #Clip all BT-tropT below min value to min value
     d_dat[d_dat > max_value] = max_value                                                                                                       #Clip all BT-tropT above max value to max value
-    d_dat = np.true_divide(d_dat - min_value, min_value - max_value)                                                                           #Normalize the IR BT-tropT data by the max and min values
-    d_dat += 1
+    if new_weighting:
+      #Start New Cosine function
+      d_dat = 0.5 * (1 + np.cos(np.pi * (d_dat - min_value) / (max_value - min_value)))
+      #End New Cosine function
+    else:
+      #Old Linear function
+      d_dat = np.true_divide(d_dat - min_value, min_value - max_value)                                                                         #Normalize the IR BT-tropT data by the max and min values
+      d_dat += 1
+    
     if (np.amax(d_dat) > 1 or np.amin(d_dat) < 0):                                                                                             #Check to make sure IR-tropT data is properly normalized between 0 and 1
         print('IR data is not normalized properly between 0 and 1??')
         exit()
     d_dat[na] = -1                                                                                                                             #Set NaN values to -1 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
-    d_dat[(d_dat > max_value)] = -1                                                                                                                            #Set NaN values to -2 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
+#    d_dat[na2] = -2                                                                                                                            #Set NaN values to -1 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
+    d_dat[(d_dat > max_value)] = -1                                                                                                            #Set NaN values to -2 so they can later be recognized and the OT/AACP model removes any chance that they could be valid detections. Set to max weight when input into model though to avoid faulty detections along borders of no data regions
     return(d_dat)
 
 def fetch_convert_vis(_combined_nc, min_value = 0.0, max_value = 1.0, no_write_vis = False):
@@ -426,6 +439,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                                                      run_gcs          = False, use_local = False, real_time = False, del_local = False,
                                                      og_bucket_name   = 'mtg-data', comb_bucket_name = 'ir-vis-sandwhich', proc_bucket_name = 'aacp-proc-data', 
                                                      use_native_ir    = False, 
+                                                     new_weighting    = True,
                                                      verbose          = True):
     '''
     MAIN FUNCTION. This is a script to run (by importing) programs that create numpy files for IR, VIS, solar zenith angle, and GLM data.
@@ -487,6 +501,8 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                                 DEFAULT = 'aacp-proc-data'
          use_native_ir        : IF keyword set (True), write files for native IR satellite resolution.
                                 DEFAULT = False -> use satellite VIS resolution
+         new_weighting        : BOOL keyword to specify whether or not to use the TROPDIFF new weighting scheme that uses a cosine function rather than linear weighting
+                                DEFAULT = True -> use new weighting scheme
          verbose              : IF keyword set (True), print verbose informational messages to terminal.
     Output:    
         Writes IR, VIS, and GLM numpy arrays for each satellite scan
@@ -633,90 +649,119 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                 print(time0)
                 print(time1)
             
-            #Extract subset of raw VIS netCDF files within date_range
+            #Pick source for IR files
+            ir_source  = files2 if wv and not use_native_ir else files
+            vis_source = files if not no_write_vis else []
+            
+            #Get datetime-filtered file tuples
+            ir_files_dt = subset_files_by_time(ir_source, 'ir', time0, time1)
+            vis_files_dt = subset_files_by_time(vis_source, 'vis', time0, time1) if not no_write_vis else []
+            comb_files_dt = subset_files_by_time(comb_files, 'comb', time0, time1)
+            
+            #Build timestamp-to-file dictionaries
+            ir_dict = dict(ir_files_dt)
+            vis_dict = dict(vis_files_dt) if not no_write_vis else {}
+            comb_dict = dict(comb_files_dt)
+    
+            #Find common timestamps across all files
             if not no_write_vis:
-                start_index = 0
-                end_index   = len(vis_files)
-                for f in (range(0, len(vis_files))):
-                    file_attr = re.split('_|-|,|\+', os.path.basename(vis_files[f]))                                                                   
-                    date_str  = file_attr[23][8:14] 
-                    if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time0.year, time0.month, time0.day, time0.hour, time0.minute, time0.second) and start_index == 0:
-                        if f == 0:
-                            start_index = -1
-                        else:    
-                            start_index = f
-                    if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time1.year, time1.month, time1.day, time1.hour, time1.minute, time1.second) and end_index == len(vis_files):
-                        if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
-                            if f == (len(vis_files)-1):
-                                end_index = len(vis_files)
-                            else:    
-                                end_index = f
-                        else:  
-                            if f == (len(vis_files)-1):
-                                end_index = len(vis_files)
-                            else:
-                                end_index = f                 
-                if start_index == -1:
-                    start_index = 0
-                vis_files = vis_files[start_index:end_index]
+                common_times = sorted(set(ir_dict) & set(vis_dict) & set(comb_dict))
+            else:
+                common_times = sorted(set(ir_dict) & set(comb_dict))
+
+            if len(common_times) == 0:
+                print("No overlapping times found between IR, VIS, and combined files!")
+                exit()
             
-            if wv:
-                if use_native_ir:
-                    ir_files = files                
-                else:
-                    ir_files = files2
-                if os.path.dirname(ir_files[0]) == os.path.dirname(vis_files[0]):
-                    #Extract subset of raw IR netCDF files within date_range
-                    start_index = 0
-                    end_index   = len(ir_files)
-                    for f in (range(0, len(ir_files))):
-                        file_attr = re.split('_|-|,|\+', os.path.basename(ir_files[f]))                                                        #Split file string in order to extract date string of scan
-                        date_str  = file_attr[23][8:14]                                                                                        #Split file string in order to extract date string of scan
-                        if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time0.year, time0.month, time0.day, time0.hour, time0.minute, time0.second) and start_index == 0:
-                            if f == 0:
-                                start_index = -1
-                            else:    
-                                start_index = f
-                        if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time1.year, time1.month, time1.day, time1.hour, time1.minute, time1.second) and end_index == len(ir_files):
-                            if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
-                                if f == (len(ir_files)-1):
-                                    end_index = len(ir_files)
-                                else:    
-                                    end_index = f
-                            else:  
-                                if f == (len(ir_files)-1):
-                                    end_index = len(ir_files)
-                                else:
-                                    end_index = f                
-                    if start_index == -1:
-                        start_index = 0
-            ir_files = ir_files[start_index:end_index]
-            
-            #Extract subset of combined netCDF files within date_range
-            start_index = 0
-            end_index   = len(comb_files)
-            for f in (range(0, len(comb_files))):
-                file_attr = re.split('_s|_', os.path.basename(comb_files[f]))                                                                  #Split file string in order to extract date string of scan
-                date_str  = file_attr[5][7:13]                                                                                                 #Split file string in order to extract date string of scan
-                if file_attr[5][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute, time0.second) and start_index == 0:
-                    if f == 0:
-                        start_index = -1
-                    else:    
-                        start_index = f
-                if file_attr[5][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute, time1.second) and end_index == len(comb_files):
-                    if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
-                        if f == (len(comb_files)-1):
-                            end_index = len(comb_files)
-                        else:    
-                            end_index = f+1
-                    else:  
-                        if f == (len(comb_files)-1):
-                            end_index = len(comb_files)
-                        else:
-                            end_index = f              
-            if start_index == -1:
-                start_index = 0
-            comb_files = comb_files[start_index:end_index]        
+            #Reconstruct synchronized file lists
+            ir_files = [ir_dict[t] for t in common_times]
+            vis_files = [vis_dict[t] for t in common_times] if not no_write_vis else []
+            comb_files = [comb_dict[t] for t in common_times]
+           
+#             #Extract subset of raw VIS netCDF files within date_range
+#             if not no_write_vis:
+#                 start_index = 0
+#                 end_index   = len(vis_files)
+#                 for f in (range(0, len(vis_files))):
+#                     file_attr = re.split('_|-|,|\+', os.path.basename(vis_files[f]))                                                                   
+#                     date_str  = file_attr[23][8:14] 
+#                     if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time0.year, time0.month, time0.day, time0.hour, time0.minute, time0.second) and start_index == 0:
+#                         if f == 0:
+#                             start_index = -1
+#                         else:    
+#                             start_index = f
+#                     if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time1.year, time1.month, time1.day, time1.hour, time1.minute, time1.second) and end_index == len(vis_files):
+#                         if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
+#                             if f == (len(vis_files)-1):
+#                                 end_index = len(vis_files)
+#                             else:    
+#                                 end_index = f
+#                         else:  
+#                             if f == (len(vis_files)-1):
+#                                 end_index = len(vis_files)
+#                             else:
+#                                 end_index = f                 
+#                 if start_index == -1:
+#                     start_index = 0
+#                 vis_files = vis_files[start_index:end_index]
+#             
+#             if wv:
+#                 if use_native_ir:
+#                     ir_files = files                
+#                 else:
+#                     ir_files = files2
+#                 if os.path.dirname(ir_files[0]) == os.path.dirname(vis_files[0]):
+#                     #Extract subset of raw IR netCDF files within date_range
+#                     start_index = 0
+#                     end_index   = len(ir_files)
+#                     for f in (range(0, len(ir_files))):
+#                         file_attr = re.split('_|-|,|\+', os.path.basename(ir_files[f]))                                                        #Split file string in order to extract date string of scan
+#                         date_str  = file_attr[23][8:14]                                                                                        #Split file string in order to extract date string of scan
+#                         if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time0.year, time0.month, time0.day, time0.hour, time0.minute, time0.second) and start_index == 0:
+#                             if f == 0:
+#                                 start_index = -1
+#                             else:    
+#                                 start_index = f
+#                         if file_attr[23][0:14] >= "{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}".format(time1.year, time1.month, time1.day, time1.hour, time1.minute, time1.second) and end_index == len(ir_files):
+#                             if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
+#                                 if f == (len(ir_files)-1):
+#                                     end_index = len(ir_files)
+#                                 else:    
+#                                     end_index = f
+#                             else:  
+#                                 if f == (len(ir_files)-1):
+#                                     end_index = len(ir_files)
+#                                 else:
+#                                     end_index = f                
+#                     if start_index == -1:
+#                         start_index = 0
+#             ir_files = ir_files[start_index:end_index]
+#             
+#             #Extract subset of combined netCDF files within date_range
+#             start_index = 0
+#             end_index   = len(comb_files)
+#             for f in (range(0, len(comb_files))):
+#                 file_attr = re.split('_s|_', os.path.basename(comb_files[f]))                                                                  #Split file string in order to extract date string of scan
+#                 date_str  = file_attr[5][7:13]                                                                                                 #Split file string in order to extract date string of scan
+#                 if file_attr[5][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time0.year, time0.timetuple().tm_yday, time0.hour, time0.minute, time0.second) and start_index == 0:
+#                     if f == 0:
+#                         start_index = -1
+#                     else:    
+#                         start_index = f
+#                 if file_attr[5][0:13] >= "{:04d}{:03d}{:02d}{:02d}{:02d}".format(time1.year, time1.timetuple().tm_yday, time1.hour, time1.minute, time1.second) and end_index == len(comb_files):
+#                     if "{:02d}{:02d}{:02d}".format(time1.hour, time1.minute, time1.second) == date_str:
+#                         if f == (len(comb_files)-1):
+#                             end_index = len(comb_files)
+#                         else:    
+#                             end_index = f+1
+#                     else:  
+#                         if f == (len(comb_files)-1):
+#                             end_index = len(comb_files)
+#                         else:
+#                             end_index = f              
+#             if start_index == -1:
+#                 start_index = 0
+#             comb_files = comb_files[start_index:end_index]        
     
     if no_write_vis == False:
         if len(ir_files) == 0 or len(vis_files) == 0 or len(comb_files) == 0:
@@ -892,7 +937,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                     if no_write_dirtyirdiff == False: 
                         dirtyird_results.append(fetch_convert_dirtyirdiff(combined_nc_dat, lon_shape, lat_shape))                              #Add new normalized dirtyIR BT difference data result to dirtyIR list
                     if no_write_trop == False: 
-                        trop_results.append(fetch_convert_trop(combined_nc_dat, lon_shape, lat_shape))                                         #Add new normalized IR BT - tropT difference data result to tropdiff list
+                        trop_results.append(fetch_convert_trop(combined_nc_dat, lon_shape, lat_shape, new_weighting))                          #Add new normalized IR BT - tropT difference data result to tropdiff list
                 if no_write_vis == False: 
                     if pd.notna(ir_vis['vis_files'][f]) == True:
                         if (ir_vis['date_time'][f] != ir_vis['date_time'][f]):                                                                 #Add check to make sure working with same file
@@ -1060,6 +1105,27 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
 
     return(join(outdir, sector, 'ir', 'ir.npy'), np.asarray(ir_results).shape)
 
+def subset_files_by_time(file_list, filetype, time0, time1):
+    # Return sorted list of (timestamp, file)
+    return sorted(
+        [(extract_datetime_from_filename(f, filetype), f) for f in file_list
+         if time0 <= extract_datetime_from_filename(f, filetype) <= time1]
+    )
+
+def extract_datetime_from_filename(filename, filetype):
+    basename = os.path.basename(filename)
+    
+    if filetype == 'vis' or filetype == 'ir':
+        file_attr = re.split('_|-|,|\+', basename)
+        datestr = file_attr[23][:14]  # YYYYMMDDHHMMSS
+        return datetime.strptime(datestr, "%Y%m%d%H%M%S")
+    
+    elif filetype == 'comb':
+        file_attr = re.split('_s|_', basename)
+        datestr = file_attr[5][:13]  # YYYYDOYHHMMSS
+        doy = int(datestr[4:7])
+        return datetime.strptime(f"{datestr[0:4]} {doy} {datestr[7:]}", "%Y %j %H%M%S")
+        
 def main():
     create_vis_ir_numpy_arrays_from_netcdf_files2()
     
