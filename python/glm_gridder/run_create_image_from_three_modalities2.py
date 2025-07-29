@@ -330,38 +330,38 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         else:
             img_out_dir = os.path.join(img_out_dir, 'lat_lon_grid', sector, nam, cbar, f_dates)                                                #Set output image path to pixel grid files
     
-    if no_plot == False: os.makedirs(os.path.dirname(img_out_dir), exist_ok = True)                                                            #Create output image directory file path if does not already exist
-    if run_gcs == True:
-        if no_write_vis == False:
+    if not no_plot: os.makedirs(os.path.dirname(img_out_dir), exist_ok = True)                                                                 #Create output image directory file path if does not already exist
+    if run_gcs:
+        if not no_write_vis:
             vis_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'vis'), ['-Rad' + sector + '-']))                                #Extract names of all of the GOES visible data files from the google cloud
         ir_files  = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'ir'), ['-Rad' + sector + '-']))                                     #Extract names of all of the GOES infrared data files from the google cloud
-        if rewrite_nc == False or append_nc == True:
+        if not rewrite_nc or append_nc:
             com_files = sorted(list_gcs(out_bucket_name, os.path.join('combined_nc_dir', f_dates), ['_COMBINED_', '_' + sector + '_']))        #Extract names of all of the GOES infrared data files from the google cloud
-        if no_write_irdiff == False:
+        if not no_write_irdiff:
             ird_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'ir_diff'), ['-Rad' + sector + '-']))                            #Extract names of all of the GOES 6.2 micron infrared data files from the google cloud
-        if no_write_cirrus == False:
+        if not no_write_cirrus:
             c_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'cirrus'), ['-Rad' + sector + '-']))                               #Extract names of all of the GOES 1.37 micron infrared data files from the google cloud
-        if no_write_snowice == False:
+        if not no_write_snowice:
             snowice_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'snowice'), ['-Rad' + sector + '-']))                        #Extract names of all of the GOES 1.6 micron infrared data files from the google cloud
-        if no_write_dirtyirdiff == False:
+        if not no_write_dirtyirdiff:
             dirtyir_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'dirtyir'), ['-Rad' + sector + '-']))                        #Extract names of all of the GOES 12.3 micron infrared data files from the google cloud
 
-        if no_write_glm == False:                                                                                                              #Must download GLM files to local storage
+        if not no_write_glm:                                                                                                                   #Must download GLM files to local storage
             glm_files = sorted(list_gcs(in_bucket_name, os.path.join(f_dates, 'glm'), ['-LCFA', 'GLM']))                                       #Extract names of all of the GOES GLM data files from the google cloud
-            if real_time == True: 
+            if real_time: 
                 glm_files = glm_files[-15:]                                                                                                    #Download only the most recent GLM files if running code in real time
             for g in glm_files: download_ncdf_gcs(in_bucket_name, g, glm_in_dir)
-        if real_time == True: 
+        if real_time: 
             ir_files  = [ir_files[-1]]                                                                                                         #Download only the most recent IR files if running code in real time
-            if no_write_vis == False:
+            if not no_write_vis:
                 vis_files = [vis_files[-1]]                                                                                                    #Download only the most recent VIS files if running code in real time
-            if no_write_irdiff == False:
+            if not no_write_irdiff:
                 ird_files = [ird_files[-1]]                                                                                                    #Download only the most recent 6.2 micron files if running code in real time
-            if no_write_cirrus == False:
+            if not no_write_cirrus:
                 c_files = [c_files[-1]]                                                                                                        #Download only the most recent 1.37 micron files if running code in real time
-            if no_write_snowice == False:
+            if not no_write_snowice:
                 snowice_files = [snowice_files[-1]]                                                                                            #Download only the most recent 1.6 micron  files if running code in real time
-            if no_write_dirtyirdiff == False:
+            if not no_write_dirtyirdiff:
                 dirtyir_files = [dirtyir_files[-1]]                                                                                            #Download only the most recent 12.3 micron  files if running code in real time
         else:
             ir_files2  = sorted(glob.glob(os.path.join(ir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                           #Extract names of all of the GOES IR data files already in local storage
@@ -370,7 +370,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                 fi2 = sorted([os.path.basename(g) for g in ir_files2])
                 ir_files0  = [ir_files[ff] for ff in range(len(fi)) if fi[ff] not in fi2]                                                      #Find ir_files not already stored on local disk
                 ir_files   = ir_files0
-            if no_write_vis == False:
+            if not no_write_vis:
                 vis_files2 = sorted(glob.glob(os.path.join(vis_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                      #Extract names of all of the GOES visible data files already in local storage
                 if len(vis_files2) > 0:                                                                                                        #Only download files that are not already available on the local disk 
                     fv  = sorted([os.path.basename(g) for g in vis_files])
@@ -380,8 +380,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                 for g in vis_files: download_ncdf_gcs(in_bucket_name, g, vis_dir)
    
         for g in ir_files: download_ncdf_gcs(in_bucket_name, g, ir_dir)
-        if no_write_irdiff == False:
-            if real_time != True:
+        if not no_write_irdiff:
+            if not real_time:
                 ird_files2 = sorted(glob.glob(os.path.join(irdiff_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                   #Extract names of all of the GOES IR channel 8 data files
                 if len(ird_files2) > 0:
                     fi  = sorted([os.path.basename(g) for g in ird_files])
@@ -390,8 +390,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                     ird_files  = ird_files0
             for g in ird_files: download_ncdf_gcs(in_bucket_name, g, irdiff_dir)                                                               #Download IR 6.2 micron channel files
         
-        if no_write_cirrus == False:
-            if real_time != True:
+        if not no_write_cirrus:
+            if not real_time:
                 cirrus_files2 = sorted(glob.glob(os.path.join(cirrus_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                #Extract names of all of the GOES IR channel 8 data files
                 if len(cirrus_files2) > 0:
                     fi  = sorted([os.path.basename(g) for g in c_files])
@@ -400,8 +400,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                     c_files       = cirrus_files0
             for g in c_files: download_ncdf_gcs(in_bucket_name, g, cirrus_dir)                                                                 #Download IR 1.37 micron channel files
         
-        if no_write_snowice == False:
-            if real_time != True:
+        if not no_write_snowice:
+            if not real_time:
                 snowice_files2 = sorted(glob.glob(os.path.join(snowice_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))              #Extract names of all of the GOES 1.6 micron files
                 if len(snowice_files2) > 0:
                     fi  = sorted([os.path.basename(g) for g in snowice_files])
@@ -410,8 +410,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                     snowice_files  = snowice_files0
             for g in snowice_files: download_ncdf_gcs(in_bucket_name, g, snowice_dir)                                                          #Download 1.6 micron channel files
        
-        if no_write_dirtyirdiff == False:
-            if real_time != True:
+        if not no_write_dirtyirdiff:
+            if not real_time:
                 dirtyir_files2 = sorted(glob.glob(os.path.join(dirtyir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))              #Extract names of all of the GOES Dirty IR channel data files
                 if len(dirtyir_files2) > 0:
                     fi  = sorted([os.path.basename(g) for g in dirtyir_files])
@@ -420,7 +420,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                     dirtyir_files  = dirtyir_files0
             for g in dirtyir_files: download_ncdf_gcs(in_bucket_name, g, dirtyir_dir)                                                          #Download IR 12.3 micron channel files
         
-        if rewrite_nc == False or append_nc == True:
+        if not rewrite_nc or append_nc:
             com_files2 = sorted(glob.glob(os.path.join(layered_dir, '*' + '_' + sector + '_COMBINED_' + '*.nc'), recursive = True))            #Find combined netCDF files not already stored on local disk
             if len(com_files2) > 0:
                 fi  = sorted([os.path.basename(g) for g in com_files])
@@ -442,7 +442,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
     
     vis_files = sorted(glob.glob(os.path.join(vis_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True), key = sort_goes_irvis_files)      #Extract names of all of the GOES visible data files
     ir_files  = sorted(glob.glob(os.path.join(ir_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True), key = sort_goes_irvis_files)       #Extract names of all of the GOES IR data files
-    if no_write_vis == False:
+    if not no_write_vis:
         if (len(vis_files) != len(ir_files) or len(vis_files) <= 0):                                                                           #Check to make sure same number of IR and VIS files in directory
             print('Number of visible and infrared data files in directory do not match or no files in directory!?')
             print(len(vis_files))
@@ -463,7 +463,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                 ir_dstr = [re.split('_s|_', os.path.basename(ir_files[f]))[3] for f in range(0, len(ir_files))]                                #Extract IR date strings to determine missing VIS or IR data files
                 for f in (range(0, len(vis_files))):
                     if vis_dstr[f] not in ir_dstr:
-                        if run_gcs == True and del_local == True:
+                        if run_gcs and del_local:
                             print(vis_files[f] + ' does not have a matching IR file???')
                             print('Deleting the visible data file from the local directory')
                             rm = 'y'
@@ -476,7 +476,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
                             os.remove(vis_files[f])                                                                                            #Delete visible data file that does not have a matching IR data file scan
                 for f in (range(0, len(ir_files))):
                     if ir_dstr[f] not in vis_dstr:
-                        if run_gcs == True and del_local == True:
+                        if run_gcs and del_local:
                             print(ir_files[f] + ' does not have a matching VIS file???')
                             print('Deleting the IR data file from the local directory')
                             rm = 'y'
@@ -529,8 +529,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         print('No files within date range! Returning empty sets so this date is skipped.')
         return([], [], None)
     rm_dates = []
-    if plt_plane == True:
-        if grid_data == False:
+    if plt_plane:
+        if not grid_data:
             print('Must plot plane on Grid so grid_data keyword must be set!!!')
             exit()
         plane_df = read_dcotss_er2_plane(inroot      = plane_inroot,                                                                           #Read DCOTSS ER2 file in as pandas dataframe
@@ -542,8 +542,8 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
             print('No plane dates???')
             exit()
         
-        if plt_traj == True:
-            if run_gcs == True:
+        if plt_traj:
+            if run_gcs:
                 gcs_prefix = re.split('misc-data0/', plane_inroot)[1]                                                                          #Path to DCOTSS standard deviation text file on GCP bucket
                 txt_file   = list_gcs(plane_bucket_name, gcs_prefix, ['DCOTSS_HHH_H2Obinned_by_POT_MMS.txt'], delimiter = '/')                 #Find DCOTSS standard deviation text file
                 if len(txt_file) <= 0 or len(txt_file) > 1:
@@ -633,34 +633,34 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         exit()
     
     
-    if no_write_glm == False and run_gcs == True and del_local == True:
+    if not no_write_glm and run_gcs and del_local:
         glm_files = sorted(glob.glob(os.path.join(glm_in_dir, '**', '*.nc'), recursive = True))
         [os.remove(x) for x in glm_files]                                                                                                      #Remove all downloaded GLM files
         os.rmdir(glm_in_dir)                                                                                                                   #Remove GLM data directory
    
-    if run_gcs == True and del_local == True:    
+    if run_gcs and del_local:    
         [os.remove(x) for x in ir_files]                                                                                                       #Remove all downloaded IR files
         os.rmdir(ir_dir)                                                                                                                       #Remove IR data directory
-        if no_write_vis == False:
+        if not no_write_vis:
             [os.remove(x) for x in vis_files]                                                                                                  #Remove all downloaded VIS files
             os.rmdir(vis_dir)                                                                                                                  #Remove VIS data directory
        
-        if no_write_irdiff == False:
+        if not no_write_irdiff:
             ird_files = sorted(glob.glob(os.path.join(irdiff_dir, '**', '*.nc'), recursive = True))
             [os.remove(x) for x in ird_files]                                                                                                  #Remove all downloaded Ch.8 IR files
             os.rmdir(irdiff_dir)                                                                                                               #Remove Ch.8 data directory
 
-        if no_write_cirrus == False:
+        if not no_write_cirrus:
             cirrus_files = sorted(glob.glob(os.path.join(cirrus_dir, '**', '*.nc'), recursive = True))
             [os.remove(x) for x in cirrus_files]                                                                                               #Remove all downloaded 1.37 micron files
             os.rmdir(cirrus_dir)                                                                                                               #Remove 1.37 micron data directory
         
-        if no_write_snowice == False:
+        if not no_write_snowice:
             snowice_files = sorted(glob.glob(os.path.join(snowice_dir, '**', '*.nc'), recursive = True))
             [os.remove(x) for x in snowice_files]                                                                                              #Remove all downloaded 1.6 micron files
             os.rmdir(snowice_dir)                                                                                                              #Remove 1.6 micron data directory
        
-        if no_write_dirtyirdiff == False:
+        if not no_write_dirtyirdiff:
             dirtyir_files = sorted(glob.glob(os.path.join(dirtyir_dir, '**', '*.nc'), recursive = True))
             [os.remove(x) for x in dirtyir_files]                                                                                              #Remove all downloaded 12.3 micron files
             os.rmdir(dirtyir_dir)                                                                                                              #Remove 12.3 micron data directory
@@ -702,7 +702,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
 #     if verbose == True:
 #         print('VIS file name = ' + str(vis_files[f]))
 #         print('IR file name = ' + str(ir_files[f]))
-    if no_write_vis == False:
+    if not no_write_vis:
         file_attr2 = re.split('_s|_', os.path.basename(vis_files[f]))                                                                          #Split file string in order to extract date string of scan
         date_str2  = file_attr2[3]                                                                                                             #Split file string in order to extract date string of scan
     
@@ -729,7 +729,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
 #     else:
 #         proj = None
     proj = None
-    if no_write_glm == False:    
+    if not no_write_glm:    
         with Dataset(ir_files[f], 'r') as ir:                                                                                                  #Read in IR file to get mesoscale domain central latitudes and longitudes
             lon_c = str(np.copy(ir.variables['geospatial_lat_lon_extent'].geospatial_lon_center))                                              #Extract longitude center of mesoscale domain as STRING
             lat_c = str(np.copy(ir.variables['geospatial_lat_lon_extent'].geospatial_lat_center))                                              #Extract latitude center of mesoscale domain as STRING
@@ -737,7 +737,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
         file_attr0 = re.split('_' + sat + '_|-', os.path.basename(ir_files[f]))                                                                #Split IR file name string to create output file name
         out_nc     = os.path.join(layered_dir, file_attr0[0] + '_' + file_attr0[1] + '_' + str(file_attr0[2].split('Rad')[1]) + '_COMBINED_' + file_attr0[4])
         glm_file   = os.path.join(glm_out_dir, date_str + '_gridded_data.nc')                                                                  #Create output GLM directory path if does not already exist
-        if os.path.isfile(out_nc) == False or rewrite_nc == True or append_nc == True:
+        if not os.path.isfile(out_nc) or rewrite_nc or append_nc:
             if sector[0].lower() == 'c' or sector[0].lower() == 'f':
                 date_str3 = file_attr[4]
                 d_range   = []#[date_str2, file_attr2[4]]                                                                                      #Set range of dates
@@ -745,7 +745,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                 date_str3 = date_str
                 d_range   = []
             glm_grid = glm_gridder2(outfile = glm_file, glm_root = glm_in_dir, no_plot = no_plot_glm, date_str = date_str3, date_range = d_range, ctr_lon0 = lon_c, ctr_lat0 = lat_c, sector = str_sec, verbose = verbose)
-        if no_write_vis == False:
+        if not no_write_vis:
             combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                              #Create netCDF file containing IR, GLM and VIS data
                                                              ir_file              = ir_files[f], 
                                                              glm_file             = glm_file, 
@@ -778,7 +778,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                              xy_bounds            = xy_bounds, 
                                                              verbose              = verbose)
     else:
-        if no_write_vis == False:
+        if not no_write_vis:
             combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                              #Create netCDF file containing IR, GLM and VIS data
                                                              ir_file              = ir_files[f], 
                                                              layered_dir          = layered_dir,
@@ -810,7 +810,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                              verbose              = verbose)
             
     fnames2 = combined_nc_file                                                                                                                 #Store the names of the images in a list
-    if no_plot == False:
+    if not no_plot:
         if len(pdates) > 0:
             fdate  = datetime.strptime(date_str[0:-1], '%Y%j%H%M%S')                                                                           #Extract date of VIS/IR data file as datetime structure
             fdate2 = datetime.strptime(date_str[0:-1], '%Y%j%H%M%S') - timedelta(seconds = 5*60)
@@ -867,7 +867,7 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
             else:    
 #                p_data   = [plane_df['G_LONG_MMS'][p_ind2:p_ind+1], plane_df['G_LAT_MMS'][p_ind2:p_ind+1], plane_df['HHH_H2O'][p_ind2:p_ind+1]]#Extract necessary plane data
                 p_data   = [plane_df['Longitude_ER2'][p_ind2:p_ind+1], plane_df['Latitude_ER2'][p_ind2:p_ind+1], plane_df['GPS_Altitude_ER2'][p_ind], plane_df['HHH_H2O'][p_ind2:p_ind+1]] #Extract necessary plane data
-                if plt_traj == True:
+                if plt_traj:
                     traj_dat    = {}
                     for ind0 in range(p_ind, max_index):
                         if pdates[ind0] not in rm_dates:
@@ -921,16 +921,16 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                       replot_img    = replot_img, 
                                                       verbose       = verbose)
         fnames = image                                                                                                                         #Store the names of the images in a list
-    if run_gcs == True:    
-        if write_combined_gcs == True:
+    if run_gcs:    
+        if write_combined_gcs:
             pref = os.path.join('combined_nc_dir', os.path.basename(os.path.dirname(combined_nc_file)))                                        #Extract path prefix to write files into google cloud
             write_to_gcs(out_bucket_name, pref, combined_nc_file, del_local = del_local)                                                       #Write combined netCDF file to google cloud storage bucket
-        if no_plot == False:    
+        if not no_plot:    
             pref = 'layered_img_dir' + os.sep + re.split('layered_img_dir' + os.sep, os.path.dirname(image))[1]                                #Extract path prefix to write files into google cloud
             write_to_gcs(out_bucket_name, pref, image, del_local = del_local)                                                                  #Write sandwich image to google cloud storage bucket    
     else:
-        if del_combined_nc == True:
-            if verbose == True: print('Removing IR/VIS/GLM combined netCDF file')
+        if del_combined_nc:
+            if verbose: print('Removing IR/VIS/GLM combined netCDF file')
             os.remove(combined_nc_file)
     
     return(fnames, fnames2, proj)  
