@@ -111,7 +111,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
     satellite = file_attr[5]
     sat       = satellite[0].lower() + 'oes' + satellite[1:]
     out_nc    = os.path.join(layered_dir, file_attr[0] + '_' + file_attr[1] + '_' + file_attr[2] + '_' + str(file_attr[3].split('Rad')[1]) + '_COMBINED_' + '_'.join(file_attr[6:]))	 #Creates output file name and path for combined ir_glm_vis file
-    if (os.path.isfile(out_nc) == False or rewrite_nc == True or append_nc == True):
+    if (not os.path.isfile(out_nc) or rewrite_nc or append_nc):
 #        t0 = time.time()
         os.makedirs(os.path.dirname(out_nc), exist_ok = True)                                                                               #Create output file path if does not already exist
         ### Code Execution ### 
@@ -129,7 +129,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
         bt = get_ir_bt_from_rad(ir)                                                                                                         #Calculate brightness temperature from radiance
 
         # Vis datasets 
-        if no_write_vis == False:
+        if not no_write_vis:
             vis = Dataset(vis_file, 'r')                                                                                                    #Read VIS data file
 #            if verbose == True: print('VIS data file read')        
             ### VIS Data to reflectance ###      
@@ -141,7 +141,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             pat_proj = '_ir_'
             xyres    = ir.spatial_resolution
         # Define Vis images       
-        if no_write_irdiff == False:
+        if not no_write_irdiff:
             ir_dstr = re.split('_s|_', os.path.basename(ir_file))[3]                                                                        #Extract IR date string that started scan
             ird_dir = os.path.join(os.path.dirname(os.path.dirname(ir_file)), 'ir_diff')                                                    #Set up ir_diff directory
             ird_f   = sorted(glob.glob(os.path.join(ird_dir, '*s' + ir_dstr + '_*.nc')))                                                    #Extract 6.2 micron IR data file name and path
@@ -159,7 +159,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             ird_f   = ['dfadsfasgfsag']
             bt2     = []
             
-        if no_write_dirtyirdiff == False:
+        if not no_write_dirtyirdiff:
             if ir_dstr == None:
                 ir_dstr = re.split('_s|_', os.path.basename(ir_file))[3]                                                                    #Extract IR date string that started scan
             dirtyir_dir = os.path.join(os.path.dirname(os.path.dirname(ir_file)), 'dirtyir')                                                #Set up dirtyir directory
@@ -179,7 +179,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             dirtyir_f = ['dfadsfasgfsag']
             bt3       = []
         ### Near IR Data to reflectance ###
-        if no_write_cirrus == False:
+        if not no_write_cirrus:
             if ir_dstr == None:
                 ir_dstr = re.split('_s|_', os.path.basename(ir_file))[3]                                                                    #Extract IR date string that started scan
             cirrus_dir  = os.path.join(os.path.dirname(os.path.dirname(ir_file)), 'cirrus')                                                 #Set up cirrus directory
@@ -188,7 +188,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 cirrus_img  = get_ref_from_rad(cirrus)                                                                                      #Calculate reflectance from radiance
         else:
             cirrus_img  = []
-        if no_write_snowice == False:   
+        if not no_write_snowice:   
             if ir_dstr == None:
                 ir_dstr = re.split('_s|_', os.path.basename(ir_file))[3]                                                                    #Extract IR date string that started scan
             snowice_dir = os.path.join(os.path.dirname(os.path.dirname(ir_file)), 'snowice')                                                #Set up snowice directory
@@ -200,16 +200,16 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
       
         ### NetCDF File Creation ###      
         # file declaration      
-        if verbose == True: print('Writing combined VIS/IR/GLM output netCDF ' + out_nc)
+        if verbose: print('Writing combined VIS/IR/GLM output netCDF ' + out_nc)
         Scaler  = DataScaler( nbytes = 4, signed = True )                                                                                   #Extract data scaling and offset ability for np.int32
-        if os.path.isfile(out_nc) == True and append_nc == True and rewrite_nc == False:
+        if os.path.isfile(out_nc) and append_nc and not rewrite_nc:
             f = netCDF4.Dataset(out_nc,'a', format='NETCDF4')                                                                               #'a' stands for append (write netCDF file of combined datasets)        
             x_inds  = list(f.x_inds)
             y_inds  = list(f.y_inds)
             lon_arr = np.copy(np.asarray(f.variables['longitude']))
             keys0   = f.variables.keys()
             keys1   = list(keys0)
-            if ('solar_zenith_angle' not in keys0) and (no_write_vis == False or no_write_cirrus == False or no_write_snowice == False):
+            if ('solar_zenith_angle' not in keys0) and (not no_write_vis or not no_write_cirrus or not no_write_snowice):
                 date   = netCDF4.num2date( ir.variables['t'][:], ir.variables['t'].units)                                                   #Read in date
                 date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
                 lat_arr = np.copy(np.asarray(f.variables['latitude']))
@@ -217,7 +217,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                   warnings.simplefilter("ignore", category=RuntimeWarning)
                   zen    = np.radians(90.0)-get_position(date, lon_arr, lat_arr)['altitude']
                   coszen = np.cos(zen)
-            elif ('solar_zenith_angle' in keys0) and (no_write_vis == False or no_write_cirrus == False or no_write_snowice == False):
+            elif ('solar_zenith_angle' in keys0) and (not no_write_vis or not no_write_cirrus or not no_write_snowice):
                 zen    = np.copy(np.asarray(f.variables['solar_zenith_angle']))[0, :, :]
                 coszen = np.cos(np.deg2rad(zen))
         else:
@@ -232,7 +232,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             y_inds = []
  #           t0 = time.time()
             if 'RadC' in os.path.basename(ir_file) or 'RadF' in os.path.basename(ir_file):
-                if no_write_vis == False:
+                if not no_write_vis:
                     proj_img = vis.variables['goes_imager_projection']
                 else:
                     proj_img = ir.variables['goes_imager_projection']
@@ -251,11 +251,11 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                     proj_file = os.path.join(proj_dir, sat + '_satellite' + pat_proj + 'full_scan_projections.nc')
 #                    proj_file = os.path.join(re.split('combined_nc_dir/', layered_dir)[0], 'sat_projection_files', sat + '_satellite' + pat_proj + 'full_scan_projections.nc')
                     scan_mode = 'full'
-                if len(xy_bounds) > 0 and universal_file == False:
+                if len(xy_bounds) > 0 and not universal_file:
                     print('Not set up to write subset domains if universal file is not set!!!')
                     exit()
                 if len(xy_bounds) > 0:
-                    if os.path.exists(proj_file) == False:
+                    if not os.path.exists(proj_file):
                         print('Satellite projection file for the specified indices not found????')
                         print(proj_file)
                         exit()
@@ -278,7 +278,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
 #                     y1          = (lat_rad_1d * proj_img.perspective_point_height).astype('float64')
 #                     proj_extent = (np.min(x1), np.max(x1), np.min(y1), np.max(y1))
             else:
-                if no_write_vis == False:
+                if not no_write_vis:
                     lon_arr, lat_arr, proj_img, proj_extent = get_lat_lon_from_vis(vis, verbose = verbose)                                      #Extract VIS data longitudes and latitudes (read lats and lons in normal way because no NaN values)
                 else:
                     lon_arr, lat_arr, proj_img, proj_extent = get_lat_lon_from_vis(ir, verbose = verbose)                                       #Extract IR data longitudes and latitudes (read lats and lons in normal way because no NaN values)
@@ -328,12 +328,12 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             # dimension declaration
             f.createDimension('Y',     lon_arr.shape[0])
             f.createDimension('X',     lat_arr.shape[1])
-            if universal_file == False:
+            if not universal_file:
                 f.createDimension('IR_Y',   ir_raw_img.shape[0])
                 f.createDimension('IR_X',   ir_raw_img.shape[1])
                 # Define GLM images      
-                if no_write_glm == False:
-                    if verbose == True:
+                if not no_write_glm:
+                    if verbose:
                         print('Waiting for gridded GLM data file')
                     while not os.path.isfile(glm_file):
                         time.sleep(0.50)                                                                                                         #Wait until file exists, then load it as numpy array as soon as it does
@@ -359,7 +359,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_t.long_name       = ir.variables['t'].long_name
             var_t.standard_name   = ir.variables['t'].standard_name
             var_t.units           = ir.variables['t'].units
-        if no_write_vis == False:
+        if not no_write_vis:
             if 'visible_reflectance' not in keys0:
                 var_vis  = f.createVariable('visible_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
                 var_vis.set_auto_maskandscale( False )
@@ -393,8 +393,8 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                     
             # NetCDF File Description
             f.Conventions = 'CF-1.8'                                                                                                            #Write netCDF conventions attribute
-            if os.path.isfile(glm_file) == True and no_write_glm == False: 
-                if universal_file == False:
+            if os.path.isfile(glm_file) and not no_write_glm: 
+                if not universal_file:
                     f.description = "This file combines unscaled IR data, Visible data, and GLM data into one NetCDF file. The VIS data is normalized by the solar zenith angle. The GLM data is resampled onto the IR grid using glmtools for files ±2.5 min from VIS/IR analysis time. x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
                 else:
                     f.description = "This file combines unscaled IR data, Visible data, and GLM data into one NetCDF file. The VIS data is on its original grid but is normalized by the solar zenith angle. The GLM data is resampled onto the IR grid using glmtools for files ±2.5 min from VIS/IR analysis time. The IR and GLM data are then upscaled onto the VIS grid using cv2.resize with interpolation set as cv2.INTER_NEAREST. Lastly, the GLM data is smoothed by ndimage.gaussian_filter(glm_data, sigma=1.0, order=0). x_inds show 0th dimension min and max indices of subsetting region. y_inds show 1st dimension."
@@ -417,12 +417,12 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 image_projection.bounds = str(proj_extent[0]) + ',' + str(proj_extent[1]) + ',' + str(proj_extent[2]) + ',' + str(proj_extent[3])
             image_projection.bounds_units = 'm'
        
-        if universal_file == False:
+        if not universal_file:
             var_ir   = f.createVariable('ir_brightness_temperature', np.int32, ('time', 'IR_Y', 'IR_X',), zlib = True, fill_value = Scaler._FillValue)
             var_ir.set_auto_maskandscale( False )
             pat  = ''
             pat2 = ''
-            if os.path.isfile(glm_file) == True and no_write_glm == False:
+            if os.path.isfile(glm_file) and not no_write_glm:
                 var_glm   = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'GLM_Y', 'GLM_X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_glm.set_auto_maskandscale( False )
                 long_name = str('Flash extent density within +/- 2.5 min of time variable' + pat + pat2)
@@ -430,7 +430,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 var_glm.standard_name = 'Flash_extent_density'
                 var_glm.units         = 'Count per nominal 3136 microradian^2 pixel per 1.0 min'
                 var_glm.coordinates   = 'longitude latitude time'
-            if os.path.isfile(ird_f[0]) == True and no_write_irdiff == False: 
+            if os.path.isfile(ird_f[0]) and not no_write_irdiff: 
                 var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'IR_Y', 'IR_X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir2.set_auto_maskandscale( False )
                 var_ir2.long_name      = '6.2 - 10.3 micron Infrared Brightness Temperature Image' + pat
@@ -438,7 +438,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 var_ir2.units          = 'kelvin'
                 var_ir2.coordinates    = 'longitude latitude time'
         else:
-            if no_write_vis == False:
+            if not no_write_vis:
                 pat  = ' resampled onto VIS data grid'
             else:
                 pat  = ' resampled onto IR data grid'
@@ -446,35 +446,35 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             if 'ir_brightness_temperature' not in keys0:
                 var_ir   = f.createVariable('ir_brightness_temperature', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue)
                 var_ir.set_auto_maskandscale( False )
-            if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys0: 
+            if not no_write_irdiff and 'ir_brightness_temperature_diff' not in keys0: 
                 var_ir2   = f.createVariable('ir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir2.set_auto_maskandscale( False )
                 var_ir2.long_name      = '6.2 - 10.3 micron Infrared Brightness Temperature Image' + pat
                 var_ir2.standard_name  = 'IR_brightness_temperature_difference'
                 var_ir2.units          = 'kelvin'
                 var_ir2.coordinates    = 'longitude latitude time'
-            if no_write_cirrus == False and 'cirrus_reflectance' not in keys0: 
+            if not no_write_cirrus and 'cirrus_reflectance' not in keys0: 
                 var_cirrus   = f.createVariable('cirrus_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_cirrus.set_auto_maskandscale( False )
                 var_cirrus.long_name      = '1.37 micron Near-Infrared Reflectance Image' + pat
                 var_cirrus.standard_name  = 'Cirrus_Band_Reflectance'
                 var_cirrus.units          = 'reflectance_normalized_by_solar_zenith_angle'
                 var_cirrus.coordinates    = 'longitude latitude time'
-            if no_write_snowice == False and 'snowice_reflectance' not in keys0: 
+            if not no_write_snowice and 'snowice_reflectance' not in keys0: 
                 var_snowice   = f.createVariable('snowice_reflectance', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_snowice.set_auto_maskandscale( False )
                 var_snowice.long_name      = '1.6 micron Near-Infrared Reflectance Image' + pat
                 var_snowice.standard_name  = 'Snow_Ice_Band_Reflectance'
                 var_snowice.units          = 'reflectance_normalized_by_solar_zenith_angle'
                 var_snowice.coordinates    = 'longitude latitude time'
-            if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys0: 
+            if not no_write_dirtyirdiff and 'dirtyir_brightness_temperature_diff' not in keys0: 
                 var_ir3   = f.createVariable('dirtyir_brightness_temperature_diff', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)    
                 var_ir3.set_auto_maskandscale( False )
                 var_ir3.long_name      = '12.3 - 10.3 micron Dirty Infrared Brightness Temperature Difference Image' + pat
                 var_ir3.standard_name  = 'Dirty_IR_brightness_temperature_difference'
                 var_ir3.units          = 'kelvin'
                 var_ir3.coordinates    = 'longitude latitude time'
-            if no_write_glm == False and 'glm_flash_extent_density' not in keys0:
+            if not no_write_glm and 'glm_flash_extent_density' not in keys0:
                 pat2 = ' and then smoothed using Gaussian filter'
                 long_name = str('Flash extent density within +/- 2.5 min of time variable' + pat + pat2)
                 var_glm  = f.createVariable('glm_flash_extent_density', np.int32, ('time', 'Y', 'X',), zlib = True, fill_value = Scaler._FillValue, least_significant_digit = 4)
@@ -482,7 +482,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 var_glm.standard_name = 'Flash_extent_density'
                 var_glm.units         = 'Count per nominal 3136 microradian^2 pixel per 1.0 min'
                 var_glm.coordinates   = 'longitude latitude time'
-                if verbose == True:
+                if verbose:
                     print('Waiting for gridded GLM data file')
                 mod_check = 0
                 if len(glm_thread_info) > 0:
@@ -523,7 +523,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                   if len(snowice_img) > 0:
 #                      print(np.max(snowice_img))
                       snowice_img = snowice_img/coszen                                                                                      #Calculate reflectance by normalizing by solar zenith angle
-        if no_write_vis == False and 'visible_reflectance' not in keys1:
+        if not no_write_vis and 'visible_reflectance' not in keys1:
             with warnings.catch_warnings():
               warnings.simplefilter("ignore", category=RuntimeWarning)
               vis_img = vis_img/coszen                                                                                                      #Calculate reflectance by normalizing by solar zenith angle
@@ -541,12 +541,12 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
             var_t[:]    = np.copy(np.asarray(ir.variables['t'][:]))
         bt      = np.copy(np.asarray(bt))
         rm_inds = ((bt < 163.0) | (np.isnan(bt)) | (bt > 500.0))
-        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys1: 
+        if not no_write_irdiff and 'ir_brightness_temperature_diff' not in keys1: 
             bt2 = np.copy(np.asarray(bt2))
             bt2[rm_inds]   = -500.0                                                                                                         #Remove likely untrue values by setting them to -500 K
 #            bt2[bt < 163.0]   = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
 #            bt2[np.isnan(bt)] = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
-        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys1: 
+        if not no_write_dirtyirdiff and 'dirtyir_brightness_temperature_diff' not in keys1: 
             bt3 = np.copy(np.asarray(bt3))
             bt3[rm_inds]   = 500.0                                                                                                          #Remove likely untrue values by setting them to -500 K
 #            bt2[np.isnan(bt)] = -500.0                                                                                                     #Remove NaN values by setting them to -500 K
@@ -557,7 +557,7 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
 #            t0 = time.time()
             data, scale_ir, offset_ir = Scaler.scaleData(bt)                                                                                #Extract data, scale factor and offsets that is scaled from Float to short
             var_ir[0, :, :]   = data
-        if no_write_vis == False and 'visible_reflectance' not in keys1:
+        if not no_write_vis and 'visible_reflectance' not in keys1:
             data, scale_vis, offset_vis = Scaler.scaleData(np.copy(np.asarray(vis_img)))                                                    #Extract data, scale factor and offsets that is scaled from Float to short
             var_vis[0, :, :]  = data
             var_vis.add_offset    = offset_vis
@@ -568,29 +568,29 @@ def combine_ir_glm_vis(vis_file             = os.path.join('..', '..', '..', 'go
                 var_zen[0, :, :]  = data
                 var_zen.add_offset    = offset_zen
                 var_zen.scale_factor  = scale_zen
-        elif no_write_vis == False:
+        elif not no_write_vis:
             vis.close()
-        if no_write_glm == False and 'glm_flash_extent_density' not in keys1:
+        if not no_write_glm and 'glm_flash_extent_density' not in keys1:
             data, scale_glm, offset_glm = Scaler.scaleData(glm_raw_img)
             var_glm[0, :, :]     = data    
             var_glm.add_offset   = offset_glm
             var_glm.scale_factor = scale_glm
-        if no_write_irdiff == False and 'ir_brightness_temperature_diff' not in keys1: 
+        if not no_write_irdiff and 'ir_brightness_temperature_diff' not in keys1: 
             data, scale_ir2, offset_ir2 = Scaler.scaleData(bt2)
             var_ir2[0, :, :]     = data    
             var_ir2.add_offset   = offset_ir2
             var_ir2.scale_factor = scale_ir2
-        if no_write_dirtyirdiff == False and 'dirtyir_brightness_temperature_diff' not in keys1: 
+        if not no_write_dirtyirdiff and 'dirtyir_brightness_temperature_diff' not in keys1: 
             data, scale_ir3, offset_ir3 = Scaler.scaleData(bt3)
             var_ir3[0, :, :]     = data    
             var_ir3.add_offset   = offset_ir3
             var_ir3.scale_factor = scale_ir3
-        if no_write_cirrus == False and 'cirrus_reflectance' not in keys1: 
+        if not no_write_cirrus and 'cirrus_reflectance' not in keys1: 
             data, scale_cirrus, offset_cirrus = Scaler.scaleData(cirrus_img)
             var_cirrus[0, :, :]     = data    
             var_cirrus.add_offset   = offset_cirrus
             var_cirrus.scale_factor = scale_cirrus
-        if no_write_snowice == False and 'snowice_reflectance' not in keys1: 
+        if not no_write_snowice and 'snowice_reflectance' not in keys1: 
             data, scale_snowice, offset_snowice = Scaler.scaleData(snowice_img)
             var_snowice[0, :, :]     = data    
             var_snowice.add_offset   = offset_snowice
