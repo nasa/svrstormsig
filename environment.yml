@@ -4,37 +4,37 @@ channels:
 - defaults
 dependencies:
 - python=3.8
-- hdf5
-- numpy
-- pandas
-- pip
-- pyclipper
-- matplotlib>=3.3.2
-- Cython>=0.29.21
-- scikit-learn
+- h5py==3.8.0
+- numpy==1.24.4
+- pandas==1.5.3
+- pip==24.0
+- pyclipper==1.3.0.post5
+- matplotlib==3.7.3
+- Cython==3.0.10
+- scikit-learn==1.3.2
 - pillow==8.0.1
-- xarray>=0.16.1
-- netcdf4>=1.5.3
+- xarray==2023.1.0
+- netcdf4==1.6.2
 - google-cloud-storage>=1.37.1
 - google-cloud-vision>=2.3.1
-- pyproj>=3.3.0
-- psutil
+- pyproj==3.3.1
+- psutil==6.0.0
 - tensorflow==2.7.0
 - keras==2.7.0
-- geopy>=2.2.0
+- geopy==2.4.1
 - scipy==1.10.1
 - shapely==1.8.0
-- imageio
+- imageio==2.13.1
+- pygrib==2.1.4
 - pip:
   - open-fonts==0.1
   - pynimbus
   - proj==0.2.0
   - git+https://github.com/deeplycloudy/lmatools.git
-  - opencv-python
-  - suncalc
-  - pyshp
-  - metpy>=1.1.0
-  - requests
-  - pygrib
-  - cartopy==0.20.1
+  - opencv-python==4.10.0.84
+  - suncalc==0.1.3
+  - pyshp==2.3.1
+  - metpy==1.5.1
+  - requests==2.32.3
   - eumdac
+  - cartopy==0.21.1
