@@ -72,6 +72,8 @@ from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, conver
 #from visualize_results.gfs_contour_trop_temperature import gfs_contour_trop_temperature
 def run_write_severe_storm_post_processing(inroot          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516'),
                                            infile          = None,
+                                           date1           = None,
+                                           date2           = None,
                                            gfs_root        = os.path.join('..', '..', '..', 'gfs-data'),
                                            outroot         = None, 
                                            GFS_ANALYSIS_DT = 21600,
@@ -105,6 +107,10 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                           DEFAULT = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516')
         infile          : STRING specifying input root directory to the vis_ir_glm_json csv files
                           DEFAULT = None -> loop over all files in the input root directory
+        date1           : STRING specifying start date string to begin post-processing the data (YYYY-MM-DD hh:mm:ss)
+                          DEFAULT = None  -> loop over all files in the input root directory
+        date2           : STRING specifying start date string to complete post-processing the data (YYYY-MM-DD hh:mm:ss)
+                          DEFAULT = None  -> loop over all files in the input root directory
         gfs_root        : STRING output directory path for GFS data storage
                           DEFAULT = os.path.join('..', '..', '..', 'gfs-data')
         outroot         : STRING specifying output root directory to save the netCDF output files
@@ -197,7 +203,15 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         else:
             pref     = os.path.join(os.path.basename(os.path.dirname(inroot)), os.path.basename(inroot))                                               #Find netCDF files in GCP bucket to postprocess
             nc_files = sorted(list_gcs(c_bucket_name, pref, ['_' + sector + '_']))                                                                     #Extract names of all of the GOES visible data files from the google cloud   
-    
+        
+        if date1 != None:
+            # Convert to datetime objects
+            dt1 = datetime.strptime(date1, '%Y-%m-%d %H:%M:%S')
+            nc_files = sorted([f for f in nc_files if (dt := extract_combined_nc_datetime(f)) and dt1 <= dt])
+        if date2 != None:
+            dt2 = datetime.strptime(date2, '%Y-%m-%d %H:%M:%S')
+            nc_files = sorted([f for f in nc_files if (dt := extract_combined_nc_datetime(f)) and dt2 >= dt])
+
     if len(nc_files) <= 0:
         print('No files found in specified directory???')
         print(sector)
@@ -363,7 +377,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                         anvil_area_mask = anvil_mask[i_pix[0]:i_pix[1], j_pix[0]:j_pix[1]]                                             #Mask area surrounding the minimum object BT
                                         anvil_bts = anvil_area_mask*bt0[i_pix[0]:i_pix[1], j_pix[0]:j_pix[1]]                                          #Calculate BTs for anvil region around OT
                                         anvil_bts[anvil_bts <= 0] = np.nan                                                                             #Set all regions that are part of an OT object to NaN
-                                        anvil_bts[anvil_bts > 230] = np.nan                                                                            #Set all regions that are warmer than 230 K to NaN to avoid ground contamination
+                                        anvil_bts[anvil_bts > 235] = np.nan                                                                            #Set all regions that are warmer than 230 K to NaN to avoid ground contamination
                                         anvil_bts     = np.sort(anvil_bts[np.isfinite(anvil_bts)].flatten())                                           #Sort BTs in anvil in order to remove upper and lower 10% before taking the mean
                                         if len(anvil_bts) <= 0:
                                             anvil_bt_mean = np.nan                                                                                     #Set to 0 if no pixels possible to calculate anvil mean
@@ -379,10 +393,13 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                                 exit()
                                             
                                         val = min_bt0 - anvil_bt_mean
-                                        if val <= 0:
-                                           ot_id[inds2] = ot_num
-                                           btd[inds2]   = val                                                                                          #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
-                                           ot_num += 1
+                                        if val <= -1:                                      
+                                           if (min_bt0 >= 225) and val >= -6:
+                                               temppppp = 1
+                                           else:
+                                               ot_id[inds2] = ot_num
+                                               btd[inds2]   = val                                                                                      #Subtract minimum brightness temperature of OT by the anvil mean brightness temperature difference (BTD)
+                                               ot_num += 1
 #                                         else:
 #                                            ot_id[inds2] = 0
                         files_used = []            
@@ -674,14 +691,27 @@ def download_gfs_analysis_files(date_str1, date_str2,
     date1 = datetime.strptime(date_str1, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     date2 = datetime.strptime(date_str2, "%Y-%m-%d %H:%M:%S")                                                                                          #Convert start date string to datetime structure
     if (now-date1) <= timedelta(days =1):                                                                                                              #If start date is within 1 day of the current date then latest GFS file may not be available
-        date1 = date1 - timedelta(days = 1, seconds = GFS_ANALYSIS_DT)                                                                                 #If latest GFS file is not available then download previous dates GFS files
+        date1 = date1 - timedelta(seconds = 2*GFS_ANALYSIS_DT)                                                                                         #If latest GFS file is not available then download previous dates GFS files
     date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
     date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                     #Extract maximum time of GFS files required to download to encompass data date range
   #  aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
-    files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
+    
+    #New change? Check number of files to download for this.
+    files = []
+    total_seconds = int((date2 - date1).total_seconds())
+    for offset in range(0, total_seconds + 1, GFS_ANALYSIS_DT):
+        file_time = date1 + timedelta(seconds=offset)
+        file_str = (
+            file_time.strftime("%Y") + '/' + 
+            file_time.strftime("%Y%m%d") + '/gfs.0p25.' + 
+            file_time.strftime("%Y%m%d%H") + '.f000.grib2'
+        )
+        files.append(file_str)
+
+#    files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
 
    # download the data file(s)
-    if verbose == True:
+    if verbose:
         print('Downloading GFS files to extract tropopause temperatures.')
         print(files)
         print(os.path.realpath(outroot))
@@ -693,7 +723,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
             ofile = file
         
         outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
-        if os.path.exists(os.path.join(outdir, ofile)) == False:
+        if not os.path.exists(os.path.join(outdir, ofile)):
             #Old?            
 #            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
             #New path?
@@ -934,6 +964,21 @@ def weighted_cold_bias(arr, radius, weight=0.1):
         idx = max(0, int(weight * len(sorted_vals)))  # Avoid index errors
         return(sorted_vals[idx])  # Pick a colder value
     return(generic_filter(arr, func, size=2*radius+1, mode='wrap'))
+
+
+#Function to extract start datetime from file
+def extract_combined_nc_datetime(filename):
+    basename = os.path.basename(filename)
+    match0   = re.search(r'_s(\d{4})(\d{3})(\d{6})', basename)  #sYYYYDDDHHMMSS
+    if match0:
+        year = int(match0.group(1))
+        doy  = int(match0.group(2))
+        hms  = match0.group(3)
+        try:
+            return(datetime.strptime(f"{year} {doy} {hms}", '%Y %j %H%M%S'))
+        except:
+            return(None)
+    return(None)
         
 def main():
     run_write_severe_storm_post_processing()
