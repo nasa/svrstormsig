@@ -86,6 +86,8 @@
 #                      software built format yyyymmdd. Because the software uses the yyyymdd to build other directories etc. off of the path
 #                      and ESSL may use this software as a way to download the data, this was easiest fix.
 #                      DEFAULT = False which implies data are stored using /yyyymmdd/. Set to True if data are stored in /yyyy/mm/dd/ format.
+#     new_weighting  : BOOL keyword to specify whether or not to use the TROPDIFF new weighting scheme that uses a cosine function rather than linear weighting
+#                      DEFAULT = True -> use new weighting scheme
 #     verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
 #                      DEFAULT = True which implies to print verbose informational messages
 # Author and history:
@@ -177,6 +179,7 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                rewrite_model  = False,
                                                use_native_ir  = False, 
                                                essl           = False, 
+                                               new_weighting  = True,
                                                verbose        = True):
   '''
   This is a script to run (by importing) programs that predict the 2-channel plume or updraft model based on the most recent previous model run
@@ -254,6 +257,8 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                        software built format yyyymmdd. Because the software uses the yyyymdd to build other directories etc. off of the path
                        and ESSL may use this software as a way to download the data, this was easiest fix.
                        DEFAULT = False which implies data are stored using /yyyymmdd/. Set to True if data are stored in /yyyy/mm/dd/ format.
+      new_weighting  : BOOL keyword to specify whether or not to use the TROPDIFF new weighting scheme that uses a cosine function rather than linear weighting
+                       DEFAULT = True -> use new weighting scheme
       verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
                        DEFAULT = True which implies to print verbose informational messages
   Returns:
@@ -711,6 +716,7 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                            og_bucket_name       = og_bucket_name, 
                                                                            comb_bucket_name     = c_bucket_name, 
                                                                            proc_bucket_name     = p_bucket_name, 
+                                                                           new_weighting        = new_weighting,
                                                                            verbose              = verbose)
         
       else:  
@@ -732,6 +738,7 @@ def run_tf_2_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                        og_bucket_name       = og_bucket_name, 
                                                                        comb_bucket_name     = c_bucket_name, 
                                                                        proc_bucket_name     = p_bucket_name, 
+                                                                       new_weighting        = new_weighting,
                                                                        verbose              = verbose)
       
       ir_files.append(ir_file0)                                                                                                                                             #Append array storing IR file names
