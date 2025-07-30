@@ -94,6 +94,17 @@
 #                                          of satellite files. MTG allows for you to not download the data in real-time runs. Waits 30 seconds for files to come online. This is because we want to make sure
 #                                          there isnt partial files in the directory before beginning the processing. Improved MTG real-time downloads. Print statements included for others testing that
 #                                          will be removed in subsequent releases.
+#                              2025-07-29. MAJOR REVISION. Added new weighting scheme that uses a cosine function for TROPDIFF rather than a linear function. This is for OTs only right now. Also, only for 
+#                                          model checkpoint files on 2025-06-19. This was found to be less conservative than previous methods. Previously, the weighting was applied linearly between 
+#                                          -15 K and +20 K relative to the tropopause, but this approach was found to be overly conservative and often failed to detect valid overshooting tops (OTs) that 
+#                                          were warmer than the tropopause. In the new version, the weighting scheme uses a cosine function ranging from -12 K to +25 K. This adjustment enhances 
+#                                          temperature gradients across a scene, improving the model's ability to detect warmer OTs that are colder than their surrounding anvils. The lower bound was 
+#                                          changed from -15 K to -12 K because cases where OT temperatures were more than 12 K colder than the tropopause were rare, but when they did occur, they reliably
+#                                          indicated strong OTs and should receive the maximum weight. The upper limit was extended from +20 K to +25 K to include warmer cases that previously received 
+#                                          minimal or no weight. Importantly, the cosine function was found to appropriately exaggerate the gradient without overdoing it; the curve begins to flatten
+#                                          around +15 K, beyond which OTs are unlikely, providing a natural taper in the weighting. Overall, this new scheme improves detection sensitivity while 
+#                                          preserving physical realism in the temperature field. Fixed issue where archived mode quit running due to unequal numbers of files in the input and combined
+#                                          netCDF files. New method checks for date strings in order to match files rather than just using the directory itself.
 #
 #-
 
@@ -218,7 +229,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 3.2.0')
+  print('SVRSTORMSIG Software VERSION: 3.3.0')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
@@ -3442,7 +3453,37 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   else:
     if 'mtg' in sat.lower():
       sector = 'F'
-
+  
+  #Specify cut off date for when we started to use new tropdiff weighting scheme
+  cutoff_date = datetime(2025, 6, 19)
+  if transition == 'y':
+    #Extract the date string (e.g., assumes it’s always at index -5)
+    print(day['use_chkpnt'])
+    prc_date = os.path.basename(os.path.normpath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(day['use_chkpnt'])))))))
+    date_obj = datetime.strptime(prc_date, '%Y-%m-%d')
+    
+    #Check if new weights should be used
+    new_weights = date_obj >= cutoff_date
+    if not new_weights:
+      # Extract the date string (e.g., assumes it’s always at index -5)
+      prc_date = os.path.basename(os.path.normpath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(night['use_chkpnt'])))))))
+      date_obj = datetime.strptime(prc_date, '%Y-%m-%d')
+      
+      #Check if new weights should be used
+      new_weights = date_obj >= cutoff_date
+    
+  else:
+    #Extract the date string (e.g., assumes it’s always at index -5)
+    prc_date = os.path.basename(os.path.normpath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(use_chkpnt)))))))
+    date_obj = datetime.strptime(prc_date, '%Y-%m-%d')
+    
+    #Check if new weights should be used
+    new_weights = date_obj >= cutoff_date  
+  
+  if verbose:
+    print(f"Date from model checkpoint file path: {prc_date}")
+    print(f"Use new TROPDIFF weighting? {new_weights}")
+  
   if drcs:
     use_glm = True
   if nhours == None:
@@ -3459,6 +3500,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
     if transition == 'y':
       if drcs:
         day['use_glm'] = True
+      
       chk_day_night = {'day': day, 'night': night}
       pthresh = None
       mod_inp = day_inp
@@ -3485,6 +3527,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                  no_download    = no_download, 
                                                  rewrite_model  = True,
                                                  essl           = essl, 
+                                                 new_weighting  = new_weights,
                                                  verbose        = verbose)
     else:
       mod_inp = re.split(r'\+', mod_inputs)
@@ -3514,6 +3557,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                    rewrite_model  = True,
                                                    use_native_ir  = use_native_ir, 
                                                    essl           = essl, 
+                                                   new_weighting  = new_weights,
                                                    verbose        = verbose)
       elif mod_inputs.count('+') == 1:
         run_tf_2_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
@@ -3542,6 +3586,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                    rewrite_model  = True,
                                                    use_native_ir  = use_native_ir, 
                                                    essl           = essl, 
+                                                   new_weighting  = new_weights,
                                                    verbose        = verbose)
       elif mod_inputs.count('+') == 2:
         run_tf_3_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
@@ -3568,6 +3613,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                    no_download    = no_download, 
                                                    rewrite_model  = True,
                                                    essl           = essl, 
+                                                   new_weighting  = new_weights,
                                                    verbose        = verbose)
       else: 
         print('Not set up for specified model. You have encountered a bug. Exiting program.')
@@ -3595,6 +3641,8 @@ def run_all_plume_updraft_model_predict(verbose     = True,
       directory0 = os.path.join(raw_data_root, 'combined_nc_dir', str(u))
       if os.path.isdir(directory0) and any(os.scandir(directory0)):
           run_write_severe_storm_post_processing(inroot        = directory0, 
+                                                 date1         = d_str1,
+                                                 date2         = d_str2,
                                                  use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
                                                  c_bucket_name = 'ir-vis-sandwhich',
                                                  object_type   = object_type,
@@ -3676,6 +3724,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                    no_download    = no_download, 
                                                    rewrite_model  = True,
                                                    essl           = essl, 
+                                                   new_weighting  = new_weights,
                                                    verbose        = verbose)
       else:
         if mod_inputs.count('+') == 0:
@@ -3704,6 +3753,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                      rewrite_model  = True,
                                                      use_native_ir  = use_native_ir, 
                                                      essl           = essl, 
+                                                     new_weighting  = new_weights,
                                                      verbose        = verbose)
         elif mod_inputs.count('+') == 1:
           run_tf_2_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
@@ -3732,6 +3782,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                      rewrite_model  = True,
                                                      use_native_ir  = use_native_ir, 
                                                      essl           = essl, 
+                                                     new_weighting  = new_weights,
                                                      verbose        = verbose)
         elif mod_inputs.count('+') == 2:
           run_tf_3_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
@@ -3758,6 +3809,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                      no_download    = no_download, 
                                                      rewrite_model  = True,
                                                      essl           = essl, 
+                                                     new_weighting  = new_weights,
                                                      verbose        = verbose)
         else: 
           print('Not set up for specified model. You have encountered a bug. Exiting program.')
@@ -3801,7 +3853,8 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, d
       if drcs:
         best = {
                 'IR'                       : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
-                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+#                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'IR+VIS'                   : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
                 'IR+GLM'                   : ['IR+GLM',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_glm',                   'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
                 'IR+WVIRDIFF'              : ['IR+WVIRDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_wvirdiff',              'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
@@ -3817,16 +3870,19 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, d
                 'TROPDIFF+DIRTYIRDIFF'     : ['TROPDIFF+DIRTYIRDIFF',     'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff_dirtyirdiff',     'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
                 'IR+VIS+DIRTYIRDIFF'       : ['IR+VIS+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',       'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
                 'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
-                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
-#                'BEST_DAY'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
-                'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65]
+#                 'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+#                 'BEST_DAY'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+                'BEST_DAY'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
+                'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35]
+#                'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65]
 #                 'BEST_DAY'                 : ['IR+VIS+GLM',               'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_glm',               'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
 #                 'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
                 }
       else:
         best = {
                 'IR'                       : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4],
-                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+#                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+                'TROPDIFF'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'IR+VIS'                   : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
                 'IR+GLM'                   : ['IR+GLM',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_glm',                   'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
                 'IR+WVIRDIFF'              : ['IR+WVIRDIFF',              'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_wvirdiff',              'updraft_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
@@ -3844,9 +3900,9 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, d
                 'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
 #                'BEST_DAY'                 : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
 #                'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
-                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2025-03-31', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
-#                'BEST_DAY'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
-                'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65]
+#                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2025-03-31', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+                'BEST_DAY'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
+                'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35]
                 }
   
   elif mod_object.lower() == 'aacp' or mod_object.lower() == 'plume' or mod_object.lower() == 'above anvil cirrus plume':
