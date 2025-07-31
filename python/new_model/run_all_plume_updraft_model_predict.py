@@ -105,6 +105,7 @@
 #                                          around +15 K, beyond which OTs are unlikely, providing a natural taper in the weighting. Overall, this new scheme improves detection sensitivity while 
 #                                          preserving physical realism in the temperature field. Fixed issue where archived mode quit running due to unequal numbers of files in the input and combined
 #                                          netCDF files. New method checks for date strings in order to match files rather than just using the directory itself.
+#                              2025-07-31. MINOR REVISION. GOES archived runs for mesoscale was downloading 1 too many files. Fixed.
 #
 #-
 
@@ -229,7 +230,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 3.3.0')
+  print('SVRSTORMSIG Software VERSION: 3.3.1')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 

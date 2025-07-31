@@ -221,7 +221,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'ir')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download IR file to outdir
                     if gcs_bucket != None and outfile != -1:    
@@ -243,7 +243,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'dirtyir')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download Dirty IR C15 file to outdir
                     if gcs_bucket != None and outfile != -1:    
@@ -265,7 +265,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'snowice')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download snowice C05 file to outdir
                     if gcs_bucket != None and outfile != -1:    
@@ -287,7 +287,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'cirrus')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download cirrus C04 file to outdir
                     if gcs_bucket != None and outfile != -1:    
@@ -302,7 +302,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'vis')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download VIS file to outdir
                     if gcs_bucket != None and outfile != -1:    
@@ -317,7 +317,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'ir_diff') 
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download 6.2 micron C08 file to outdir
                     if gcs_bucket != None and outfile != -1:
@@ -332,7 +332,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'shortwave') 
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date1) and (fdate <= date2)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download 3.9 micron C07 file to outdir
                     if gcs_bucket != None and outfile != -1:
@@ -349,7 +349,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
             outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'glm')     
             os.makedirs(outdir, exist_ok = True)                                                                                                                            #Create output directory if it does not already exist
             for i in files:    
-                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                 if ((fdate >= date01) and (fdate <= date02)):
                     outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                     #Download GLM file to outdir
                     if gcs_bucket != None and outfile != -1:    
@@ -366,7 +366,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
                 outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'glm')     
                 os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
                 for i in files:    
-                    fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                    fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                     if ((fdate >= date01) and (fdate <= date02)):
                         outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download GLM file to outdir
                         if gcs_bucket != None and outfile != -1:    
@@ -381,7 +381,7 @@ def download_goes_ir_vis_l1b_glm_l2_data_parallel(idx, date_list, date1, date2,
                 outdir = os.path.join(outroot, date.strftime("%Y%m%d"), 'glm')     
                 os.makedirs(outdir, exist_ok = True)                                                                                                                        #Create output directory if it does not already exist
                 for i in files:    
-                    fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-3], "%Y%j%H%M")
+                    fdate = datetime.strptime(re.split('_s|_', os.path.basename(i))[3][0:-1], "%Y%j%H%M%S")
                     if ((fdate >= date01) and (fdate <= date02)):
                         outfile = download_ncdf_gcs(bucket_name, i, outdir)                                                                                                 #Download GLM file to outdir
                         if gcs_bucket != None and outfile != -1:    
