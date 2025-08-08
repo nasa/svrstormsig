@@ -236,6 +236,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             download_ncdf_gcs(c_bucket_name, nc_file, inroot)                                                                                          #Download netCDF file from GCP
 
         nc_dct = {}
+        da     = []
         with xr.open_dataset(os.path.join(inroot, os.path.basename(nc_file))).load() as f:    
             dt64 = pd.to_datetime(f['time'].values[0])                                                                                                 #Read in the date of satellite scan and convert it to Timestamp
             date = datetime(dt64.year, dt64.month, dt64.day, dt64.hour, dt64.minute, dt64.second)                                                      #Convert Timestamp to datetime structure
@@ -245,6 +246,11 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             for var_key in var_keys:
                 if '_' + object_type.lower() in var_key and 'id' not in var_key and 'anvilmean_brightness_temperature_difference' not in var_key and 'bt' not in var_key:   #Check so only read object data likelihood scores of interest
                     nc_dct[var_key] = f[var_key]                                                                                                       #Read object data with likelihood scores
+                    try:
+                        da.append(nc_dct[var_key].attrs['date_added'])
+                    except:
+                        da.append('2025-08-08 12:00:00')                       
+                        
             try:
                 xyres = f.spatial_resolution
             except:
@@ -266,6 +272,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         keys0  = list(nc_dct.keys())                                                                                                                   #Extract keys 
         if any('2_' in fff for fff in keys0):#Only use the OT prediction with the 2 in it.
             keys0 = [fff for fff in keys0 if "2_" in fff]
+        if len(keys0) > 1:
+            keys0 = [keys0[np.argmax([datetime.strptime(ddd, "%Y-%m-%d %H:%M:%S") for ddd in da])]]                                                    #Only post-process the latest model run
         if len(keys0) <= 0:
             if verbose:
                 print('Anvil mean BT and/or tropopause temperature not found in combined netCDF file. Writing now.')
