@@ -67,12 +67,14 @@ from gridrad.rdr_sat_utils_jwc import gfs_interpolate_tropT_to_goes_grid, conver
 def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..', '..', '..', 'goes-data', 'combined_nc_dir', '20230516'),
                                              gfs_root        = os.path.join('..', '..', '..', 'gfs-data'),
                                              outroot         = None, 
+                                             date1           = None,
+                                             date2           = None,
                                              GFS_ANALYSIS_DT = 21600,
                                              use_local       = True, write_gcs = False, del_local = True,
                                              c_bucket_name   = 'ir-vis-sandwhich',
                                              m_bucket_name   = 'misc-data0',
                                              sector          = 'F', 
-                                             rewrite         = True,
+                                             rewrite         = False,
                                              real_time       = False,
                                              verbose         = True):
     '''    
@@ -195,6 +197,15 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                 gdates.append(os.path.basename(os.path.dirname(gg)) + (re.split('\.|t|z', os.path.basename(gg)))[2])                                   #Extract date of all GFS files
 #                gdates = [os.path.basename(os.path.dirname(g)) + (re.split('\.|t|z', os.path.basename(g)))[2] for g in gfs_files]                          #Extract date of all GFS files
 
+        # If date1/date2 provided, filter here
+        if date1 is not None and date2 is not None:
+            # Ensure they're datetime objects
+            if isinstance(date1, str):
+                date1 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
+            if isinstance(date2, str):
+                date2 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")
+            nc_files = sorted([f for f in nc_files if date1 <= extract_datetime_from_filename(f, 'comb') <= date2])
+    
     lanczos_kernel0 = lanczos_kernel(7, 3)                                                                                                             #Define the Lanczos kernel (kernel size = 7x7; cutoff frequency = 3)
     lats    = []                                                                                                                                       #Initialize array to store latitudes and longitudes from GFS. If I have read it, then I do not need to read it again
     lons    = []                                                                                                                                       #Initialize array to store latitudes and longitudes from GFS. If I have read it, then I do not need to read it again
@@ -717,6 +728,19 @@ def weighted_cold_bias(arr, radius, weight=0.1):
         idx = max(0, int(weight * len(sorted_vals)))  # Avoid index errors
         return(sorted_vals[idx])  # Pick a colder value
     return(generic_filter(arr, func, size=2*radius+1, mode='wrap'))
+
+def extract_datetime_from_filename(filename, filetype):
+    basename = os.path.basename(filename)
+    if filetype == 'vis' or filetype == 'ir':
+        file_attr = re.split('_s|_', basename)
+        datestr = file_attr[3][:13]  # YYYYDOYHHMMSS
+        return datetime.strptime(datestr, "%Y%j%H%M%S")
+    
+    elif filetype == 'comb':
+        file_attr = re.split('_s|_', basename)
+        datestr = file_attr[5][:13]  # YYYYDOYHHMMSS
+        doy = int(datestr[4:7])
+        return datetime.strptime(f"{datestr[0:4]} {doy} {datestr[7:]}", "%Y %j %H%M%S")
     
 def main():
     run_write_gfs_trop_temp_to_combined_ncdf()

@@ -599,6 +599,8 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
     if not no_tropdiff:
       run_write_gfs_trop_temp_to_combined_ncdf(inroot        = os.path.join(outroot, 'combined_nc_dir', d_strs[idx0]), 
                                                gfs_root      = os.path.join(os.path.dirname(outroot), 'gfs-data'),
+                                               date1         = date1,
+                                               date2         = date2,
                                                use_local     = True, write_gcs = run_gcs, del_local = del_local,
                                                c_bucket_name = c_bucket_name,
                                                real_time     = rt,
@@ -1563,6 +1565,8 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = 
     else:
       var_mod = f.variables[vname]
       var_mod[:, :] = res[0, :, :, 0] 
+      var_mod.optimal_thresh = optimal_thresh
+      var_mod.checkpoint_file = use_chkpnt
     print('Model output netCDF file name = ' + nc_file)
 
   res = None
