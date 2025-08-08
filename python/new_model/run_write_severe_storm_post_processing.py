@@ -264,6 +264,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
         anv_p  = int((15.0/xyres0)*2.0)                                                                                                                #Calculate number of pixels to be included as part of the anvil
         sigma  = int(36.0/(xyres0*2.0))                                                                                                                #Calculate the standard deviation for Gaussian kernel for smoothing tropopause temperatures on the satellite grid
         keys0  = list(nc_dct.keys())                                                                                                                   #Extract keys 
+        if any('2_' in fff for fff in keys0):#Only use the OT prediction with the 2 in it.
+            keys0 = [fff for fff in keys0 if "2_" in fff]
         if len(keys0) <= 0:
             if verbose:
                 print('Anvil mean BT and/or tropopause temperature not found in combined netCDF file. Writing now.')
