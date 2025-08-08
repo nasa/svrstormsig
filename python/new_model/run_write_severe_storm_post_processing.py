@@ -509,7 +509,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                         else:
                           tropT2 = res*np.nan
                         
-                        append_combined_ncdf_with_model_post_processing(nc_file, ot_id, btd, tropT2, data.attrs, anv_p, files_used = files_used, pthresh = pthresh, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
+                        append_combined_ncdf_with_model_post_processing(nc_file, ot_id, btd, tropT2, data.attrs, anv_p, files_used = files_used, pthresh = pthresh0, rewrite = rewrite, percent_omit = percent_omit, write_gcs = write_gcs, del_local = del_local, outroot = outroot, c_bucket_name = c_bucket_name, verbose = verbose)
 
 def append_combined_ncdf_with_model_post_processing(nc_file, object_id, btd, tropT, mod_attrs, resolution, files_used = [], pthresh = None, rewrite = True, percent_omit = 20, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', verbose = True):
   '''
