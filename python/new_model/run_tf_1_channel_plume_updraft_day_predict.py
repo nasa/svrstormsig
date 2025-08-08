@@ -1126,11 +1126,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
   if len(date_range) > 0 and rt != True and df.empty == False:
     df.reset_index(inplace = True)                                                                                                                                          #Reset the index so it is 0 to number of scans within time range
     df.drop(columns = 'index', inplace = True)                                                                                                                              #Remove index column that was created by reset_index.
-    dstr = pd.Series([dd[0:16] for dd in list(df['date_time'])])
-    if 'goes' not in inroot.lower():
-      df   = df[(df['date_time'] >= date_range[0]) & (df['date_time'] <= date_range[1])]                                                                                    #Extract list of dates to see which dates are within the specified date range
-    else:
-      df   = df[(df['date_time'] >= date_range[0]) & (dstr <= date_range[1])]                                                                                               #Extract list of dates to see which dates are within the specified date range
+    df   = df[(df['date_time'] >= date_range[0]) & (df['date_time'] <= date_range[1])]                                                                                      #Extract list of dates to see which dates are within the specified date range
  
   df.reset_index(inplace = True)                                                                                                                                            #Reset the index so it is 0 to number of scans within time range
   df.drop(columns = 'index', inplace = True)                                                                                                                                #Remove index column that was created by reset_index.
