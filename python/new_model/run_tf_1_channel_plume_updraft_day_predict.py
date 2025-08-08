@@ -1551,6 +1551,7 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = 
       var_mod.missing_value   = 0
       var_mod.units           = 'dimensionless'
       var_mod.coordinates     = 'longitude latitude time'
+      var_mod.date_added      = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
       var_mod[0, :, :]        = res[0, :, :, 0]                                                                                                                             #Write the results data to the combined netCDF file
       
 #       data, scale_mod, offset_mod = Scaler.scaleData(res[0, :, :, 0])                                                                                                     #Scale the results data
@@ -1563,6 +1564,7 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = 
       var_mod[:, :] = res[0, :, :, 0] 
       var_mod.optimal_thresh = optimal_thresh
       var_mod.checkpoint_file = use_chkpnt
+      var_mod.date_added      = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     print('Model output netCDF file name = ' + nc_file)
 
   res = None
