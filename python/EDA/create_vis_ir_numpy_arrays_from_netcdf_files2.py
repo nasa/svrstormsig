@@ -12,53 +12,56 @@
 # Input:
 #     None.
 # Functions:
-#     fetch_convert_ir     : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
-#     fetch_convert_vis    : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
-#     fetch_convert_glm    : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
-#     fetch_convert_irdiff : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
-#     merge_csv_files      : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
+#     fetch_convert_ir           : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
+#     fetch_convert_vis          : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
+#     fetch_convert_glm          : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
+#     fetch_convert_irdiff       : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
+#     compute_gradient_magnitude : Computes spatial gradient magnitude using Sobel operator
+#     fetch_convert_ir_gradient  : Computes IR BT gradient magnitude normalized to [0, 1]
+#     merge_csv_files            : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
 # Output:
-#     Creates netCDF file for GLM data gridded on GOES VIS grid, combined VIS, IR, and GLM netCDF file and
-#     image file that gets put into labelme software to identify overshoot plumes.
+#     Creates numpy files that are normalized for model input.
 # Keywords:
-#      inroot           : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
-#                         DEFAULT = '../../../goes-data/20190517-18/'
-#      layered_root     : STRING specifying directory containing the combined IR/VIS/GLM netCDF file (created by combine_ir_glm_vis.py)
-#                         DEFAULT = '../../../goes-data/combined_nc_dir/'
-#      outroot          : STRING specifying directory to send the VIS, IR, and GLM numpy files as well as corresponding csv files
-#                         DEFAULT = '../../../goes-data/labelled/'
-#      json_root        : STRING specifying root directory to read the json labeled mask csv file (created by labelme_seg_mask2.py)
-#                         DEFAULT = '../../../goes-data/labelled/'
-#      date_range       : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
-#                         DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
-#      meso_sector      : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)                
-#      domain_sector    : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
-#      ir_min_value     : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
-#      ir_max_value     : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
-#      no_write_ir      : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
-#      no_write_vis     : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
-#      no_write_irdiff  : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
-#      no_write_glm     : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
-#      no_write_csv     : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
-#      no_write_sza     : IF keyword set (True), do not write the Solar zenith angle numpy data arrays (degrees). DEFAULT = False.
-#      run_gcs          : IF keyword set (True), read and write everything directly from the google cloud platform.
-#                         DEFAULT = False
-#      use_local        : IF keyword set (True), read locally stored files.                  
-#                         DEFAULT = False (read from GCP.)
-#      real_time        : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write. 
-#                         Files are also output to a real time directory.
-#                         DEFAULT = False
-#      del_local        : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
-#                         DEFAULT = False
-#      og_bucket_name   : Google cloud storage bucket to read raw IR/GLM/VIS files.
-#                         DEFAULT = 'goes-data'
-#      comb_bucket_name : Google cloud storage bucket to read raw IR/GLM/VIS files.
-#                         DEFAULT = 'ir-vis-sandwhich'
-#      proc_bucket_name : Google cloud storage bucket to read raw IR/GLM/VIS files.
-#                         DEFAULT = 'aacp-proc-data'
-#      use_native_ir    : IF keyword set (True), write files for native IR satellite resolution.
-#                         DEFAULT = False -> use satellite VIS resolution
-#      verbose          : IF keyword set (True), print verbose informational messages to terminal.
+#      inroot               : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
+#                             DEFAULT = '../../../goes-data/20190517-18/'
+#      layered_root         : STRING specifying directory containing the combined IR/VIS/GLM netCDF file (created by combine_ir_glm_vis.py)
+#                             DEFAULT = '../../../goes-data/combined_nc_dir/'
+#      outroot              : STRING specifying directory to send the VIS, IR, and GLM numpy files as well as corresponding csv files
+#                             DEFAULT = '../../../goes-data/labelled/'
+#      json_root            : STRING specifying root directory to read the json labeled mask csv file (created by labelme_seg_mask2.py)
+#                             DEFAULT = '../../../goes-data/labelled/'
+#      date_range           : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
+#                             DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
+#      meso_sector          : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)                
+#      domain_sector        : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
+#      ir_min_value         : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
+#      ir_max_value         : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
+#      gradient_sigma       : Gaussian smoothing sigma applied before IR BT gradient calculation. DEFAULT = 1.0
+#      no_write_ir          : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
+#      no_write_vis         : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
+#      no_write_ir_gradient : IF keyword set (True), do not write the IR gradient numpy data arrays. DEFAULT = True
+#      no_write_irdiff      : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
+#      no_write_glm         : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
+#      no_write_csv         : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
+#      no_write_sza         : IF keyword set (True), do not write the Solar zenith angle numpy data arrays (degrees). DEFAULT = False.
+#      run_gcs              : IF keyword set (True), read and write everything directly from the google cloud platform.
+#                             DEFAULT = False
+#      use_local            : IF keyword set (True), read locally stored files.                  
+#                             DEFAULT = False (read from GCP.)
+#      real_time            : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write. 
+#                             Files are also output to a real time directory.
+#                             DEFAULT = False
+#      del_local            : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
+#                             DEFAULT = False
+#      og_bucket_name       : Google cloud storage bucket to read raw IR/GLM/VIS files.
+#                             DEFAULT = 'goes-data'
+#      comb_bucket_name     : Google cloud storage bucket to read raw IR/GLM/VIS files.
+#                             DEFAULT = 'ir-vis-sandwhich'
+#      proc_bucket_name     : Google cloud storage bucket to read raw IR/GLM/VIS files.
+#                             DEFAULT = 'aacp-proc-data'
+#      use_native_ir        : IF keyword set (True), write files for native IR satellite resolution.
+#                             DEFAULT = False -> use satellite VIS resolution
+#      verbose              : IF keyword set (True), print verbose informational messages to terminal.
 # Author and history:
 #     John W. Cooney           2020-12-22. (Adapted from create_vis_ir_numpy_arrays_from_netcdf_files but to store ir, vis, and glm files for each scan rather than for a full day)
 #
@@ -136,6 +139,7 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, new_weighting, min_va
     if not new_weighting: 
       min_value = -15.0
       max_value = 20.0
+
     ir_dat = np.copy(np.asarray(_combined_nc.variables['ir_brightness_temperature'][:], dtype = np.float32))[0, :, :]                          #Copy IR data into a numpy array                        
     tr_dat = np.copy(np.asarray(_combined_nc.variables['tropopause_temperature'][:], dtype = np.float32))[0, :, :]                             #Copy tropopapuse data into a numpy array                        
     if ir_dat.shape[0] != lon_shape[0] or ir_dat.shape[1] != lon_shape[1]:
@@ -145,7 +149,7 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, new_weighting, min_va
     na = (ir_dat < 0) | (ir_dat >= 250)
     d_dat[d_dat < min_value] = min_value                                                                                                       #Clip all BT-tropT below min value to min value
     d_dat[d_dat > max_value] = max_value                                                                                                       #Clip all BT-tropT above max value to max value
-    if new_weighting:     
+    if new_weighting:
       #Start New Cosine function
       d_dat = 0.5 * (1 + np.cos(np.pi * (d_dat - min_value) / (max_value - min_value)))
       #End New Cosine function
@@ -331,7 +335,87 @@ def fetch_convert_irdiff(_combined_nc, lon_shape, lat_shape, min_value = -20.0, 
         print('IR data is not normalized properly between 0 and 1??')
         exit()
     return(ir_dat)
+
+####Start of new compute IR gradient calculation###
+def compute_gradient_magnitude(data, sigma=1.0, grad = 'raw'):
+    """
+    Compute gradient magnitude using Sobel operator.
+    Helps distinguish organized features from messy transitions.
     
+    Args:
+        data: 2D numpy array
+        sigma: Gaussian smoothing before gradient (reduces noise). DEFAULT = 1.0
+    
+    Returns:
+        grad_mag: Gradient magnitude normalized to [0, 1]
+    """
+    # Handle invalid data
+    if grad == 'raw':
+        valid_mask = (data >= 0) if np.any(data < 0) else np.ones_like(data, dtype=bool)
+    elif grad == 'btd_diff':
+        valid_mask = (data > -100) & ~np.isnan(data)
+    else:
+        print(f'Not setup to handle grad: {grad}')
+    
+    data_clean = data.copy()
+    data_clean[~valid_mask] = np.nan
+    
+    # Smooth first to reduce noise
+    smoothed = ndimage.gaussian_filter(data_clean, sigma=sigma)
+    
+    # Compute gradients in x and y using Sobel
+    grad_x = ndimage.sobel(smoothed, axis=1)
+    grad_y = ndimage.sobel(smoothed, axis=0)
+    
+    # Compute magnitude
+    grad_mag = np.sqrt(np.square(grad_x) + np.square(grad_y))
+    
+    # Normalize
+    if np.nanmax(grad_mag) > 0:
+        grad_mag = grad_mag / np.nanmax(grad_mag)
+    
+    # Restore invalid regions
+    grad_mag[~valid_mask] = -1
+    grad_mag[np.isnan(grad_mag)] = -1
+    
+    return(grad_mag.astype(np.float32))
+
+def fetch_convert_ir_gradient(_combined_nc, lon_shape, lat_shape, min_value=180.0, max_value=250.0, sigma=1.0):
+    """
+    Compute IR BT gradient magnitude.
+    Sharp gradients at OT edges vs. broader gradients at anvil mergers.
+    
+    Args:
+      _combined_nc: Open netCDF4 Dataset object for the combined IR/VIS/GLM file
+      lon_shape   : Shape of numpy 2D longitude array
+      lat_shape   : Shape of numpy 2D latitude array
+    Keywords:
+      min_value: Minimum temperature value for IR data. DEFAULT = 180.0
+      max_value: Maximum temperature value for IR data. DEFAULT = 250.0
+      sigma    : Gaussian smoothing before gradient. DEFAULT = 1.0
+    Returns:
+      grad_mag: 2D array of IR gradient magnitude normalized to [0, 1]
+    """
+    # Read raw IR data
+    ir_raw = np.copy(np.asarray(_combined_nc.variables['ir_brightness_temperature'][:], dtype=np.float32))[0, :, :]
+
+    # Resize if necessary
+    if ir_raw.shape[0] != lon_shape[0] or ir_raw.shape[1] != lon_shape[1]:
+        ir_raw = cv2.resize(ir_raw, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)
+    
+    ir_raw[ir_raw > max_value] = max_value
+    # Mark invalid data
+    na = (ir_raw < 0)
+    
+    # Compute gradient on raw data for physical meaning
+    grad_mag = compute_gradient_magnitude(ir_raw, sigma=sigma, grad='raw')
+    
+    # Handle NaN regions
+    grad_mag[na] = -1
+    
+    return(grad_mag)
+####End of new compute IR gradient calculation###
+ 
 def merge_csv_files(json_root, run_gcs = False, proc_bucket_name = 'aacp-proc-data'):
     '''
     Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
@@ -417,8 +501,8 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                                                   date_range       = [], 
                                                   meso_sector      = 2, 
                                                   domain_sector    = None, 
-                                                  ir_min_value     = 180, ir_max_value   = 230, 
-                                                  no_write_ir      = False, no_write_vis = False, no_write_irdiff = True, 
+                                                  ir_min_value     = 180, ir_max_value   = 230, gradient_sigma = 1.0,
+                                                  no_write_ir      = False, no_write_vis = False, no_write_ir_gradient = True, no_write_irdiff = True, 
                                                   no_write_glm     = False, no_write_sza = False, no_write_csv = False,
                                                   no_write_cirrus  = True, no_write_snowice = True, no_write_dirtyirdiff = True, no_write_trop = True, 
                                                   run_gcs          = False, use_local = False, real_time = False, del_local = False,
@@ -438,14 +522,15 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
     Args:
         None.
     Functions:
-        fetch_convert_ir     : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
-        fetch_convert_vis    : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
-        fetch_convert_glm    : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
-        fetch_convert_irdiff : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
-        merge_csv_files      : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
+        fetch_convert_ir           : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
+        fetch_convert_vis          : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
+        fetch_convert_glm          : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
+        fetch_convert_irdiff       : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
+        compute_gradient_magnitude : Computes spatial gradient magnitude using Sobel operator
+        fetch_convert_ir_gradient  : Computes IR BT gradient magnitude normalized to [0, 1]
+        merge_csv_files            : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
     Output:
-        Creates netCDF file for GLM data gridded on GOES VIS grid, combined VIS, IR, and GLM netCDF file and
-        image file that gets put into labelme software to identify overshoot plumes.
+         Creates numpy files that are normalized for model input.
     Keywords:
          inroot               : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
                                 DEFAULT = '../../../goes-data/20190517-18/'
@@ -461,8 +546,10 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
          domain_sector        : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
          ir_min_value         : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
          ir_max_value         : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
+         gradient_sigma       : Gaussian smoothing sigma applied before IR BT gradient calculation. DEFAULT = 1.0
          no_write_ir          : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
          no_write_vis         : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
+         no_write_ir_gradient : IF keyword set (True), do not write the IR gradient numpy data arrays. DEFAULT = True
          no_write_irdiff      : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
          no_write_glm         : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
          no_write_csv         : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
@@ -492,7 +579,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                                 DEFAULT = True -> use new weighting scheme
          verbose              : IF keyword set (True), print verbose informational messages to terminal.
     Output:    
-      Writes IR, VIS, and GLM numpy arrays for each satellite scan
+        Writes IR, VIS, and GLM numpy arrays for each satellite scan
     Author and history:
         John W. Cooney           2020-12-22. (Adapted from create_vis_ir_numpy_arrays_from_netcdf_files but to store ir, vis, and glm files for each scan rather than for a full day)
     '''
@@ -586,13 +673,14 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
             if verbose:
                 print(time0)
                 print(time1)
+            
             #Pick source for IR files
             ir_source  = ir_files
             vis_source = vis_files if not no_write_vis else []
             
             #Get datetime-filtered file tuples
-            ir_files_dt = subset_files_by_time(ir_source, 'ir', time0, time1)
-            vis_files_dt = subset_files_by_time(vis_source, 'vis', time0, time1) if not no_write_vis else []
+            ir_files_dt   = subset_files_by_time(ir_source, 'ir', time0, time1)
+            vis_files_dt  = subset_files_by_time(vis_source, 'vis', time0, time1) if not no_write_vis else []
             comb_files_dt = subset_files_by_time(comb_files, 'comb', time0, time1)
             
             #Build timestamp-to-file dictionaries
@@ -695,36 +783,36 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
     
     if not no_write_vis:
         if len(ir_files) == 0 or len(vis_files) == 0 or len(comb_files) == 0:
-          print('No VIS, IR netCDF or labeled json files found?')
-          exit()
+            print('No VIS, IR netCDF or labeled json files found?')
+            exit()
         if len(ir_files) != len(vis_files) or len(ir_files) != len(comb_files):
-          print('Number of files do not match???')
-          print(len(ir_files))
-          print(len(vis_files))
-          print(len(comb_files))
-          print(ir_files[0])
-          print(ir_files[-1])
-          print(vis_files[0])
-          print(vis_files[-1])
-          print(comb_files[0])
-          print(comb_files[-1])
-          exit()
+            print('Number of files do not match???')
+            print(len(ir_files))
+            print(len(vis_files))
+            print(len(comb_files))
+            print(ir_files[0])
+            print(ir_files[-1])
+            print(vis_files[0])
+            print(vis_files[-1])
+            print(comb_files[0])
+            print(comb_files[-1])
+            exit()
         df_vis  = pd.DataFrame(vis_files)                                                                                                      #Create data structure containing VIS data file names
         df_vis['date_time'] = df_vis[0].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[3])[0:-1],'%Y%j%H%M%S'))                      #Extract date of file scan and put into data structure
         df_vis.rename(columns={0:'vis_files'}, inplace = True)                                                                                 #Rename column VIS files
     else:
         if len(ir_files) == 0 or len(comb_files) == 0:
-          print('No VIS, IR netCDF or labeled json files found?')
-          exit()
+            print('No VIS, IR netCDF or labeled json files found?')
+            exit()
         if len(ir_files) != len(comb_files):
-          print('Number of files do not match???')
-          print(len(ir_files))
-          print(len(comb_files))
-          print(ir_files[0])
-          print(ir_files[-1])
-          print(comb_files[0])
-          print(comb_files[-1])
-          exit()
+            print('Number of files do not match???')
+            print(len(ir_files))
+            print(len(comb_files))
+            print(ir_files[0])
+            print(ir_files[-1])
+            print(comb_files[0])
+            print(comb_files[-1])
+            exit()
           
     df_ir   = pd.DataFrame(ir_files)                                                                                                           #Create data structure containing IR data file names
     df_comb = pd.DataFrame(comb_files)                                                                                                         #Create data structure containing combined netCDF data file names
@@ -742,6 +830,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
     for f in range(ir_vis.shape[0]):    
         date_str    = datetime.strftime(ir_vis['date_time'][f], '%Y%j')                                                                        #Extract loop date string as day-number (determines if date changes)
         ir_results       = []                                                                                                                  #Initialize list to store IR data for single day
+        irg_results      = []                                                                                                                  #Initialize list to store IR gradient data for single day
         ird_results      = []                                                                                                                  #Initialize list to store IR BT difference data for single day
         vis_results      = []                                                                                                                  #Initialize list to store VIS data for single day
         glm_results      = []                                                                                                                  #Initialize list to store GLM data for single day
@@ -820,6 +909,8 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
             os.makedirs(join(outdir, sector, 'ir'),  exist_ok = True)                                                                          #Create output directory if it does not exist
             if not no_write_irdiff:
                 os.makedirs(join(outdir, sector, 'ir_diff'), exist_ok = True)                                                                  #Create output directory if it does not exist
+            if not no_write_ir_gradient:
+                os.makedirs(join(outdir, sector, 'ir_gradient'), exist_ok = True)                                                              #Create output directory if it does not exist            
             if not no_write_cirrus:
                 os.makedirs(join(outdir, sector, 'cirrus'), exist_ok = True)                                                                   #Create output directory if it does not exist
             if not no_write_snowice:
@@ -853,8 +944,9 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                     if not no_write_ir: 
                         i_files.append(os.path.relpath(ir_vis['ir_files'][f]))                                                                 #Add loops IR file name to list
                         ir_results.append(fetch_convert_ir(combined_nc_dat, lon_shape, lat_shape, min_value = ir_min_value, max_value = ir_max_value))         #Add new normalized IR data result to IR list
-                
-                    if not no_write_irdiff: 
+                    if not no_write_ir_gradient:
+                        irg_results.append(fetch_convert_ir_gradient(combined_nc_dat, lon_shape, lat_shape,  min_value=180.0, max_value=250.0, sigma = gradient_sigma))           #Add new normalized IR gradient data result to IR gradient list
+                    if not no_write_irdiff:
                         ird_results.append(fetch_convert_irdiff(combined_nc_dat, lon_shape, lat_shape))                                        #Add new normalized IR BT difference data result to IRdiff list
                     if not no_write_cirrus: 
                         cirrus_results.append(fetch_convert_cirrus(combined_nc_dat))                                                           #Add new normalized cirrus data result to cirrus list
@@ -864,7 +956,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                         dirtyird_results.append(fetch_convert_dirtyirdiff(combined_nc_dat, lon_shape, lat_shape))                              #Add new normalized dirtyIR BT difference data result to dirtyIR list
                     if not no_write_trop: 
                         trop_results.append(fetch_convert_trop(combined_nc_dat, lon_shape, lat_shape, new_weighting))                          #Add new normalized IR BT - tropT difference data result to tropdiff list
-                if not no_write_vis: 
+                if not no_write_vis:
                     if pd.notna(ir_vis['vis_files'][f]):
                         if (ir_vis['date_time'][f] != ir_vis['date_time'][f]) or ((re.split('_s|_', os.path.basename(ir_vis['vis_files'][f]))[3]) != (re.split('_s|_', os.path.basename(ir_vis['comb_files'][f]))[5])):  #Add check to make sure working with same file
                             print('Combined netCDF and VIS netCDF dates do not match')
@@ -892,16 +984,19 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
 #                         print('Number of elements in IR array does not match GLM array.')
 
         d_str = datetime.strftime(ir_vis['date_time'][f], '%Y%j%H%M%S')
-        if not no_write_ir      and len(ir_results)       > 0: 
+        if not no_write_ir          and len(ir_results)       > 0: 
             os.makedirs(join(outdir, sector, 'ir'), exist_ok = True)
             np.save(join(outdir, sector, 'ir',          d_str + '_ir.npy'),          np.asarray(ir_results))                                   #Write IR data to numpy file
-        if not no_write_vis      and len(vis_results)      > 0: 
+        if not no_write_ir_gradient and len(irg_results)  > 0:
+            os.makedirs(join(outdir, sector, 'ir_gradient'), exist_ok = True)
+            np.save(join(outdir, sector, 'ir_gradient', d_str + '_ir_gradient.npy'), np.asarray(irg_results))                                  #Write IR gradient data to numpy file
+        if not no_write_vis         and len(vis_results)      > 0: 
             os.makedirs(join(outdir, sector, 'vis'), exist_ok = True)
             np.save(join(outdir, sector, 'vis',         d_str + '_vis.npy'),         np.asarray(vis_results))                                  #Write VIS data to numpy file
-        if not no_write_sza      and len(sza_results)      > 0: 
+        if not no_write_sza         and len(sza_results)      > 0: 
             os.makedirs(join(outdir, sector, 'sza'), exist_ok = True)
             np.save(join(outdir, sector, 'sza',         d_str + '_sza.npy'),         np.asarray(sza_results))                                  #Write solar zenith angle data to numpy file
-        if not no_write_glm      and len(glm_results)      > 0: 
+        if not no_write_glm         and len(glm_results)      > 0: 
             os.makedirs(join(outdir, sector, 'glm'), exist_ok = True)
             np.save(join(outdir, sector, 'glm',         d_str + '_glm.npy'),         np.asarray(glm_results))                                  #Write GLM data to numpy file
         if not no_write_irdiff      and len(ird_results)      > 0: 
@@ -920,53 +1015,58 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
             os.makedirs(join(outdir, sector, 'tropdiff'), exist_ok = True)
             np.save(join(outdir, sector, 'tropdiff',    d_str + '_tropdiff.npy'),    np.asarray(trop_results))                                 #Write IR BT-TropT difference data to numpy file
         if run_gcs and np.asarray(ir_results).shape[1] <= 2000:
-            if not no_write_ir and len(ir_results)  > 0: 
+            if not no_write_ir          and len(ir_results)  > 0: 
                 t = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'ir'), join(outdir, sector, 'ir',  d_str + '_ir.npy')), kwargs = {'del_local' : del_local})
                 t.start()
-            if not no_write_vis and len(vis_results) > 0: 
+            if not no_write_vis         and len(vis_results) > 0: 
                 t1 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'vis'), join(outdir, sector, 'vis', d_str + '_vis.npy')), kwargs = {'del_local' : del_local})
                 t1.start()
-            if not no_write_sza and len(sza_results) > 0:
+            if not no_write_sza         and len(sza_results) > 0:
                 t2 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'sza'), join(outdir, sector, 'sza', d_str + '_sza.npy')), kwargs = {'del_local' : del_local})
                 t2.start()
-            if not no_write_glm and len(glm_results) > 0: 
+            if not no_write_glm         and len(glm_results) > 0: 
                 t3 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'glm'), join(outdir, sector, 'glm', d_str + '_glm.npy')), kwargs = {'del_local' : del_local})
                 t3.start()
-            if not no_write_irdiff and len(ird_results) > 0:
+            if not no_write_irdiff      and len(ird_results) > 0:
                 t4 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_ir_diff.npy')), kwargs = {'del_local' : del_local})
                 t4.start()
-            if not no_write_cirrus and len(cirrus_results) > 0:
+            if not no_write_cirrus      and len(cirrus_results) > 0:
                 t5 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'cirrus'), join(outdir, sector, 'cirrus', d_str + '_cirrus.npy')), kwargs = {'del_local' : del_local})
                 t5.start()
-            if not no_write_snowice and len(snowice_results) > 0:
+            if not no_write_snowice     and len(snowice_results) > 0:
                 t6 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'snowice'), join(outdir, sector, 'snowice', d_str + '_snowice.npy')), kwargs = {'del_local' : del_local})
                 t6.start()
             if not no_write_dirtyirdiff and len(dirtyird_results) > 0:
                 t7 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'dirtyirdiff'), join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy')), kwargs = {'del_local' : del_local})
                 t7.start()
-            if not no_write_trop and len(trop_results) > 0:
+            if not no_write_trop        and len(trop_results) > 0:
                 t8 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'tropdiff'), join(outdir, sector, 'tropdiff', d_str + '_tropdiff.npy')), kwargs = {'del_local' : del_local})
                 t8.start()
+            if not no_write_ir_gradient and len(irg_results)  > 0: 
+                t9 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'ir_gradient'), join(outdir, sector, 'ir_gradient',  d_str + '_ir_gradient.npy')), kwargs = {'del_local' : del_local})
+                t9.start()
         else:
             if run_gcs:
-                if not no_write_ir and len(ir_results)  > 0: 
+                if not no_write_ir          and len(ir_results)  > 0: 
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'ir'),  join(outdir, sector, 'ir',  d_str + '_ir.npy'),  del_local = del_local)  #Write IR data to numpy file in google cloud storage bucket
-                if not no_write_vis and len(vis_results) > 0: 
+                if not no_write_vis         and len(vis_results) > 0: 
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'vis'), join(outdir, sector, 'vis', d_str + '_vis.npy'), del_local = del_local)  #Write VIS data to numpy filein google cloud storage bucket
-                if not no_write_sza and len(sza_results) > 0:
+                if not no_write_sza         and len(sza_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'sza'), join(outdir, sector, 'sza', d_str + '_sza.npy'), del_local = del_local)  #Write solar zenith angle data to numpy filein google cloud storage bucket
-                if not no_write_glm and len(glm_results) > 0: 
+                if not no_write_glm         and len(glm_results) > 0: 
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'glm'), join(outdir, sector, 'glm', d_str + '_glm.npy'), del_local = del_local)  #Write GLM data to numpy filein google cloud storage bucket
-                if not no_write_irdiff and len(ird_results) > 0:
+                if not no_write_irdiff      and len(ird_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_ir_diff.npy'), del_local = del_local)  #Write IR diff data to numpy filein google cloud storage bucket
-                if not no_write_cirrus and len(cirrus_results) > 0:
+                if not no_write_cirrus      and len(cirrus_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'cirrus'), join(outdir, sector, 'cirrus', d_str + '_cirrus.npy'), del_local = del_local)  #Write cirrus data to numpy filein google cloud storage bucket
-                if not no_write_snowice and len(snowice_results) > 0:
+                if not no_write_snowice     and len(snowice_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'snowice'), join(outdir, sector, 'snowice', d_str + '_snowice.npy'), del_local = del_local)  #Write snowice data to numpy filein google cloud storage bucket
                 if not no_write_dirtyirdiff and len(dirtyird_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'dirtyirdiff'), join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy'), del_local = del_local)  #Write dirtyirdiff data to numpy filein google cloud storage bucket
-                if not no_write_trop and len(trop_results) > 0:
+                if not no_write_trop        and len(trop_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'tropdiff'), join(outdir, sector, 'tropdiff', d_str + '_tropdiff.npy'), del_local = del_local)  #Write tropdiff data to numpy filein google cloud storage bucket
+                if not no_write_ir_gradient and len(irg_results)  > 0: 
+                    write_to_gcs(proc_bucket_name, join(pref, sector, 'ir_gradient'), join(outdir, sector, 'ir_gradient', d_str + '_ir_gradient.npy'), del_local = del_local)  #Write IR gradient data to numpy filein google cloud storage bucket
     if not no_write_csv:
         if verbose: print('Writing file containing combined netCDF file names:', join(outdir, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
         df_ir2  = pd.DataFrame({'ir_files' : i_files,  'ir_index':range(len(i_files))})                                                        #Create data structure containing IR data file names
