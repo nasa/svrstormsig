@@ -304,7 +304,7 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
             pat_proj = '_ir_'
 #            xyres    = 0#ir.spatial_resolution    #STOP here to provide resolution
               
-        t0 = time.time()
+#         t0 = time.time()
         ### NetCDF File Creation ###      
         # file declaration      
         if verbose: print('Writing combined VIS/IR/GLM output netCDF ' + out_nc)
@@ -324,8 +324,12 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
             keys0   = f.variables.keys()
             keys1   = list(keys0)
             if ('solar_zenith_angle' not in keys0) and (not no_write_vis or not no_write_cirrus or not no_write_snowice):
-                date   = netCDF4.num2date( ir.variables['time'][:], ir.variables['time'].units)                                             #Read in date
-                date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
+
+#                 date   = netCDF4.num2date( ir.variables['time'][:], ir.variables['time'].units)                                             #Read in date
+#                 date   = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
+                dd   = xr.open_dataset(files[0], decode_times = False)
+                date = datetime.datetime.strptime(dd.attrs['time_coverage_start'], "%Y%m%d%H%M%S")
+                date = datetime.datetime(date.year, date.month, date.day, hour=date.hour, minute=date.minute, second=date.second, tzinfo=datetime.timezone.utc)
                 lat_arr = np.asarray(f.variables['latitude'])
                 with warnings.catch_warnings():
                   warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -673,8 +677,7 @@ def mtg_combine_ir_glm_vis(infile               = os.path.join('..', '..', '..',
 #        print('Time to run = ' + str(time.time() - t00) + 'sec')
     else:
         with Dataset(out_nc, 'r') as combined_data:
-            lon       = np.asarray(combined_data.variables['longitude'])                                                                    #Read longitude values to get shape (used for file name saving of model results files)
-            shape_arr = lon.shape[0]                                                                                                        #Extract longitude array shape
+            shape_arr = len(combined_data.dimensions['Y'])                                                                                  #Read Y dimension size directly instead of loading the full longitude array
     return(out_nc, shape_arr)    
     
 
