@@ -12,52 +12,57 @@
 # Input:
 #     None.
 # Functions:
-#     fetch_convert_ir     : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
-#     fetch_convert_vis    : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
-#     fetch_convert_glm    : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
-#     fetch_convert_irdiff : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
-#     merge_csv_files      : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
+#     fetch_convert_ir           : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
+#     fetch_convert_vis          : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
+#     fetch_convert_glm          : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
+#     fetch_convert_irdiff       : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
+#     compute_gradient_magnitude : Computes spatial gradient magnitude using Sobel operator
+#     fetch_convert_ir_gradient  : Computes IR BT gradient magnitude normalized to [0, 1]
+#     merge_csv_files            : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
 # Output:
 #     Creates numpy files that are normalized for model input.
 # Keywords:
-#      inroot           : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
-#                         DEFAULT = '../../../mtg-data/20241029/'
-#      layered_root     : STRING specifying directory containing the combined IR/VIS/GLM netCDF file (created by combine_ir_glm_vis.py)
-#                         DEFAULT = '../../../mtg-data/combined_nc_dir/'
-#      outroot          : STRING specifying directory to send the VIS, IR, and GLM numpy files as well as corresponding csv files
-#                         DEFAULT = '../../../mtg-data/labelled/'
-#      json_root        : STRING specifying root directory to read the json labeled mask csv file (created by labelme_seg_mask2.py)
-#                         DEFAULT = '../../../mtg-data/labelled/'
-#      date_range       : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
-#                         DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
-#      meso_sector      : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)                
-#      domain_sector    : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
-#      ir_min_value     : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
-#      ir_max_value     : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
-#      no_write_ir      : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
-#      no_write_vis     : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
-#      no_write_irdiff  : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
-#      no_write_glm     : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
-#      no_write_csv     : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
-#      no_write_sza     : IF keyword set (True), do not write the Solar zenith angle numpy data arrays (degrees). DEFAULT = False.
-#      run_gcs          : IF keyword set (True), read and write everything directly from the google cloud platform.
-#                         DEFAULT = False
-#      use_local        : IF keyword set (True), read locally stored files.                  
-#                         DEFAULT = False (read from GCP.)
-#      real_time        : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write. 
-#                         Files are also output to a real time directory.
-#                         DEFAULT = False
-#      del_local        : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
-#                         DEFAULT = False
-#      og_bucket_name   : Google cloud storage bucket to read raw IR/GLM/VIS files.
-#                         DEFAULT = 'mtg-data'
-#      comb_bucket_name : Google cloud storage bucket to read raw IR/GLM/VIS files.
-#                         DEFAULT = 'ir-vis-sandwhich'
-#      proc_bucket_name : Google cloud storage bucket to write normalized numpy files used for model input and csv files containing each day information
-#                         DEFAULT = 'aacp-proc-data'
-#      use_native_ir    : IF keyword set (True), write files for native IR satellite resolution.
-#                         DEFAULT = False -> use satellite VIS resolution
-#      verbose          : IF keyword set (True), print verbose informational messages to terminal.
+#      inroot               : STRING specifying input root directory containing original IR/VIS/GLM netCDF files
+#                             DEFAULT = '../../../mtg-data/20241029/'
+#      layered_root         : STRING specifying directory containing the combined IR/VIS/GLM netCDF file (created by combine_ir_glm_vis.py)
+#                             DEFAULT = '../../../mtg-data/combined_nc_dir/'
+#      outroot              : STRING specifying directory to send the VIS, IR, and GLM numpy files as well as corresponding csv files
+#                             DEFAULT = '../../../mtg-data/labelled/'
+#      json_root            : STRING specifying root directory to read the json labeled mask csv file (created by labelme_seg_mask2.py)
+#                             DEFAULT = '../../../mtg-data/labelled/'
+#      date_range           : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
+#                             DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
+#      meso_sector          : LONG integer specifying the mesoscale domain sector to use to create maps (= 1 or 2). DEFAULT = 2 (sector 2)                
+#      domain_sector        : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
+#      satellite            : STRING specifying the MTG satellite to use (e.g., 'MTG1'). DEFAULT = 'MTG1'
+#      ir_min_value         : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
+#      ir_max_value         : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
+#      gradient_sigma       : Gaussian smoothing sigma applied before IR BT gradient calculation. DEFAULT = 1.0
+#      no_write_ir          : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
+#      no_write_vis         : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
+#      no_write_ir_gradient : IF keyword set (True), do not write the IR gradient numpy data arrays. DEFAULT = True
+#      no_write_irdiff      : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
+#      no_write_glm         : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
+#      no_write_csv         : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
+#      no_write_sza         : IF keyword set (True), do not write the Solar zenith angle numpy data arrays (degrees). DEFAULT = False.
+#      run_gcs              : IF keyword set (True), read and write everything directly from the google cloud platform.
+#                             DEFAULT = False
+#      use_local            : IF keyword set (True), read locally stored files.                  
+#                             DEFAULT = False (read from GCP.)
+#      real_time            : IF keyword set (True), run the code in real time by only grabbing the most recent file to image and write. 
+#                             Files are also output to a real time directory.
+#                             DEFAULT = False
+#      del_local            : IF keyword set (True), delete local copies of files after writing them to google cloud. Only does anything if run_gcs = True.
+#                             DEFAULT = False
+#      og_bucket_name       : Google cloud storage bucket to read raw IR/GLM/VIS files.
+#                             DEFAULT = 'mtg-data'
+#      comb_bucket_name     : Google cloud storage bucket to read raw IR/GLM/VIS files.
+#                             DEFAULT = 'ir-vis-sandwhich'
+#      proc_bucket_name     : Google cloud storage bucket to write normalized numpy files used for model input and csv files containing each day information
+#                             DEFAULT = 'aacp-proc-data'
+#      use_native_ir        : IF keyword set (True), write files for native IR satellite resolution.
+#                             DEFAULT = False -> use satellite VIS resolution
+#      verbose              : IF keyword set (True), print verbose informational messages to terminal.
 # Author and history:
 #     John W. Cooney           2025-01-03. (Adapted from create_vis_ir_numpy_arrays_from_netcdf_files2 but specific to MTG)
 #
@@ -167,7 +172,7 @@ def fetch_convert_trop(_combined_nc, lon_shape, lat_shape, new_weighting, min_va
       #Old Linear function
       d_dat = np.true_divide(d_dat - min_value, min_value - max_value)                                                                         #Normalize the IR BT-tropT data by the max and min values
       d_dat += 1
-    
+
     if (np.amax(d_dat) > 1 or np.amin(d_dat) < 0):                                                                                             #Check to make sure IR-tropT data is properly normalized between 0 and 1
         print('IR data is not normalized properly between 0 and 1??')
         exit()
@@ -346,7 +351,87 @@ def fetch_convert_irdiff(_combined_nc, lon_shape, lat_shape, min_value = -20.0, 
         print('IR data is not normalized properly between 0 and 1??')
         exit()
     return(ir_dat)
+
+####Start of new compute IR gradient calculation###
+def compute_gradient_magnitude(data, sigma=1.0, grad = 'raw'):
+    """
+    Compute gradient magnitude using Sobel operator.
+    Helps distinguish organized features from messy transitions.
     
+    Args:
+        data: 2D numpy array
+        sigma: Gaussian smoothing before gradient (reduces noise). DEFAULT = 1.0
+    
+    Returns:
+        grad_mag: Gradient magnitude normalized to [0, 1]
+    """
+    # Handle invalid data
+    if grad == 'raw':
+        valid_mask = (data >= 0) if np.any(data < 0) else np.ones_like(data, dtype=bool)
+    elif grad == 'btd_diff':
+        valid_mask = (data > -100) & ~np.isnan(data)
+    else:
+        print(f'Not setup to handle grad: {grad}')
+    
+    data_clean = data.copy()
+    data_clean[~valid_mask] = np.nan
+    
+    # Smooth first to reduce noise
+    smoothed = ndimage.gaussian_filter(data_clean, sigma=sigma)
+    
+    # Compute gradients in x and y using Sobel
+    grad_x = ndimage.sobel(smoothed, axis=1)
+    grad_y = ndimage.sobel(smoothed, axis=0)
+    
+    # Compute magnitude
+    grad_mag = np.sqrt(np.square(grad_x) + np.square(grad_y))
+    
+    # Normalize
+    if np.nanmax(grad_mag) > 0:
+        grad_mag = grad_mag / np.nanmax(grad_mag)
+    
+    # Restore invalid regions
+    grad_mag[~valid_mask] = -1
+    grad_mag[np.isnan(grad_mag)] = -1
+    
+    return(grad_mag.astype(np.float32))
+
+def fetch_convert_ir_gradient(_combined_nc, lon_shape, lat_shape, min_value=180.0, max_value=250.0, sigma=1.0):
+    """
+    Compute IR BT gradient magnitude.
+    Sharp gradients at OT edges vs. broader gradients at anvil mergers.
+    
+    Args:
+      _combined_nc: Open netCDF4 Dataset object for the combined IR/VIS/GLM file
+      lon_shape   : Shape of numpy 2D longitude array
+      lat_shape   : Shape of numpy 2D latitude array
+    Keywords:
+      min_value: Minimum temperature value for IR data. DEFAULT = 180.0
+      max_value: Maximum temperature value for IR data. DEFAULT = 250.0
+      sigma    : Gaussian smoothing before gradient. DEFAULT = 1.0
+    Returns:
+      grad_mag: 2D array of IR gradient magnitude normalized to [0, 1]
+    """
+    # Read raw IR data
+    ir_raw = np.copy(np.asarray(_combined_nc.variables['ir_brightness_temperature'][:], dtype=np.float32))[0, :, :]
+
+    # Resize if necessary
+    if ir_raw.shape[0] != lon_shape[0] or ir_raw.shape[1] != lon_shape[1]:
+        ir_raw = cv2.resize(ir_raw, (lon_shape[0], lon_shape[1]), interpolation=cv2.INTER_NEAREST)
+    
+    ir_raw[ir_raw > max_value] = max_value
+    # Mark invalid data
+    na = (ir_raw < 0)
+    
+    # Compute gradient on raw data for physical meaning
+    grad_mag = compute_gradient_magnitude(ir_raw, sigma=sigma, grad='raw')
+    
+    # Handle NaN regions
+    grad_mag[na] = -1
+    
+    return(grad_mag)
+####End of new compute IR gradient calculation###
+ 
 def merge_csv_files(json_root, run_gcs = False, proc_bucket_name = 'aacp-proc-data'):
     '''
     Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
@@ -432,8 +517,8 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                                                      date_range       = [], 
                                                      domain_sector    = None, 
                                                      satellite        = 'MTG1',
-                                                     ir_min_value     = 180, ir_max_value   = 230, 
-                                                     no_write_ir      = False, no_write_vis = False, no_write_irdiff = True, 
+                                                     ir_min_value     = 180, ir_max_value   = 230, gradient_sigma = 1.0,
+                                                     no_write_ir      = False, no_write_vis = False, no_write_ir_gradient = True, no_write_irdiff = True, 
                                                      no_write_glm     = False, no_write_sza = False, no_write_csv = False,
                                                      no_write_cirrus  = True, no_write_snowice = True, no_write_dirtyirdiff = True, no_write_trop = True, 
                                                      run_gcs          = False, use_local = False, real_time = False, del_local = False,
@@ -453,11 +538,13 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
     Args:
         None.
     Functions:
-        fetch_convert_ir     : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
-        fetch_convert_vis    : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
-        fetch_convert_glm    : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
-        fetch_convert_irdiff : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
-        merge_csv_files      : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
+        fetch_convert_ir           : Clips edges of temperature data in degrees kelvin from min_value to max_value and returns normalized BT data
+        fetch_convert_vis          : Clips edges of reflectance data. Normalizes the VIS data by the solar zenith angle and returns normalized VIS data
+        fetch_convert_glm          : Clips edges of flash extent density data. Normalizes the VIS data by the solar zenith angle and returns normalized GLM data
+        fetch_convert_irdiff       : Clips edges of 6.3 - 10.2 micron BTs. Normalizes the data and returns normalized BT_difference data
+        compute_gradient_magnitude : Computes spatial gradient magnitude using Sobel operator
+        fetch_convert_ir_gradient  : Computes IR BT gradient magnitude normalized to [0, 1]
+        merge_csv_files            : Merges ALL csv files in the json root directory. Contains label csv file and VIS/IR/GLM numpy csv file
     Output:
          Creates numpy files that are normalized for model input.
     Keywords:
@@ -472,10 +559,13 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
          date_range           : List containing start date and end date in YYYY-MM-DD hh:mm:ss format ("%Y-%m-%d %H:%M:%S") to run over. (ex. date_range = ['2021-04-30 19:00:00', '2021-05-01 04:00:00'])
                                 DEFAULT = [] -> follow start_index keyword or do all files in VIS/IR directories
          domain_sector        : STRING specifying the satellite domain sector to use to create maps (ex. 'Full', 'CONUS'). DEFAULT = None -> use meso_sector               
+         satellite            : STRING specifying the MTG satellite to use (e.g., 'MTG1'). DEFAULT = 'MTG1'
          ir_min_value         : Minimum value used to clip the IR brightness temperatures. All values below min are set to min. DEFAULT = 180 K
          ir_max_value         : Maximum value used to clip the IR brightness temperatures. All values above max are set to max. DEFAULT = 230 K
+         gradient_sigma       : Gaussian smoothing sigma applied before IR BT gradient calculation. DEFAULT = 1.0
          no_write_ir          : IF keyword set (True), do not write the IR numpy data arrays. DEFAULT = False
          no_write_vis         : IF keyword set (True), do not write the VIS numpy data arrays. DEFAULT = False
+         no_write_ir_gradient : IF keyword set (True), do not write the IR gradient numpy data arrays. DEFAULT = True
          no_write_irdiff      : IF keyword set (True), do not write the IR differnece (11 micron - 6.3 micron numpy file). DEFAULT = True.
          no_write_glm         : IF keyword set (True), do not write the GLM numpy data arrays. DEFAULT = False
          no_write_csv         : IF keyword set (True), do not write the csv numpy data arrays. no_write_ir cannot be set if this is False.
@@ -539,7 +629,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
 #     os.makedirs(ir_dir,  exist_ok = True)
     no_write_sza = True
     keep0 = 'first'
-    if no_write_vis == False:
+    if not no_write_vis:
 #         os.makedirs(vis_dir, exist_ok = True)
         keep0 = 'last'
         no_write_sza = False
@@ -558,21 +648,24 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
 #         trop_dir = join(inroot, 'tropdiff')
 #         os.makedirs(trop_dir, exist_ok = True)
 
+    if domain_sector is None:
+        print("Error: domain_sector must be specified for MTG data.")
+        exit()
     sector = domain_sector.upper()                                                                                                             #Set domain sector string. Used for output directory and which input files to use
     
-    if use_local == False:
+    if not use_local:
         raise Exception("Sorry, MTG is currently not setup to be handled writing and reading from the Google Cloud Platform. Please only use local data for now.")
         ir_files   = list_gcs(og_bucket_name,   os.path.join(date, 'ir'),  ['-Rad' + sector])                                                  #Find IR data files
-        if no_write_vis == False:
+        if not no_write_vis:
             vis_files  = list_gcs(og_bucket_name,   os.path.join(date, 'vis'), ['-Rad' + sector])                                              #Find VIS data files
         comb_files = list_gcs(comb_bucket_name, os.path.join('combined_nc_dir', date), [sector + '_COMBINED_'], delimiter = '*/')              #Find IR/VIS/GLM combined netCDF data files
-        if real_time == True:                                                                                                                  #Only retain latest filename to download if running in real time
+        if real_time:                                                                                                                          #Only retain latest filename to download if running in real time
             ir_files   = [ir_files[-1]]
-            if no_write_vis == False:
+            if not no_write_vis:
                 vis_files  = [vis_files[-1]]
             comb_files = [comb_files[-1]]
         else:
-            if no_write_vis == False:
+            if not no_write_vis:
                 vis_files2  = sorted(glob.glob(os.path.join(vis_dir, '**', '*-Rad' + sector + '-*.nc'), recursive = True))                     #Extract names of all of the GOES visible data files already in local storage
                 if len(vis_files2) > 0:                                                                                                        #Only download files that are not already available on the local disk 
                     fv  = sorted([os.path.basename(g) for g in vis_files])
@@ -594,7 +687,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
         
         os.makedirs(layered_root, exist_ok = True)                                                                                             #Make layered root if is not not already exist
         for g in   ir_files: download_ncdf_gcs(og_bucket_name, g, ir_dir)                                                                      #Download IR data files from Google storage bucket
-        if no_write_vis == False:
+        if not no_write_vis:
             for g in  vis_files: download_ncdf_gcs(og_bucket_name, g, vis_dir)                                                                 #Download VIS data files from Google storage bucket
         for g in comb_files: download_ncdf_gcs(comb_bucket_name, g, layered_root)                                                              #Download IR/VIS/GLM combined netCDF data files from Google storage bucket
 
@@ -634,9 +727,9 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
             print(sector)
             exit()
     
-    if real_time == True:                                                                                                                      #Only retain latest file if running in real time
+    if real_time:                                                                                                                              #Only retain latest file if running in real time
         ir_files = [files[-1]]
-        if no_write_vis == False:
+        if not no_write_vis:
             vis_files = [files[-1]]
         comb_files = [comb_files[-1]]
     else:
@@ -654,8 +747,8 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
             vis_source = files if not no_write_vis else []
             
             #Get datetime-filtered file tuples
-            ir_files_dt = subset_files_by_time(ir_source, 'ir', time0, time1)
-            vis_files_dt = subset_files_by_time(vis_source, 'vis', time0, time1) if not no_write_vis else []
+            ir_files_dt   = subset_files_by_time(ir_source, 'ir', time0, time1)
+            vis_files_dt  = subset_files_by_time(vis_source, 'vis', time0, time1) if not no_write_vis else []
             comb_files_dt = subset_files_by_time(comb_files, 'comb', time0, time1)
             
             #Build timestamp-to-file dictionaries
@@ -763,7 +856,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
 #                 start_index = 0
 #             comb_files = comb_files[start_index:end_index]        
     
-    if no_write_vis == False:
+    if not no_write_vis:
         if len(ir_files) == 0 or len(vis_files) == 0 or len(comb_files) == 0:
             print('No VIS, IR netCDF or labeled json files found?')
             exit()
@@ -802,7 +895,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
     df_comb['date_time'] = df_comb[0].apply(lambda x: datetime.strptime(((re.split('_s|_',  os.path.basename(x)))[5])[0:-1],'%Y%j%H%M%S'))     #Extract date of file scan and put into data structure
     df_ir.rename(columns={0:'ir_files'}, inplace = True)                                                                                       #Rename column IR files
     df_comb.rename(columns={0:'comb_files'}, inplace = True)                                                                                   #Rename column combined VIS/IR files
-    if no_write_vis == False:
+    if not no_write_vis:
         ir_vis = df_vis.merge(df_ir, on = 'date_time', how = 'outer', sort = True)                                                             #Merge the two lists together ensuring that the largest one is kept
         ir_vis = ir_vis.merge(df_comb, on = 'date_time', how = 'outer', sort = True)                                                           #Merge the two lists together ensuring that the largest one is kept
     else:
@@ -812,6 +905,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
     for f in range(ir_vis.shape[0]):    
         date_str    = datetime.strftime(ir_vis['date_time'][f], '%Y%j')                                                                        #Extract loop date string as day-number (determines if date changes)
         ir_results       = []                                                                                                                  #Initialize list to store IR data for single day
+        irg_results      = []                                                                                                                  #Initialize list to store IR gradient data for single day
         ird_results      = []                                                                                                                  #Initialize list to store IR BT difference data for single day
         vis_results      = []                                                                                                                  #Initialize list to store VIS data for single day
         glm_results      = []                                                                                                                  #Initialize list to store GLM data for single day
@@ -822,9 +916,9 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
         sza_results      = []                                                                                                                  #Initialize list to store solar zenith angle data for single day (°)
         if (date_str0 != date_str):    
             if f!= 0:    
-                if no_write_csv == False: 
-                    if verbose == True: print('Writing file containing combined netCDF file names:', join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
-                    if no_write_vis == False:
+                if not no_write_csv: 
+                    if verbose: print('Writing file containing combined netCDF file names:', join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
+                    if not no_write_vis:
                         df_vis2 = pd.DataFrame({'vis_files': v_files, 'vis_index':range(len(v_files))})                                        #Create data structure containing VIS data file names
                         df_vis2['date_time'] = df_vis2['vis_files'].apply(lambda x: datetime.strptime(((re.split('_|-|,|\+', os.path.basename(x)))[23])[:],'%Y%m%d%H%M%S'))  #Extract date of file scan and put into data structure
                         df_vis2.set_index('vis_index')                                                                                         #Extract visible data index and put into data structure
@@ -842,16 +936,16 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                         print('day night variable does not match number of IR files???')
                         exit()
                     df_tod2['date_time'] = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_|-|,|\+', os.path.basename(x)))[23])[:],'%Y%m%d%H%M%S'))#Extract date of file scan and put into data structure
-                    if no_write_vis == False:
+                    if not no_write_vis:
                         ir_vis2 = df_vis2.merge(df_ir2,  on = 'date_time', how = 'outer', sort = True)                                         #Merge the two lists together ensuring that the largest one is kept
                     else:
                         ir_vis2  = df_ir2.copy()
-                    if no_write_glm == False: 
+                    if not no_write_glm: 
                         ir_vis2 = ir_vis2.merge(df_glm2, on = 'date_time', how = 'outer', sort = True)                                         #Merge the two lists together ensuring that the largest one is kept
                  
                     ir_vis2 = ir_vis2.merge(df_comb, on = 'date_time', how = 'outer', sort = True)                                             #Merge the two lists together ensuring that the largest one is kept
                     ir_vis2 = ir_vis2.merge(df_tod2, on = 'date_time', how = 'outer', sort = True)                                             #Merge the two lists together ensuring that the largest one is kept
-                    if use_local == False:  
+                    if not use_local:  
                         csv_exist = list_gcs(proc_bucket_name, join(pref, sector), ['vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'], delimiter = '*/')  #Check GCP to see if file exists
                         if len(csv_exist) == 1:
                             ir_vis3 = load_csv_gcs(proc_bucket_name, csv_exist[0])                                                             #Read in csv dataframe
@@ -864,7 +958,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                             ir_vis3.drop("Unnamed: 0",axis=1, inplace = True)
                             ir_vis2 = pd.concat([ir_vis3, ir_vis2], axis = 0, join = 'outer', ignore_index = True)
                         else:
-                            if run_gcs == True:
+                            if run_gcs:
                                 csv_exist = list_gcs(proc_bucket_name, join(pref, sector), ['vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'], delimiter = '*/')  #Check GCP to see if file exists
                                 if len(csv_exist) == 1:
                                     ir_vis3 = load_csv_gcs(proc_bucket_name, csv_exist[0])                                                     #Read in csv dataframe
@@ -874,33 +968,35 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                     ir_vis2['ir_index']   = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['ir_index'])]
                     ir_vis2['comb_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['comb_index'])]
                     ir_vis2['glm_index']  = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['glm_index'])]
-                    if no_write_vis == False: ir_vis2['vis_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['vis_index'])]
+                    if not no_write_vis: ir_vis2['vis_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['vis_index'])]
                     ir_vis2.to_csv(join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))                              #Write IR/VIS/GLM csv file corresponding to the numpy files     
-                    if run_gcs == True: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)             #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
+                    if run_gcs: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)             #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
                     if len(re.split('real_time', outroot)) > 1:
                         ir_vis2.to_csv(join(outdir, sector, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'))                     #Write IR/VIS/GLM csv file corresponding to the numpy files
-                        if run_gcs == True: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)    #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
+                        if run_gcs: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)    #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
                     else:
                         csv_fname = merge_csv_files(join(json_root, date_str0, sector), run_gcs = run_gcs)                                     #Merge the IR/VIS/GLM with all of the labelled mask csv files for specified date
-                        if run_gcs == True and csv_fname != -1: write_to_gcs(proc_bucket_name, join(pref, sector), csv_fname, del_local = del_local)   #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
+                        if run_gcs and csv_fname != -1: write_to_gcs(proc_bucket_name, join(pref, sector), csv_fname, del_local = del_local)   #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
             
             outdir    = join(outroot, date_str)                                                                                                #Set up output directory path using file date (year + day_number)
-            if run_gcs == True:
+            if run_gcs:
                 pref  = os.path.join(os.path.basename(re.split(os.sep + 'labelled' + os.sep, outdir)[0]), 'labelled', re.split(os.sep + 'labelled' + os.sep, outdir)[1])
             os.makedirs(join(outdir, sector, 'ir'),  exist_ok = True)                                                                          #Create output directory if it does not exist
-            if no_write_irdiff == False:
+            if not no_write_irdiff:
                 os.makedirs(join(outdir, sector, 'ir_diff'), exist_ok = True)                                                                  #Create output directory if it does not exist
-            if no_write_cirrus == False:
+            if not no_write_ir_gradient:
+                os.makedirs(join(outdir, sector, 'ir_gradient'), exist_ok = True)                                                              #Create output directory if it does not exist            
+            if not no_write_cirrus:
                 os.makedirs(join(outdir, sector, 'cirrus'), exist_ok = True)                                                                   #Create output directory if it does not exist
-            if no_write_snowice == False:
+            if not no_write_snowice:
                 os.makedirs(join(outdir, sector, 'snowice'), exist_ok = True)                                                                  #Create output directory if it does not exist
-            if no_write_dirtyirdiff == False:
+            if not no_write_dirtyirdiff:
                 os.makedirs(join(outdir, sector, 'dirtyirdiff'), exist_ok = True)                                                              #Create output directory if it does not exist
-            if no_write_trop == False:
+            if not no_write_trop:
                 os.makedirs(join(outdir, sector, 'tropdiff'), exist_ok = True)                                                                 #Create output directory if it does not exist
-            if no_write_vis == False:
+            if not no_write_vis:
                 os.makedirs(join(outdir, sector, 'vis'), exist_ok = True)                                                                      #Create output directory if it does not exist
-            if no_write_glm == False:
+            if not no_write_glm:
                 os.makedirs(join(outdir, sector, 'glm'), exist_ok = True)                                                                      #Create output directory if it does not exist
             os.makedirs(join(outdir, sector, 'sza'), exist_ok = True)                                                                          #Create output directory if it does not exist
             date_str0 = date_str                                                                                                               #Update previous loop string holder
@@ -910,12 +1006,12 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
             j_files   = []                                                                                                                     #Initialize list to store JSON for single day
             tod       = []                                                                                                                     #Initialize list to store whether or not the scene is considered 'night' or 'day'    
         
-        if pd.notna(ir_vis['comb_files'][f]) == True:
+        if pd.notna(ir_vis['comb_files'][f]):
             with Dataset(ir_vis['comb_files'][f]) as combined_nc_dat:                                                                          #Read combined netCDF file
                 lon_shape = np.copy(np.asarray(combined_nc_dat.variables['longitude'])).shape                                                  #Copy array of longitudes into lon variable
                 lat_shape = np.copy(np.asarray(combined_nc_dat.variables['latitude'])).shape                                                   #Copy array of latitudes into lat variable
     
-                if pd.notna(ir_vis['ir_files'][f]) == True:
+                if pd.notna(ir_vis['ir_files'][f]):
                     if (ir_vis['date_time'][f] != ir_vis['date_time'][f]):                                                                     #Add check to make sure working with same file
                         print(ir_vis['date_time'][f])
                         print(ir_vis['date_time'][f])
@@ -924,22 +1020,23 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                         print('Combined netCDF and IR netCDF dates do not match')
                         exit()
                         
-                    if no_write_ir  == False: 
+                    if not no_write_ir: 
                         i_files.append(os.path.relpath(ir_vis['ir_files'][f]))                                                                 #Add loops IR file name to list
                         ir_results.append(fetch_convert_ir(combined_nc_dat, lon_shape, lat_shape, min_value = ir_min_value, max_value = ir_max_value))         #Add new normalized IR data result to IR list
-                
-                    if no_write_irdiff == False: 
+                    if not no_write_ir_gradient:
+                        irg_results.append(fetch_convert_ir_gradient(combined_nc_dat, lon_shape, lat_shape,  min_value=180.0, max_value=250.0, sigma = gradient_sigma))           #Add new normalized IR gradient data result to IR gradient list
+                    if not no_write_irdiff:
                         ird_results.append(fetch_convert_irdiff(combined_nc_dat, lon_shape, lat_shape))                                        #Add new normalized IR BT difference data result to IRdiff list
-                    if no_write_cirrus == False: 
+                    if not no_write_cirrus: 
                         cirrus_results.append(fetch_convert_cirrus(combined_nc_dat))                                                           #Add new normalized cirrus data result to cirrus list
-                    if no_write_snowice == False: 
+                    if not no_write_snowice: 
                         snowice_results.append(fetch_convert_snowice(combined_nc_dat))                                                         #Add new normalized snowice data result to snowice list
-                    if no_write_dirtyirdiff == False: 
+                    if not no_write_dirtyirdiff: 
                         dirtyird_results.append(fetch_convert_dirtyirdiff(combined_nc_dat, lon_shape, lat_shape))                              #Add new normalized dirtyIR BT difference data result to dirtyIR list
-                    if no_write_trop == False: 
+                    if not no_write_trop: 
                         trop_results.append(fetch_convert_trop(combined_nc_dat, lon_shape, lat_shape, new_weighting))                          #Add new normalized IR BT - tropT difference data result to tropdiff list
-                if no_write_vis == False: 
-                    if pd.notna(ir_vis['vis_files'][f]) == True:
+                if not no_write_vis:
+                    if pd.notna(ir_vis['vis_files'][f]):
                         if (ir_vis['date_time'][f] != ir_vis['date_time'][f]):                                                                 #Add check to make sure working with same file
                             print('Combined netCDF and VIS netCDF dates do not match')
                             exit()
@@ -953,102 +1050,110 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                     else:
                         tod.append(np.nan)    
                 else:
-                    if no_write_sza == False:
+                    if not no_write_sza:
                         vis, tod0, sza = fetch_convert_vis(combined_nc_dat, no_write_vis = no_write_vis)                                       #Extract new normalized VIS data result and if night or day
                         sza_results.append(sza)                                                                                                #Add new SZA data result to SZA list
                         tod.append(tod0)                                                                                                       #Add if night or day to list
                     else:
                         tod.append('night')
                 g_files.append(os.path.relpath(ir_vis['comb_files'][f]))                                                                       #Add loops GLM file name to list for combined netCDF names
-                if no_write_glm == False: 
+                if not no_write_glm: 
                     glm_results.append(fetch_convert_glm(combined_nc_dat, lon_shape, lat_shape))                                               #Add new normalized GLM data result to GLM list
 #                     if len(ir_results) != len(glm_results):
 #                         print('Number of elements in IR array does not match GLM array.')
 
         d_str = datetime.strftime(ir_vis['date_time'][f], '%Y%j%H%M%S')
-        if no_write_ir     == False      and len(ir_results)       > 0: 
+        if not no_write_ir          and len(ir_results)       > 0: 
             os.makedirs(join(outdir, sector, 'ir'), exist_ok = True)
             np.save(join(outdir, sector, 'ir',          d_str + '_ir.npy'),          np.asarray(ir_results))                                   #Write IR data to numpy file
-        if no_write_vis    == False      and len(vis_results)      > 0: 
+        if not no_write_ir_gradient and len(irg_results)  > 0:
+            os.makedirs(join(outdir, sector, 'ir_gradient'), exist_ok = True)
+            np.save(join(outdir, sector, 'ir_gradient', d_str + '_ir_gradient.npy'), np.asarray(irg_results))                                  #Write IR gradient data to numpy file
+        if not no_write_vis         and len(vis_results)      > 0: 
             os.makedirs(join(outdir, sector, 'vis'), exist_ok = True)
             np.save(join(outdir, sector, 'vis',         d_str + '_vis.npy'),         np.asarray(vis_results))                                  #Write VIS data to numpy file
-        if no_write_sza    == False      and len(sza_results)      > 0: 
+        if not no_write_sza         and len(sza_results)      > 0: 
             os.makedirs(join(outdir, sector, 'sza'), exist_ok = True)
             np.save(join(outdir, sector, 'sza',         d_str + '_sza.npy'),         np.asarray(sza_results))                                  #Write solar zenith angle data to numpy file
-        if no_write_glm    == False      and len(glm_results)      > 0: 
+        if not no_write_glm         and len(glm_results)      > 0: 
             os.makedirs(join(outdir, sector, 'glm'), exist_ok = True)
             np.save(join(outdir, sector, 'glm',         d_str + '_glm.npy'),         np.asarray(glm_results))                                  #Write GLM data to numpy file
-        if no_write_irdiff == False      and len(ird_results)      > 0: 
+        if not no_write_irdiff      and len(ird_results)      > 0: 
             os.makedirs(join(outdir, sector, 'ir_diff'), exist_ok = True)
             np.save(join(outdir, sector, 'ir_diff',     d_str + '_ir_diff.npy'),      np.asarray(ird_results))                                 #Write IR BT difference data to numpy file
-        if no_write_cirrus == False      and len(cirrus_results)   > 0: 
+        if not no_write_cirrus      and len(cirrus_results)   > 0: 
             os.makedirs(join(outdir, sector, 'cirrus'), exist_ok = True)
             np.save(join(outdir, sector, 'cirrus',      d_str + '_cirrus.npy'),      np.asarray(cirrus_results))                               #Write cirrus data to numpy file
-        if no_write_snowice == False     and len(snowice_results)  > 0: 
+        if not no_write_snowice     and len(snowice_results)  > 0: 
             os.makedirs(join(outdir, sector, 'snowice'), exist_ok = True)
             np.save(join(outdir, sector, 'snowice',     d_str + '_snowice.npy'),     np.asarray(snowice_results))                              #Write snowice data to numpy file
-        if no_write_dirtyirdiff == False and len(dirtyird_results) > 0: 
+        if not no_write_dirtyirdiff and len(dirtyird_results) > 0: 
             os.makedirs(join(outdir, sector, 'dirtyirdiff'), exist_ok = True)
             np.save(join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy'), np.asarray(dirtyird_results))                             #Write dirtyIR BT difference data to numpy file
-        if no_write_trop == False        and len(trop_results)     > 0: 
+        if not no_write_trop        and len(trop_results)     > 0: 
             os.makedirs(join(outdir, sector, 'tropdiff'), exist_ok = True)
             np.save(join(outdir, sector, 'tropdiff',    d_str + '_tropdiff.npy'),    np.asarray(trop_results))                                 #Write IR BT-TropT difference data to numpy file
-        if run_gcs == True and np.asarray(ir_results).shape[1] <= 2000:
-            if no_write_ir  == False and len(ir_results)  > 0: 
+        if run_gcs and np.asarray(ir_results).shape[1] <= 2000:
+            if not no_write_ir          and len(ir_results)  > 0: 
                 t = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'ir'), join(outdir, sector, 'ir',  d_str + '_ir.npy')), kwargs = {'del_local' : del_local})
                 t.start()
-            if no_write_vis == False and len(vis_results) > 0: 
+            if not no_write_vis         and len(vis_results) > 0: 
                 t1 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'vis'), join(outdir, sector, 'vis', d_str + '_vis.npy')), kwargs = {'del_local' : del_local})
                 t1.start()
-            if no_write_sza == False and len(sza_results) > 0:
+            if not no_write_sza         and len(sza_results) > 0:
                 t2 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'sza'), join(outdir, sector, 'sza', d_str + '_sza.npy')), kwargs = {'del_local' : del_local})
                 t2.start()
-            if no_write_glm == False and len(glm_results) > 0: 
+            if not no_write_glm         and len(glm_results) > 0: 
                 t3 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'glm'), join(outdir, sector, 'glm', d_str + '_glm.npy')), kwargs = {'del_local' : del_local})
                 t3.start()
-            if no_write_irdiff == False and len(ird_results) > 0:
+            if not no_write_irdiff      and len(ird_results) > 0:
                 t4 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_ir_diff.npy')), kwargs = {'del_local' : del_local})
                 t4.start()
-            if no_write_cirrus == False and len(cirrus_results) > 0:
+            if not no_write_cirrus      and len(cirrus_results) > 0:
                 t5 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'cirrus'), join(outdir, sector, 'cirrus', d_str + '_cirrus.npy')), kwargs = {'del_local' : del_local})
                 t5.start()
-            if no_write_snowice == False and len(snowice_results) > 0:
+            if not no_write_snowice     and len(snowice_results) > 0:
                 t6 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'snowice'), join(outdir, sector, 'snowice', d_str + '_snowice.npy')), kwargs = {'del_local' : del_local})
                 t6.start()
-            if no_write_dirtyirdiff == False and len(dirtyird_results) > 0:
+            if not no_write_dirtyirdiff and len(dirtyird_results) > 0:
                 t7 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'dirtyirdiff'), join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy')), kwargs = {'del_local' : del_local})
                 t7.start()
-            if no_write_trop == False and len(trop_results) > 0:
+            if not no_write_trop        and len(trop_results) > 0:
                 t8 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(outdir, sector, 'tropdiff'), join(outdir, sector, 'tropdiff', d_str + '_tropdiff.npy')), kwargs = {'del_local' : del_local})
                 t8.start()
+            if not no_write_ir_gradient and len(irg_results)  > 0: 
+                t9 = Thread(target = write_to_gcs, args = (proc_bucket_name, join(pref, sector, 'ir_gradient'), join(outdir, sector, 'ir_gradient',  d_str + '_ir_gradient.npy')), kwargs = {'del_local' : del_local})
+                t9.start()
         else:
-            if run_gcs == True:
-                if no_write_ir  == False and len(ir_results)  > 0: 
+            if run_gcs:
+                if not no_write_ir          and len(ir_results)  > 0: 
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'ir'),  join(outdir, sector, 'ir',  d_str + '_ir.npy'),  del_local = del_local)  #Write IR data to numpy file in google cloud storage bucket
-                if no_write_vis == False and len(vis_results) > 0: 
+                if not no_write_vis         and len(vis_results) > 0: 
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'vis'), join(outdir, sector, 'vis', d_str + '_vis.npy'), del_local = del_local)  #Write VIS data to numpy filein google cloud storage bucket
-                if no_write_sza == False and len(sza_results) > 0:
+                if not no_write_sza         and len(sza_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'sza'), join(outdir, sector, 'sza', d_str + '_sza.npy'), del_local = del_local)  #Write solar zenith angle data to numpy filein google cloud storage bucket
-                if no_write_glm == False and len(glm_results) > 0: 
+                if not no_write_glm         and len(glm_results) > 0: 
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'glm'), join(outdir, sector, 'glm', d_str + '_glm.npy'), del_local = del_local)  #Write GLM data to numpy filein google cloud storage bucket
-                if no_write_irdiff == False and len(ird_results) > 0:
+                if not no_write_irdiff      and len(ird_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'ir_diff'), join(outdir, sector, 'ir_diff', d_str + '_ir_diff.npy'), del_local = del_local)  #Write IR diff data to numpy filein google cloud storage bucket
-                if no_write_cirrus == False and len(cirrus_results) > 0:
+                if not no_write_cirrus      and len(cirrus_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'cirrus'), join(outdir, sector, 'cirrus', d_str + '_cirrus.npy'), del_local = del_local)  #Write cirrus data to numpy filein google cloud storage bucket
-                if no_write_snowice == False and len(snowice_results) > 0:
+                if not no_write_snowice     and len(snowice_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'snowice'), join(outdir, sector, 'snowice', d_str + '_snowice.npy'), del_local = del_local)  #Write snowice data to numpy filein google cloud storage bucket
-                if no_write_dirtyirdiff == False and len(dirtyird_results) > 0:
+                if not no_write_dirtyirdiff and len(dirtyird_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'dirtyirdiff'), join(outdir, sector, 'dirtyirdiff', d_str + '_dirtyirdiff.npy'), del_local = del_local)  #Write dirtyirdiff data to numpy filein google cloud storage bucket
-                if no_write_trop == False and len(trop_results) > 0:
+                if not no_write_trop        and len(trop_results) > 0:
                     write_to_gcs(proc_bucket_name, join(pref, sector, 'tropdiff'), join(outdir, sector, 'tropdiff', d_str + '_tropdiff.npy'), del_local = del_local)  #Write tropdiff data to numpy filein google cloud storage bucket
-    if no_write_csv == False:
-        if verbose == True: print('Writing file containing combined netCDF file names:', join(outdir, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
+                if not no_write_ir_gradient and len(irg_results)  > 0: 
+                    write_to_gcs(proc_bucket_name, join(pref, sector, 'ir_gradient'), join(outdir, sector, 'ir_gradient', d_str + '_ir_gradient.npy'), del_local = del_local)  #Write IR gradient data to numpy filein google cloud storage bucket
+    if not no_write_csv:
+        if verbose: print('Writing file containing combined netCDF file names:', join(outdir, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))
         df_ir2  = pd.DataFrame({'ir_files' : i_files,  'ir_index':range(len(i_files))})                                                        #Create data structure containing IR data file names
         df_ir2['date_time']  = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_|-|,|\+', os.path.basename(x)))[23])[:],'%Y%m%d%H%M%S'))            #Extract date of file scan and put into data structure
         df_ir2.set_index('ir_index')                                                                                                           #Extract visible data index and put into data structure
         df_tod2 = pd.DataFrame({'day_night':tod})                                                                                              #Create data structure containing IR data file names
         df_tod2['date_time'] = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_|-|,|\+', os.path.basename(x)))[23])[:],'%Y%m%d%H%M%S'))            #Extract date of file scan and put into data structure
-        if no_write_vis == False:
+        if not no_write_vis:
             df_vis2 = pd.DataFrame({'vis_files': v_files, 'vis_index':range(len(v_files))})                                                    #Create data structure containing VIS data file names
             df_vis2['date_time'] = df_vis2['vis_files'].apply(lambda x: datetime.strptime(((re.split('_|-|,|\+', os.path.basename(x)))[23])[:],'%Y%m%d%H%M%S'))      #Extract date of file scan and put into data structure
             df_vis2.set_index('vis_index')                                                                                                     #Extract visible data index and put into data structure
@@ -1069,7 +1174,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
             print('day night variable does not match number of IR files???')
             exit()
 
-        if use_local == False:  
+        if not use_local:  
             csv_exist = list_gcs(proc_bucket_name, join(pref, sector), ['vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'], delimiter = '*/')  #Check GCP to see if file exists
             if len(csv_exist) == 1:
                 ir_vis3 = load_csv_gcs(proc_bucket_name, csv_exist[0])                                                                         #Read in csv dataframe
@@ -1082,7 +1187,7 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                 ir_vis3.drop("Unnamed: 0",axis=1, inplace = True)
                 ir_vis2 = pd.concat([ir_vis3, ir_vis2], axis = 0, join = 'outer', ignore_index = True)            
             else:
-                if run_gcs == True:
+                if run_gcs:
                     csv_exist = list_gcs(proc_bucket_name, join(pref, sector), ['vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'], delimiter = '*/')  #Check GCP to see if file exists
                     if len(csv_exist) == 1:
                         ir_vis3 = load_csv_gcs(proc_bucket_name, csv_exist[0])                                                                 #Read in csv dataframe
@@ -1092,18 +1197,19 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
         ir_vis2['ir_index']   = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['ir_index'])]
         ir_vis2['glm_index']  = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['glm_index'])]
         ir_vis2['comb_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['comb_index'])]
-        if no_write_vis == False:
+        if not no_write_vis:
             ir_vis2['vis_index'] = [idx if np.isfinite(i) else np.nan for idx, i in enumerate(ir_vis2['vis_index'])]
         ir_vis2.to_csv(join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'))                                          #Write IR/VIS/GLM csv file corresponding to the numpy files  
-        if run_gcs == True: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)             #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
+        if run_gcs: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)             #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
         if len(re.split('real_time', outroot)) > 1:
             ir_vis2.to_csv(join(outdir, sector, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'))                                 #Write IR/VIS/GLM csv file corresponding to the numpy files
-            if run_gcs == True: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)    #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
+            if run_gcs: write_to_gcs(proc_bucket_name, join(pref, sector), join(outdir, sector, 'vis_ir_glm_json_combined_ncdf_filenames_with_npy_files.csv'), del_local = del_local)    #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
         else:
             csv_fname = merge_csv_files(join(json_root, date_str0, sector), run_gcs = run_gcs)                                                 #Merge the IR/VIS/GLM with all of the labelled mask csv files for specified date
-            if run_gcs == True and csv_fname != -1: write_to_gcs(proc_bucket_name, join(pref, sector), csv_fname, del_local = del_local)       #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
+            if run_gcs and csv_fname != -1: write_to_gcs(proc_bucket_name, join(pref, sector), csv_fname, del_local = del_local)       #Write the IR/VIS/GLM with all of the labelled mask csv files for specified date to google cloud storage
 
     return(join(outdir, sector, 'ir', 'ir.npy'), np.asarray(ir_results).shape)
+
 
 def subset_files_by_time(file_list, filetype, time0, time1):
     # Return sorted list of (timestamp, file)
@@ -1114,7 +1220,6 @@ def subset_files_by_time(file_list, filetype, time0, time1):
 
 def extract_datetime_from_filename(filename, filetype):
     basename = os.path.basename(filename)
-    
     if filetype == 'vis' or filetype == 'ir':
         file_attr = re.split('_|-|,|\+', basename)
         datestr = file_attr[23][:14]  # YYYYMMDDHHMMSS
@@ -1125,9 +1230,10 @@ def extract_datetime_from_filename(filename, filetype):
         datestr = file_attr[5][:13]  # YYYYDOYHHMMSS
         doy = int(datestr[4:7])
         return datetime.strptime(f"{datestr[0:4]} {doy} {datestr[7:]}", "%Y %j %H%M%S")
-        
+
+
 def main():
-    create_vis_ir_numpy_arrays_from_netcdf_files2()
+    mtg_create_vis_ir_numpy_arrays_from_netcdf_files2()
     
 if __name__ == '__main__':
     main()
