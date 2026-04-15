@@ -1051,7 +1051,7 @@ def run_tf_3_channel_plume_updraft_day_predict(date1          = None, date2 = No
         exit()
 
     if no_plot:
-      lbl_files = sorted(set(glob.glob(os.path.join(outroot, 'labelled', pat, '**', '**', '*.npy'), recursive = True)))
+      lbl_files = sorted(set(glob.glob(os.path.join(outroot, 'labelled', pat, d_str2, sector00, '**', '*.npy'), recursive = True)))
       if len(lbl_files) > 0:     
         [os.remove(x) for x in lbl_files]                                                                                                                                   #Remove all combined netCDF files from local storage
 
