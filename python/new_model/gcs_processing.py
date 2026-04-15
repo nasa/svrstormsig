@@ -38,6 +38,8 @@ from google.cloud import vision
 from google.cloud import storage
 from io import BytesIO
 import json
+# import tempfile
+
 #Finding file matches in GCS paths
 def list_gcs(bucket_name, gcs_prefix, gcs_patterns, delimiter = '/'):
     """Lists all file names and paths given the google cloud storage bucket and patterns."""
@@ -295,7 +297,41 @@ def write_to_gcs(bucket_name, prefix, source_blob_file, del_local = False):
     bucket = storage_client.bucket(bucket_name)                                                                                                                             #Extract bucket information
     blob   = bucket.blob(os.path.join(prefix, os.path.basename(source_blob_file)))                                                                                          #Create blob for file in google cloud
     blob.upload_from_filename(source_blob_file)                                                                                                                             #Upload file to google cloud from locally stored file name and path (ex. '/mnt/disks/data/results/test.npy')
-    if del_local == True: os.remove(source_blob_file)                                                                                                                       #Delete local copy of file
+    if del_local: os.remove(source_blob_file)                                                                                                                               #Delete local copy of file
+
+
+# def write_npy_to_gcs_from_memory(bucket_name, prefix, file_name, numpy_array):
+#     """
+#     Writes a numpy array to GCS. Uses memory if possible, falls back to disk for large arrays.
+#     """
+#     if prefix and not prefix.endswith('/'):
+#         prefix += '/'
+#     
+#     storage_client = storage.Client()
+#     bucket = storage_client.bucket(bucket_name)
+#     blob = bucket.blob(os.path.join(prefix, file_name))
+#     
+#     # Try in-memory first
+#     try:
+#         buffer = BytesIO()
+#         np.save(buffer, numpy_array)
+#         buffer.seek(0)
+#         blob.upload_from_string(buffer.getvalue(), content_type='application/octet-stream')
+#         print(f"Uploaded {file_name} (in-memory)")
+#     except MemoryError:
+#         # Fall back to temporary disk file
+#         print(f"Array too large for memory - using temporary disk file...")
+#         with tempfile.NamedTemporaryFile(suffix='.npy', delete=False) as tmp:
+#             tmp_path = tmp.name
+#         
+#         try:
+#             np.save(tmp_path, numpy_array)
+#             blob.upload_from_filename(tmp_path, content_type='application/octet-stream')
+#             print(f"Uploaded {file_name} (via temp file)")
+#         finally:
+#             if os.path.exists(tmp_path):
+#                 os.remove(tmp_path)
+
 
 def copy_blob_gcs(source_bucket_name, source_blob_file, destination_bucket_name, destination_blob_file):
     """Moves a blob from one bucket to another with a new name."""
