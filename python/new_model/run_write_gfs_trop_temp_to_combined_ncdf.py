@@ -45,7 +45,7 @@ import glob
 import os
 import re
 from math import ceil, floor
-from scipy.ndimage import label, generate_binary_structure
+from scipy.ndimage import label, generate_binary_structure, uniform_filter, generic_filter
 import xarray as xr
 from datetime import datetime, timedelta
 import requests
@@ -215,7 +215,7 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
     counter = 0
     for l in range(len(nc_files)):
         nc_file = nc_files[l]
-        if use_local == False:
+        if not use_local:
             os.makedirs(inroot, exist_ok = True)
             download_ncdf_gcs(c_bucket_name, nc_file, inroot)                                                                                          #Download netCDF file from GCP
 
@@ -228,10 +228,10 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
             x_sat = f['longitude'].values                                                                                                              #Extract latitude and longitude satellite domain
             y_sat = f['latitude'].values                                                                                                               #Extract latitude and longitude satellite domain
             var_keys = list(f.keys())                                                                                                                  #Get list of variables contained within the netCDF file
-            for var_key in var_keys:
-                if 'tropopause_temperature' in var_key:                                                                                                #Check to see if tropopause temperature was already written to combined netCDF file
-                    check = 1                                                                                                                          #Set check to 1
-                    con_files = f['tropopause_temperature'].attrs['contributing_files']
+            if any('tropopause_temperature' in k for k in var_keys):                                                                                   #Check to see if tropopause temperature was already written to combined netCDF file
+                check = 1                                                                                                                              #Set check to 1
+                con_files = f['tropopause_temperature'].attrs.get('contributing_files', [])
+
 #             try:
 #                 xyres = f.spatial_resolution
 #             except:
@@ -244,10 +244,10 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
         
 #        xyres0 = np.float64(re.split('km', xyres)[0])
         
-        if check == 0 or rewrite == True:
+        if check == 0 or rewrite:
 #             bt0   = bt.values[0, :, :]                 
             x_sat = convert_longitude(x_sat, to_model = True)                                                                                          #Convert longitudes to be 0-360 degrees
-            if real_time == False:
+            if not real_time:
                 near_date0 = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'down')                                                                   #Find nearest date to satellite scan
                 near_date1 = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'up')                                                                     #Find nearest date to satellite scan
                 nd_str0    = near_date0.strftime("%Y%m%d%H")                                                                                           #Extract nearest date to satellite scan as a string
@@ -279,7 +279,19 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                         nd_str1    = near_date1.strftime("%Y%m%d%H")                                                                                   #Extract nearest date to satellite scan as a string
                     else:    
                         print('No file found for previous or future GFS file date??')
+                        print(gdates)
+                        print(gdate)
+                        print()
+                        print(near_date0)
+                        print(near_date1)
                         print(nd_str0)
+                        print()
+                        print(gfs_files)
+                        print(gfs_root)
+                        print()
+                        print(nc_file)
+                        print(dt64)
+                        print(date)
                         exit()
                 
                 if no_f0 == 1:
@@ -322,14 +334,14 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
                         nowrite = True
                      
             if not nowrite:
-                if use_local == False:
+                if not use_local:
                     gfile0 = os.path.join(gfs_root, os.path.basename(os.path.dirname(os.path.dirname(gfs_file0))), os.path.basename(os.path.dirname(gfs_file0)), os.path.basename(gfs_file0))
                     gfile1 = os.path.join(gfs_root, os.path.basename(os.path.dirname(os.path.dirname(gfs_file1))), os.path.basename(os.path.dirname(gfs_file1)), os.path.basename(gfs_file1))
-                    if os.path.isfile(gfile0) == False:
+                    if not os.path.isfile(gfile0):
                         os.makedirs(os.path.dirname(gfile0), exist_ok = True)
                         download_ncdf_gcs(m_bucket_name, gfs_file0, os.path.dirname(gfile0))                                                           #Download netCDF file from GCP
     
-                    if os.path.isfile(gfile1) == False:
+                    if not os.path.isfile(gfile1):
                         os.makedirs(os.path.dirname(gfile1), exist_ok = True)
                         download_ncdf_gcs(m_bucket_name, gfs_file1, os.path.dirname(gfile1))                                                           #Download netCDF file from GCP
     
@@ -371,7 +383,7 @@ def run_write_gfs_trop_temp_to_combined_ncdf(inroot          = os.path.join('..'
 #                         lons  = (np.asarray(lons)).tolist()
 #                         lats  = (np.asarray(lats)).tolist()
                     
-                if gfile1 != gfile11 and real_time == False:
+                if gfile1 != gfile11 and not real_time:
                     if gfile1 != '':
                         grbs1   = pygrib.open( gfile1 )                                                                                                #Open Grib file to read
                         try:
@@ -679,49 +691,72 @@ def gfs_nearest_time(date, dt, ROUND = 'round'):
     return(datetime(date.year, date.month, date.day) + timedelta(seconds = k*dt))                                                                      #Return requested date and time
 
 
+# def circle_mean_with_offset(arr, radius, offset):
+#     def circle_mean(x):
+#         return(np.mean(x) + offset * np.std(x))
+#     
+#     return(generic_filter(arr, circle_mean, size=2*radius+1, mode='wrap'))
+
 def circle_mean_with_offset(arr, radius, offset):
-    def circle_mean(x):
-        return(np.mean(x) + offset * np.std(x))
-    
-    return(generic_filter(arr, circle_mean, size=2*radius+1, mode='wrap'))
+    size = 2 * radius + 1
+    mean = uniform_filter(arr, size=size, mode='wrap')                # Fast C-level mean
+    mean_sq = uniform_filter(np.square(arr), size=size, mode='wrap')  # For std calculation
+    std = np.sqrt(np.maximum(mean_sq - np.square(mean), 0))           # Numerically stable std
+    return(mean + offset * std)
 
 
+# def lanczos_kernel(size, cutoff):
+#     """
+#     Generate a Lanczos kernel.
+# 
+#     Parameters:
+#         - size: The size of the kernel (should be an odd number).
+#         - cutoff: The cutoff frequency, which determines the width of the central lobe.
+# 
+#     Returns:
+#         - A 1D numpy array representing the Lanczos kernel.
+#     """
+#     if size % 2 == 0:
+#         raise ValueError("Kernel size should be an odd number")
+# 
+#     half_size = size // 2
+#     kernel = np.zeros((size, size), dtype=float)
+#     x, y = np.meshgrid(coords, coords, indexing='ij')
+#     for x in range(-half_size, half_size + 1):
+#             for y in range(-half_size, half_size + 1):
+#                 distance = np.sqrt(x**2 + y**2)
+#                 if distance == 0:
+#                     kernel[x + half_size, y + half_size] = 1.0
+#                 elif distance <= cutoff:
+#                     kernel[x + half_size, y + half_size] = (
+#                         np.sinc(x / cutoff) * np.sinc(y / cutoff)
+#                     )
+# 
+# #     for x in range(-half_size, half_size + 1):
+# #         if x == 0:
+# #             kernel[x + half_size] = 1.0
+# #         elif abs(x) <= cutoff:
+# #             kernel[x + half_size] = np.sinc(x / cutoff) * np.sinc(x / half_size)
+# 
+#     return(kernel / kernel.sum())
 
-
+# Fully vectorized
 def lanczos_kernel(size, cutoff):
-    """
-    Generate a Lanczos kernel.
-
-    Parameters:
-        - size: The size of the kernel (should be an odd number).
-        - cutoff: The cutoff frequency, which determines the width of the central lobe.
-
-    Returns:
-        - A 1D numpy array representing the Lanczos kernel.
-    """
     if size % 2 == 0:
         raise ValueError("Kernel size should be an odd number")
-
     half_size = size // 2
-    kernel = np.zeros((size, size), dtype=float)
-    for x in range(-half_size, half_size + 1):
-            for y in range(-half_size, half_size + 1):
-                distance = np.sqrt(x**2 + y**2)
-                if distance == 0:
-                    kernel[x + half_size, y + half_size] = 1.0
-                elif distance <= cutoff:
-                    kernel[x + half_size, y + half_size] = (
-                        np.sinc(x / cutoff) * np.sinc(y / cutoff)
-                    )
+    coords = np.arange(-half_size, half_size + 1)
+    x, y = np.meshgrid(coords, coords, indexing='ij')
+    distance = np.sqrt(np.square(x) + np.square(y))
 
-#     for x in range(-half_size, half_size + 1):
-#         if x == 0:
-#             kernel[x + half_size] = 1.0
-#         elif abs(x) <= cutoff:
-#             kernel[x + half_size] = np.sinc(x / cutoff) * np.sinc(x / half_size)
-
+    kernel = np.where(
+        distance == 0, 1.0,
+        np.where(distance <= cutoff,
+                 np.sinc(x / cutoff) * np.sinc(y / cutoff), 0.0)
+    )
     return(kernel / kernel.sum())
-
+    
+    
 def weighted_cold_bias(arr, radius, weight=0.1):
     def func(x):
         sorted_vals = np.sort(x)
