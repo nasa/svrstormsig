@@ -150,7 +150,7 @@ def ResPath(filters, length, inp):
     return out
 
 
-def MultiResUnet(height, width, n_channels, pretrained_weights = None, loss_weights = None, adam_optimizer = 1e-3):
+def MultiResUnet(height, width, n_channels, pretrained_weights = None, loss_weights = None, adam_optimizer = 1e-3, adam_epsilon= 1e-7):
     '''
     MultiResUNet
     
@@ -205,10 +205,10 @@ def MultiResUnet(height, width, n_channels, pretrained_weights = None, loss_weig
     model = Model(inputs=[inputs], outputs=[conv10])
     if loss_weights:
         #model.compile(optimizer = Adam(lr = 5e-5), loss = 'binary_crossentropy', metrics = ['accuracy'], loss_weights = loss_weights)
-        model.compile(optimizer = Adam(learning_rate = adam_optimizer), loss = BinaryCrossentropy(sample_weight = loss_weights), metrics = ['accuracy'])      #Configure model for training
+        model.compile(optimizer = Adam(learning_rate = adam_optimizer, epsilon = adam_epsilon), loss = BinaryCrossentropy(sample_weight = loss_weights), metrics = ['accuracy'])      #Configure model for training
         #options = tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom = True))
     else:
-        model.compile(optimizer = Adam(learning_rate = adam_optimizer), loss = 'binary_crossentropy', metrics = ['accuracy'])                                 #Configure model for training
+        model.compile(optimizer = Adam(learning_rate = adam_optimizer, epsilon = adam_epsilon), loss = 'binary_crossentropy', metrics = ['accuracy'])                                 #Configure model for training
    
     if(pretrained_weights):
         model.load_weights(pretrained_weights)
