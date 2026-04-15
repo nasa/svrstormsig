@@ -128,7 +128,7 @@ import sys
 sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.glm_gridder2 import glm_gridder2
-from glm_gridder.combine_ir_glm_vis import combine_ir_glm_vis
+from glm_gridder.combine_ir_glm_vis_parallel import combine_ir_glm_vis_parallel
 from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, load_csv_gcs
 from gridrad.rdr_sat_utils_jwc import read_dcotss_er2_plane, doctss_read_lat_lon_alt_trajectory_particle_ncdf
@@ -579,7 +579,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
         plane_df = pd.DataFrame()
         pdates   = []
     
-    pool     = mp.Pool(2, maxtasksperchild = 2)                                                                                                #Set up multiprocessing threads
+    pool     = mp.Pool(3, maxtasksperchild = 20)                                                                                               #Set up multiprocessing threads
     results  = [pool.apply_async(create_image_from_three_modalities_parallel, args=(row, ir_files, vis_files, 
                                                                                     glm_in_dir, glm_out_dir, layered_dir,
                                                                                     img_out_dir, no_plot_glm, no_plot, 
@@ -603,7 +603,7 @@ def run_create_image_from_three_modalities2(inroot             = os.path.join('.
             rerun_vfiles = find_images_not_created(fnames, ir_files[start_index:end_index+1])                                                  #Find vis data files that were not created        
         print('VIS/IR image files not created', rerun_vfiles)
         rerun_ifiles = [ir_files[vis_files.index(rv)] for rv in rerun_vfiles]                                                                  #Find ir files corresponding to vis files
-        pool         = mp.Pool(2, maxtasksperchild =2)                                                                                         #Set up multiprocessing threads
+        pool         = mp.Pool(3, maxtasksperchild = 20)                                                                                       #Set up multiprocessing threads
         results      = [pool.apply_async(create_image_from_three_modalities_parallel, args=(row, rerun_ifiles, rerun_vfiles, 
                                                                                             glm_in_dir, glm_out_dir, layered_dir,
                                                                                             img_out_dir, no_plot_glm, no_plot, 
@@ -682,7 +682,6 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                                                 grid_data, colorblind, plt_img_name, domain_sector, meso_sector, 
                                                 plt_cbar, subset, region, run_gcs, write_combined_gcs, del_local, out_bucket_name, plane_bucket_name, 
                                                 replot_img, rewrite_nc, append_nc, plane_df, pdates, plt_traj, rm_dates, verbose):   
-    from netCDF4 import Dataset
     ir_files  = sorted(ir_files)
     vis_files = sorted(vis_files)
     if domain_sector == None:
@@ -746,68 +745,68 @@ def create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                 d_range   = []
             glm_grid = glm_gridder2(outfile = glm_file, glm_root = glm_in_dir, no_plot = no_plot_glm, date_str = date_str3, date_range = d_range, ctr_lon0 = lon_c, ctr_lat0 = lat_c, sector = str_sec, verbose = verbose)
         if not no_write_vis:
-            combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                              #Create netCDF file containing IR, GLM and VIS data
-                                                             ir_file              = ir_files[f], 
-                                                             glm_file             = glm_file, 
-                                                             layered_dir          = layered_dir,
-                                                             no_write_glm         = no_write_glm,  
-                                                             no_write_vis         = no_write_vis,
-                                                             no_write_irdiff      = no_write_irdiff, 
-                                                             no_write_cirrus      = no_write_cirrus, 
-                                                             no_write_snowice     = no_write_snowice, 
-                                                             no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                             universal_file       = universal_file, 
-                                                             rewrite_nc           = rewrite_nc, 
-                                                             append_nc            = append_nc, 
-                                                             xy_bounds            = xy_bounds, 
-                                                             verbose              = verbose)
+            combined_nc_file, arr_shape = combine_ir_glm_vis_parallel(vis_file             = vis_files[f],                                              #Create netCDF file containing IR, GLM and VIS data
+                                                                      ir_file              = ir_files[f], 
+                                                                      glm_file             = glm_file, 
+                                                                      layered_dir          = layered_dir,
+                                                                      no_write_glm         = no_write_glm,  
+                                                                      no_write_vis         = no_write_vis,
+                                                                      no_write_irdiff      = no_write_irdiff, 
+                                                                      no_write_cirrus      = no_write_cirrus, 
+                                                                      no_write_snowice     = no_write_snowice, 
+                                                                      no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                      universal_file       = universal_file, 
+                                                                      rewrite_nc           = rewrite_nc, 
+                                                                      append_nc            = append_nc, 
+                                                                      xy_bounds            = xy_bounds, 
+                                                                      verbose              = verbose)
         else:
-            combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = '',                                                        #Create netCDF file containing IR, GLM and VIS data
-                                                             ir_file              = ir_files[f], 
-                                                             glm_file             = glm_file, 
-                                                             layered_dir          = layered_dir,
-                                                             no_write_glm         = no_write_glm,  
-                                                             no_write_vis         = no_write_vis,
-                                                             no_write_irdiff      = no_write_irdiff, 
-                                                             no_write_cirrus      = no_write_cirrus, 
-                                                             no_write_snowice     = no_write_snowice, 
-                                                             no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                             universal_file       = universal_file, 
-                                                             rewrite_nc           = rewrite_nc, 
-                                                             append_nc            = append_nc, 
-                                                             xy_bounds            = xy_bounds, 
-                                                             verbose              = verbose)
+            combined_nc_file, arr_shape = combine_ir_glm_vis_parallel(vis_file             = '',                                                        #Create netCDF file containing IR, GLM and VIS data
+                                                                      ir_file              = ir_files[f], 
+                                                                      glm_file             = glm_file, 
+                                                                      layered_dir          = layered_dir,
+                                                                      no_write_glm         = no_write_glm,  
+                                                                      no_write_vis         = no_write_vis,
+                                                                      no_write_irdiff      = no_write_irdiff, 
+                                                                      no_write_cirrus      = no_write_cirrus, 
+                                                                      no_write_snowice     = no_write_snowice, 
+                                                                      no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                      universal_file       = universal_file, 
+                                                                      rewrite_nc           = rewrite_nc, 
+                                                                      append_nc            = append_nc, 
+                                                                      xy_bounds            = xy_bounds, 
+                                                                      verbose              = verbose)
     else:
         if not no_write_vis:
-            combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = vis_files[f],                                              #Create netCDF file containing IR, GLM and VIS data
-                                                             ir_file              = ir_files[f], 
-                                                             layered_dir          = layered_dir,
-                                                             no_write_glm         = no_write_glm,  
-                                                             no_write_vis         = no_write_vis,  
-                                                             no_write_irdiff      = no_write_irdiff, 
-                                                             no_write_cirrus      = no_write_cirrus, 
-                                                             no_write_snowice     = no_write_snowice, 
-                                                             no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                             universal_file       = universal_file, 
-                                                             rewrite_nc           = rewrite_nc, 
-                                                             append_nc            = append_nc, 
-                                                             xy_bounds            = xy_bounds, 
-                                                             verbose              = verbose)
+            combined_nc_file, arr_shape = combine_ir_glm_vis_parallel(vis_file             = vis_files[f],                                              #Create netCDF file containing IR, GLM and VIS data
+                                                                      ir_file              = ir_files[f], 
+                                                                      layered_dir          = layered_dir,
+                                                                      no_write_glm         = no_write_glm,  
+                                                                      no_write_vis         = no_write_vis,  
+                                                                      no_write_irdiff      = no_write_irdiff, 
+                                                                      no_write_cirrus      = no_write_cirrus, 
+                                                                      no_write_snowice     = no_write_snowice, 
+                                                                      no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                      universal_file       = universal_file, 
+                                                                      rewrite_nc           = rewrite_nc, 
+                                                                      append_nc            = append_nc, 
+                                                                      xy_bounds            = xy_bounds, 
+                                                                      verbose              = verbose)
         else:
-            combined_nc_file, arr_shape = combine_ir_glm_vis(vis_file             = '',                                                        #Create netCDF file containing IR, GLM and VIS data
-                                                             ir_file              = ir_files[f], 
-                                                             layered_dir          = layered_dir,
-                                                             no_write_glm         = no_write_glm,  
-                                                             no_write_vis         = no_write_vis,  
-                                                             no_write_irdiff      = no_write_irdiff, 
-                                                             no_write_cirrus      = no_write_cirrus, 
-                                                             no_write_snowice     = no_write_snowice, 
-                                                             no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                             universal_file       = universal_file, 
-                                                             rewrite_nc           = rewrite_nc, 
-                                                             append_nc            = append_nc, 
-                                                             xy_bounds            = xy_bounds, 
-                                                             verbose              = verbose)
+            combined_nc_file, arr_shape = combine_ir_glm_vis_parallel(vis_file             = '',                                                        #Create netCDF file containing IR, GLM and VIS data
+                                                                      ir_file              = ir_files[f], 
+                                                                      layered_dir          = layered_dir,
+                                                                      no_write_glm         = no_write_glm,  
+                                                                      no_write_vis         = no_write_vis,  
+                                                                      no_write_irdiff      = no_write_irdiff, 
+                                                                      no_write_cirrus      = no_write_cirrus, 
+                                                                      no_write_snowice     = no_write_snowice, 
+                                                                      no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                      universal_file       = universal_file, 
+                                                                      rewrite_nc           = rewrite_nc, 
+                                                                      append_nc            = append_nc, 
+                                                                      xy_bounds            = xy_bounds, 
+                                                                      verbose              = verbose)
             
     fnames2 = combined_nc_file                                                                                                                 #Store the names of the images in a list
     if not no_plot:

@@ -12,7 +12,7 @@
 #     None.
 # Functions:
 #     glm_gridder                                     : Extracts and puts the GLM data and puts onto the VIS/IR data grid
-#     mtg_combine_ir_glm_vis                          : Combines GLM, IR, VIS data and puts into netCDF file.
+#     mtg_combine_ir_glm_vis_parallel                 : Combines GLM, IR, VIS data and puts into netCDF file.
 #     img_from_three_modaltities                      : Creates 3-layered image that is input into labelme software
 #     mtg_create_image_from_three_modalities_parallel : Function that allows for multiprocessing.
 #     find_images_not_created                         : Find images that were inexplicably skipped and rerun to make those images
@@ -119,7 +119,7 @@ import sys
 sys.path.insert(1, os.path.dirname(__file__))
 sys.path.insert(2, os.path.dirname(os.getcwd()))
 from glm_gridder.glm_gridder2 import glm_gridder2
-from glm_gridder.mtg_combine_ir_glm_vis import mtg_combine_ir_glm_vis
+from glm_gridder.mtg_combine_ir_glm_vis_parallel import mtg_combine_ir_glm_vis_parallel
 from glm_gridder.img_from_three_modalities2 import img_from_three_modalities2
 from new_model.gcs_processing import write_to_gcs, download_ncdf_gcs, list_gcs, load_csv_gcs
 from glm_gridder.run_create_image_from_three_modalities import sort_mtg_irvis_files
@@ -157,7 +157,7 @@ def run_mtg_create_image_from_three_modalities2(inroot             = os.path.joi
         None.
     Functions:
         glm_gridder                                     : Extracts and puts the GLM data and puts onto the VIS/IR data grid
-        mtg_combine_ir_glm_vis                          : Combines GLM, IR, VIS data and puts into netCDF file.
+        mtg_combine_ir_glm_vis_parallel                 : Combines GLM, IR, VIS data and puts into netCDF file.
         img_from_three_modaltities                      : Creates 3-layered image that is input into labelme software
         mtg_create_image_from_three_modalities_parallel : Function that allows for multiprocessing.
         find_images_not_created                         : Find images that were inexplicably skipped and rerun to make those images
@@ -505,7 +505,7 @@ def run_mtg_create_image_from_three_modalities2(inroot             = os.path.joi
         print('No files within date range! Returning empty sets so this date is skipped.')
         return([], [], None)
 
-    pool     = mp.Pool(2, maxtasksperchild = 2)                                                                                                #Set up multiprocessing threads
+    pool     = mp.Pool(3, maxtasksperchild = 20)                                                                                               #Set up multiprocessing threads
     results  = [pool.apply_async(mtg_create_image_from_three_modalities_parallel, args=(row, ir_files, vis_files, 
                                                                                         glm_in_dir, glm_out_dir, layered_dir,
                                                                                         img_out_dir, no_plot_glm, no_plot, 
@@ -529,7 +529,7 @@ def run_mtg_create_image_from_three_modalities2(inroot             = os.path.joi
             rerun_vfiles = find_images_not_created(fnames, ir_files[start_index:end_index+1])                                                  #Find vis data files that were not created        
         print('VIS/IR image files not created', rerun_vfiles)
         rerun_ifiles = [ir_files[vis_files.index(rv)] for rv in rerun_vfiles]                                                                  #Find ir files corresponding to vis files
-        pool         = mp.Pool(2, maxtasksperchild =2)                                                                                         #Set up multiprocessing threads
+        pool         = mp.Pool(3, maxtasksperchild = 20)                                                                                       #Set up multiprocessing threads
         results      = [pool.apply_async(mtg_create_image_from_three_modalities_parallel, args=(row, rerun_ifiles, rerun_vfiles, 
                                                                                                 glm_in_dir, glm_out_dir, layered_dir,
                                                                                                 img_out_dir, no_plot_glm, no_plot, 
@@ -673,70 +673,70 @@ def mtg_create_image_from_three_modalities_parallel(f, ir_files, vis_files,
                 d_range   = []
             glm_grid = glm_gridder2(outfile = glm_file, glm_root = glm_in_dir, no_plot = no_plot_glm, date_str = date_str3, date_range = d_range, ctr_lon0 = lon_c, ctr_lat0 = lat_c, sector = str_sec, verbose = verbose)
         if no_write_vis == False:
-            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
-                                                                 satellite            = satellite,
-                                                                 domain_sector        = sector,
-                                                                 layered_dir          = layered_dir,
-                                                                 no_write_glm         = no_write_glm,  
-                                                                 no_write_vis         = no_write_vis,
-                                                                 no_write_irdiff      = no_write_irdiff, 
-                                                                 no_write_cirrus      = no_write_cirrus, 
-                                                                 no_write_snowice     = no_write_snowice, 
-                                                                 no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                                 universal_file       = universal_file, 
-                                                                 rewrite_nc           = rewrite_nc, 
-                                                                 append_nc            = append_nc, 
-                                                                 xy_bounds            = xy_bounds, 
-                                                                 verbose              = verbose)
+            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis_parallel(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
+                                                                          satellite            = satellite,
+                                                                          domain_sector        = sector,
+                                                                          layered_dir          = layered_dir,
+                                                                          no_write_glm         = no_write_glm,  
+                                                                          no_write_vis         = no_write_vis,
+                                                                          no_write_irdiff      = no_write_irdiff, 
+                                                                          no_write_cirrus      = no_write_cirrus, 
+                                                                          no_write_snowice     = no_write_snowice, 
+                                                                          no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                          universal_file       = universal_file, 
+                                                                          rewrite_nc           = rewrite_nc, 
+                                                                          append_nc            = append_nc, 
+                                                                          xy_bounds            = xy_bounds, 
+                                                                          verbose              = verbose)
         else:
-            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
-                                                                 satellite            = satellite,
-                                                                 domain_sector        = sector,
-                                                                 layered_dir          = layered_dir,
-                                                                 no_write_glm         = no_write_glm,  
-                                                                 no_write_vis         = no_write_vis,
-                                                                 no_write_irdiff      = no_write_irdiff, 
-                                                                 no_write_cirrus      = no_write_cirrus, 
-                                                                 no_write_snowice     = no_write_snowice, 
-                                                                 no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                                 universal_file       = universal_file, 
-                                                                 rewrite_nc           = rewrite_nc, 
-                                                                 append_nc            = append_nc, 
-                                                                 xy_bounds            = xy_bounds, 
-                                                                 verbose              = verbose)
+            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis_parallel(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
+                                                                          satellite            = satellite,
+                                                                          domain_sector        = sector,
+                                                                          layered_dir          = layered_dir,
+                                                                          no_write_glm         = no_write_glm,  
+                                                                          no_write_vis         = no_write_vis,
+                                                                          no_write_irdiff      = no_write_irdiff, 
+                                                                          no_write_cirrus      = no_write_cirrus, 
+                                                                          no_write_snowice     = no_write_snowice, 
+                                                                          no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                          universal_file       = universal_file, 
+                                                                          rewrite_nc           = rewrite_nc, 
+                                                                          append_nc            = append_nc, 
+                                                                          xy_bounds            = xy_bounds, 
+                                                                          verbose              = verbose)
     else:
         if no_write_vis == False:
-            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
-                                                                 satellite            = satellite,
-                                                                 domain_sector        = sector,
-                                                                 layered_dir          = layered_dir,
-                                                                 no_write_glm         = no_write_glm,  
-                                                                 no_write_vis         = no_write_vis,  
-                                                                 no_write_irdiff      = no_write_irdiff, 
-                                                                 no_write_cirrus      = no_write_cirrus, 
-                                                                 no_write_snowice     = no_write_snowice, 
-                                                                 no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                                 universal_file       = universal_file, 
-                                                                 rewrite_nc           = rewrite_nc, 
-                                                                 append_nc            = append_nc, 
-                                                                 xy_bounds            = xy_bounds, 
-                                                                 verbose              = verbose)
+            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis_parallel(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
+                                                                          satellite            = satellite,
+                                                                          domain_sector        = sector,
+                                                                          layered_dir          = layered_dir,
+                                                                          no_write_glm         = no_write_glm,  
+                                                                          no_write_vis         = no_write_vis,  
+                                                                          no_write_irdiff      = no_write_irdiff, 
+                                                                          no_write_cirrus      = no_write_cirrus, 
+                                                                          no_write_snowice     = no_write_snowice, 
+                                                                          no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                          universal_file       = universal_file, 
+                                                                          rewrite_nc           = rewrite_nc, 
+                                                                          append_nc            = append_nc, 
+                                                                          xy_bounds            = xy_bounds, 
+                                                                          verbose              = verbose)
         else:
-            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
-                                                                 satellite            = satellite,
-                                                                 domain_sector        = sector,
-                                                                 layered_dir          = layered_dir,
-                                                                 no_write_glm         = no_write_glm,  
-                                                                 no_write_vis         = no_write_vis,  
-                                                                 no_write_irdiff      = no_write_irdiff, 
-                                                                 no_write_cirrus      = no_write_cirrus, 
-                                                                 no_write_snowice     = no_write_snowice, 
-                                                                 no_write_dirtyirdiff = no_write_dirtyirdiff, 
-                                                                 universal_file       = universal_file, 
-                                                                 rewrite_nc           = rewrite_nc, 
-                                                                 append_nc            = append_nc, 
-                                                                 xy_bounds            = xy_bounds, 
-                                                                 verbose              = verbose)
+            combined_nc_file, arr_shape = mtg_combine_ir_glm_vis_parallel(infile               = ir_files[f],                                           #Create netCDF file containing IR, GLM and VIS data
+                                                                          satellite            = satellite,
+                                                                          domain_sector        = sector,
+                                                                          layered_dir          = layered_dir,
+                                                                          no_write_glm         = no_write_glm,  
+                                                                          no_write_vis         = no_write_vis,  
+                                                                          no_write_irdiff      = no_write_irdiff, 
+                                                                          no_write_cirrus      = no_write_cirrus, 
+                                                                          no_write_snowice     = no_write_snowice, 
+                                                                          no_write_dirtyirdiff = no_write_dirtyirdiff, 
+                                                                          universal_file       = universal_file, 
+                                                                          rewrite_nc           = rewrite_nc, 
+                                                                          append_nc            = append_nc, 
+                                                                          xy_bounds            = xy_bounds, 
+                                                                          verbose              = verbose)
             
     fnames2 = combined_nc_file                                                                                                                 #Store the names of the images in a list
     if no_plot == False:
@@ -799,7 +799,7 @@ def find_images_not_created(img_files, vis_files):
     
     
 def main():
-    run_create_image_from_three_modalities2()
+    run_mtg_create_image_from_three_modalities2()
     
 if __name__ == '__main__':
     main()
