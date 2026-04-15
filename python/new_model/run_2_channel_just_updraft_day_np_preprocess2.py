@@ -353,8 +353,8 @@ def run_2_channel_just_updraft_day_np_preprocess2(inroot         = '../../../goe
                                     centroid_inds_y.append(y_arr0)                                                                                     #Save 1D centroid index to list
                                     date_time2.append(date_time[m])                                                                                    #Save date of updraft to list
                                     if counter == 0:
-                                        imgs    =        tens[m, x_arr0-int(img_size/2):x_arr0+int(img_size/2), y_arr0-int(img_size/2):y_arr0+int(img_size/2), :]  #Extract tensor for subset region
-                                        mask    = masks_train[m, x_arr0-int(img_size/2):x_arr0+int(img_size/2), y_arr0-int(img_size/2):y_arr0+int(img_size/2), :]  #Extract mask training for subset region
+                                        imgs    =        tens[m, x_arr0-int(img_size/2):x_arr0+int(img_size/2), y_arr0-int(img_size/2):y_arr0+int(img_size/2), :]#Extract tensor for subset region
+                                        mask    = masks_train[m, x_arr0-int(img_size/2):x_arr0+int(img_size/2), y_arr0-int(img_size/2):y_arr0+int(img_size/2), :]#Extract mask training for subset region
                                         imgs    = np.reshape(imgs, (1, imgs.shape[0], imgs.shape[1], imgs.shape[2]))
                                         mask    = np.reshape(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2]))
                                         counter = counter+1
@@ -660,16 +660,20 @@ def build_imgs(df, chan_list, dims = [2000, 2000], bucket_name = None):
     '''
     imgs = np.zeros([df.shape[0], dims[0], dims[1], len(chan_list)], dtype=np.float32)
     for idx, n in enumerate(chan_list):
-        if bucket_name == None:
+        current_bucket = n[2] if len(n) > 2 else bucket_name
+        if current_bucket == None:
             if len(df) == 1:
                 imgs[:,:,:,idx] = np.load(n[1])[:,:,:].astype(np.float32)
             else:   
                 imgs[:,:,:,idx] = np.load(n[1])[df[n[0]].astype(int).values,:,:].astype(np.float32)
         else:
             if len(df) == 1:
-                imgs[:,:,:,idx] = load_npy_gcs(bucket_name, n[1])[:,:,:].astype(np.float32)
+                imgs[:,:,:,idx] = load_npy_gcs(current_bucket, n[1])[:,:,:].astype(np.float32)
             else:
-                imgs[:,:,:,idx] = load_npy_gcs(bucket_name, n[1])[df[n[0]].astype(int).values,:,:].astype(np.float32)
+                if current_bucket == 'aacp-results':
+                    imgs[:,:,:,idx] = load_npy_gcs(current_bucket, n[1])[df[n[0]].astype(int).values,:,:, 0].astype(np.float32)
+                else:
+                    imgs[:,:,:,idx] = load_npy_gcs(current_bucket, n[1])[df[n[0]].astype(int).values,:,:].astype(np.float32)
 
     return(imgs)
     
