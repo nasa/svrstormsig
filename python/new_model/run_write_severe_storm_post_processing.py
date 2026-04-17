@@ -367,25 +367,36 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                 
                 if data.attrs.get('model_type', '').lower() == mod_type.lower():
                     res = data.values[0, :, :].copy()
-                    res[res < 0.02] = 0
+                    res[res < 0.05] = 0
                     res_safe = np.where(np.isfinite(res), res, 0)
                     labeled_array, num_updrafts = label(res > 0, structure=s)
-                    
-                    frac_max_pix = 0.10 if current_obj.lower() == 'aacp' else 0.50
-
+                    res_full = res.copy()
                     if num_updrafts > 0:
                         max_per_label = np.zeros(num_updrafts + 1, dtype=res.dtype)
                         np.maximum.at(max_per_label, labeled_array.ravel(), res_safe.ravel())
                         label_max_map = max_per_label[labeled_array]
                         above_thresh = (labeled_array > 0) & (label_max_map >= pthresh0)
-                        res50_map = frac_max_pix * label_max_map
-                        below_frac = above_thresh & (res < res50_map)
-                        above_frac = above_thresh & (res >= res50_map)
-                        res[below_frac] = 0
-                        res[above_frac] = label_max_map[above_frac]
-                   
+                        
+                        if current_obj.lower() == 'aacp':
+                            res10_map = 0.10 * label_max_map
+                            res_full = res.copy()
+                            res_full[above_thresh & (res_full < res10_map)] = 0
+                            res_full[above_thresh & (res_full >= res10_map)] = label_max_map[above_thresh & (res_full >= res10_map)]
+                            
+                            frac_max_map = np.clip(0.8 - 1.75 * (label_max_map - 0.3), 0.1, 0.8)
+                            res_dyn_map = frac_max_map * label_max_map
+                            res[above_thresh & (res < res_dyn_map)] = 0
+                            res[above_thresh & (res >= res_dyn_map)] = label_max_map[above_thresh & (res >= res_dyn_map)]
+                        else:
+                            # Standard fixed fraction for Overshooting Tops
+                            res50_map = 0.50 * label_max_map
+                            res[above_thresh & (res < res50_map)] = 0
+                            res[above_thresh & (res >= res50_map)] = label_max_map[above_thresh & (res >= res50_map)]
+                            res_full = res.copy()                 
+                    
                     if current_obj == 'AACP':
-                        res00 = res.copy()
+                        # Use the 10% map to create labeled_array0 so morphological checks hit the true cloud edge
+                        res00 = res_full.copy()
                         res00[res00 < pthresh0] = 0
                         convective_proxy = bt0 <= 230
                         labeled_cells0, _ = label(convective_proxy, structure=s)
@@ -398,12 +409,19 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                             if slc is None: continue
                             
                             # Pad the bounding box so the dilation has room to grow
-                            pad = 4 if native_ir else 15
+                            pad  = 4 if native_ir else 15
+                            pad2 = 4 if native_ir else 6
                             y_start = max(0, slc[0].start - pad)
                             y_stop  = min(bt0.shape[0], slc[0].stop + pad)
                             x_start = max(0, slc[1].start - pad)
                             x_stop  = min(bt0.shape[1], slc[1].stop + pad)
                             padded_slc = (slice(y_start, y_stop), slice(x_start, x_stop))
+                            
+                            y_start2 = max(0, slc[0].start - pad2)
+                            y_stop2  = min(bt0.shape[0], slc[0].stop + pad2)
+                            x_start2 = max(0, slc[1].start - pad2)
+                            x_stop2  = min(bt0.shape[1], slc[1].stop + pad2)
+                            padded_slc2 = (slice(y_start2, y_stop2), slice(x_start2, x_stop2))
                             
                             local_label = labeled_array0[padded_slc]
                             local_inds0 = (local_label == u0 + 1)
@@ -415,6 +433,8 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 local_bt = bt0[ll == idxx]
                                 bt_thresh = np.percentile(local_bt, 5)
                                 
+                                cell_area_pixels = len(local_bt)
+                              
                                 dist_to_convection = distance_transform_edt(~(bt0 < bt_thresh))
                                 
                                 local_dist = dist_to_convection[padded_slc]
@@ -425,34 +445,55 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 dist_thresh = 3 if native_ir else 10
                                 local_ring = np.logical_and(local_dilated, ~local_inds0)
                                 
+                                local_dilated2 = binary_dilation(local_inds0, iterations=pad2)
+                                local_ring2 = np.logical_and(local_dilated2, ~local_inds0)
+                               
                                 local_bt0 = bt0[padded_slc]
                                 max_ring_bt = np.nanmax(local_bt0[local_ring]) if np.any(local_ring) else 0
                                 max_plume_bt = np.nanmax(local_bt0[local_inds0])
-                                plume_area_pixels = np.sum(local_inds0)
                                 
+                                max_ring_bt2 = np.nanmax(local_bt0[local_ring2]) if np.any(local_ring2) else 0
+                               
                                 ring_thresh = bt_thresh + 20
                                 if ring_thresh > 230:
                                     ring_thresh = 230
-                
-                                # Edge filtering
-                                if (min_dist > dist_thresh) or (max_ring_bt > ring_thresh) or (plume_area_pixels < 10):                    
-                                    res[labeled_array0 == (u0 + 1)] = 0.05
-                                    
-#                                     if verbose:
-#                                         print(f'\n{nc_file}')
-#                                         if max_ring_bt > ring_thresh:
-#                                             print(f'Removing AACP because too warm\nmax ring BT = {max_ring_bt}\nRing BT thresh = {ring_thresh}')
-#                                         if plume_area_pixels < 10:
-#                                            print(f'Removing AACP because too small\nPlume Area Pixels = {plume_area_pixels} < 10')
-#                                         if min_dist > dist_thresh:
-#                                            print(f'Removing AACP because too far away from convection\nPlume minimum distance = {min_dist}\nPlume minimum distance threshold = {dist_thresh}')
-#                                         print()
-                                       
-                                # Distance to OT filter
-                                elif aacp_ot_max_dist is not None and dist_to_nearest_ot is not None:
+                                
+                                # Calculate the bounding box dimensions
+                                box_height = slc[0].stop - slc[0].start
+                                box_width  = slc[1].stop - slc[1].start
+                                bbox_area  = box_height * box_width
+                                
+                                # Plume Area is just the number of pixels inside the object
+                                plume_area_pixels = np.sum(local_inds0)
+                                
+                                plume_to_cell_ratio = plume_area_pixels / cell_area_pixels if cell_area_pixels > 0 else 1.0
+
+                                # Dynamic Plume Area is the size of the final saved object
+                                dynamic_plume_pixels = np.sum((local_label == u0 + 1) & (res[padded_slc] >= pthresh0))
+                                
+                                # Calculate Fill Ratio
+                                fill_ratio = plume_area_pixels / bbox_area
+                                
+                                local_res_original   = res_safe[padded_slc]
+                                plume_original_probs = local_res_original[local_inds0]
+                                max_prob             = np.nanmax(plume_original_probs)
+                                
+                                core_pixel_count = np.sum(plume_original_probs >= pthresh0)
+                                
+                                min_ot_dist = np.inf
+                                if aacp_ot_max_dist is not None and dist_to_nearest_ot is not None:
                                     local_ot_dist = dist_to_nearest_ot[padded_slc]
-                                    if np.min(local_ot_dist[local_inds0]) > aacp_ot_max_dist:
+                                    min_ot_dist = np.min(local_ot_dist[local_inds0])
+                                
+                                is_textbook_plume = (max_prob > 0.8) and ((core_pixel_count >= 5)) and (fill_ratio > 0.50) and (min_ot_dist <= 5) and (plume_to_cell_ratio < 0.25) and (max_ring_bt2 <= ring_thresh)
+                                if not is_textbook_plume:
+                                    if (min_dist > dist_thresh) or (max_ring_bt > ring_thresh) or (dynamic_plume_pixels < 16) or ((fill_ratio < 0.25) or (fill_ratio < 0.35 and max_prob < 0.5)) or (core_pixel_count <= 5) or (plume_to_cell_ratio >= 0.75):                    
                                         res[labeled_array0 == (u0 + 1)] = 0.05
+                                           
+                                    # Distance to OT filter
+                                    elif aacp_ot_max_dist is not None and dist_to_nearest_ot is not None:
+                                        if min_ot_dist > aacp_ot_max_dist:
+                                            res[labeled_array0 == (u0 + 1)] = 0.05
 
                     # Optimized OT BTD processing
                     maxc = np.nanmax(res) if np.any(np.isfinite(res)) else 0
@@ -461,6 +502,16 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                         ot_id = np.full_like(res, 0).astype('uint16')
                     else:
                         labeled_array2, num_updrafts2 = label(res >= pthresh0, structure=s)
+                        if current_obj == 'AACP':
+                            for u2 in range(1, num_updrafts2 + 1):
+                                final_obj_mask = (labeled_array2 == u2)
+                                if np.any(final_obj_mask):
+                                    raw_max_prob = np.nanmax(res_safe[final_obj_mask])
+                                    # If the raw object never authentically passed the threshold, kill it
+                                    if raw_max_prob < pthresh0:
+                                        labeled_array2[final_obj_mask] = 0
+                                        res[final_obj_mask] = 0
+
                         anvil_mask = (labeled_array2 <= 0)
                         btd = res * np.nan
                         ot_id = np.full_like(res, 0).astype('uint16') if current_obj == 'OT' else labeled_array2.astype('uint16')
@@ -602,30 +653,6 @@ def download_gfs_analysis_files(date_str1, date_str2,
                                 del_local       = True,
                                 real_time       = False,
                                 verbose         = True):
-    '''
-    This is a function to to download selected files with date range from rda.ucar.edu 
-    Args:
-        date_str1 : Start date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
-        date_str2 : End date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to end downloading 
-    Keywords:
-        GFS_ANALYSIS_DT : FLOAT keyword specifying the time between GFS files in sec. 
-                          DEFAULT = 21600 -> seconds between GFS files
-        write_gcs       : IF keyword set (True), write the output files to the google cloud in addition to local storage.
-                          DEFAULT = False.
-        del_local       : IF keyword set (True) AND run_gcs = True, delete local copy of output file.
-                          DEFAULT = True.
-        outroot         : STRING output directory path for GFS data storage
-                          DEFAULT = os.path.join('..', '..', '..', 'gfs-data')
-        c_bucket_name   : STRING specifying the name of the gcp bucket to write combined IR, VIS, GLM files to As well as 3 modalities figures.
-                          run_gcs needs to be True in order for this to matter.
-                          DEFAULT = 'ir-vis-sandwhich'
-        verbose         : BOOL keyword to specify whether or not to print verbose informational messages.
-                        DEFAULT = True which implies to print verbose informational messages
-    Output:
-        Downloads GFS data files.
-    Author and history:
-        John W. Cooney           2023-06-14
-    '''  
     class SimpleResponse:
         status_code = 404
         content = b""
@@ -637,9 +664,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
         date1 = date1 - timedelta(seconds = 2*GFS_ANALYSIS_DT)                                                                                         #If latest GFS file is not available then download previous dates GFS files
     date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                                   #Extract minimum time of GFS files required to download to encompass data date range
     date2 = gfs_nearest_time(date2, GFS_ANALYSIS_DT, ROUND = 'up')                                                                                     #Extract maximum time of GFS files required to download to encompass data date range
-  #  aws s3 ls --no-sign-request s3://noaa-gfs-warmstart-pds/noaa-gfs-bdp-pds/gfs.2023030700/gfs.t00z.pgrb2.0p25.anl
     
-    #New change? Check number of files to download for this.
     files = []
     total_seconds = int((date2 - date1).total_seconds())
     for offset in range(0, total_seconds + 1, GFS_ANALYSIS_DT):
@@ -651,9 +676,6 @@ def download_gfs_analysis_files(date_str1, date_str2,
         )
         files.append(file_str)
 
-#    files = [(date1 + timedelta(hours = d)).strftime("%Y") + '/' + (date1 + timedelta(hours = d)).strftime("%Y%m%d") + '/gfs.0p25.' + (date1 + timedelta(hours = d)).strftime("%Y%m%d%H") + '.f000.grib2' for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
-
-   # download the data file(s)
     if verbose:
         print('Downloading GFS files to extract tropopause temperatures.')
         print(files)
@@ -667,9 +689,6 @@ def download_gfs_analysis_files(date_str1, date_str2,
         
         outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
         if not os.path.exists(os.path.join(outdir, ofile)):
-            #Old?            
-#            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
-            #New path?
             try:
                 response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
             except:
@@ -685,9 +704,6 @@ def download_gfs_analysis_files(date_str1, date_str2,
                     f.write(response.content)
             else:
                 time.sleep(1)
-                #Old?            
-#                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
-                #New path?
                 try:
                     response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
                 except:
@@ -703,7 +719,6 @@ def download_gfs_analysis_files(date_str1, date_str2,
                     with open(os.path.join(outdir, ofile), "wb") as f:
                         f.write(response.content)
                 else:                
-#                    dates = [(date1 + timedelta(hours = d)).strftime("%Y-%m-%d %H:%M:%S") for d in range(int((date2-date1).days*24 + ceil((date2-date1).seconds/3600.0))+1) if (3600*(date1 + timedelta(hours = d)).hour + 60*(date1 + timedelta(hours = d)).minute + (date1 + timedelta(hours = d)).second) % GFS_ANALYSIS_DT == 0]
                     print('No GFS files found in rda.ucar.edu. Trying Google Cloud.')
                     dd = os.path.basename(file).split('.')[2]
                     dates = [datetime.strptime(dd, "%Y%m%d%H").strftime("%Y-%m-%d %H:%M:%S")]
@@ -719,34 +734,6 @@ def download_gfs_analysis_files_from_gcloud(date_str,
                                             del_local       = True,
                                             real_time       = True,
                                             verbose         = True):
-    '''
-    This is a function to to download the nearest GFS file to the date specified from Google Cloud. Used for real-time model runs
-    Args:
-        date_str : Analysis date. String containing year-month-day-hour-minute-second 'year-month-day hour:minute:second' to start downloading 
-    Keywords:
-        GFS_ANALYSIS_DT : FLOAT keyword specifying the time between GFS files in sec. 
-                          DEFAULT = 21600 -> seconds between GFS files
-        infile          : Name of GFS data file to download.
-                          DEFAULT = None -> use the date strings.
-        write_gcs       : IF keyword set (True), write the output files to the google cloud in addition to local storage.
-                          DEFAULT = False.
-        del_local       : IF keyword set (True) AND run_gcs = True, delete local copy of output file.
-                          DEFAULT = True.
-        outroot         : STRING output directory path for GFS data storage
-                          DEFAULT = os.path.join('..', '..', '..', 'gfs-data')
-        c_bucket_name   : STRING specifying the name of the gcp bucket to write combined IR, VIS, GLM files to As well as 3 modalities figures.
-                          run_gcs needs to be True in order for this to matter.
-                          DEFAULT = 'ir-vis-sandwhich'
-        c_bucket_name   : STRING specifying the GFS gcp bucket to write combined IR, VIS, GLM files to As well as 3 modalities figures.
-                          run_gcs needs to be True in order for this to matter.
-                          DEFAULT = 'ir-vis-sandwhich'
-        verbose         : BOOL keyword to specify whether or not to print verbose informational messages.
-                        DEFAULT = True which implies to print verbose informational messages
-    Output:
-        Downloads GFS data files.
-    Author and history:
-        John W. Cooney           2024-02-20
-    '''  
     if infile is None:
         date1 = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")                                                                                       #Convert start date string to datetime structure
         date1 = gfs_nearest_time(date1, GFS_ANALYSIS_DT, ROUND = 'down')                                                                               #Extract minimum time of GFS files required to download to encompass data date range
@@ -823,30 +810,6 @@ def download_gfs_analysis_files_from_gcloud(date_str,
             print(f"Renamed downloaded file {original_path} to {new_filename}")            
 
 def gfs_nearest_time(date, dt, ROUND = 'round'):
-    '''
-    Name:
-        GFS_NEAREST_TIME
-    Purpose:
-        Calculate the date and time of the GFS analysis or forecast file nearest to 'date'.
-    Calling sequence:
-        gfs_date = GFS_NEAREST_TIME(date, dt)
-    Inputs:
-        date  : Date and time {datetime}.
-        dt    : Interval between analysis or forecast files (sec)
-    Keywords:
-        ROUND : Keyword to control rounding of date.
-                'round' : find nearest analysis or forecast time
-                'down'  : find previous analysis or forecast time
-                'up'    : find subsequent analysis or forecast time
-    Output:
-        datetime date
-    System variables:
-        None.
-    Author and history:
-        John W. Cooney           2023-06-14
-    
-    '''
-    
     f = np.double(3600*date.hour + 60*date.minute + date.second)/dt                                                                                    #Calculate where in day that the date resides within GFS analysis times
     if ROUND.lower() == 'round':
         k = round(f)
@@ -872,18 +835,7 @@ def circle_mean_with_offset(arr, radius, offset):
     std_arr  = np.sqrt(np.maximum(mean_sq - np.square(mean_arr), 0))                                                                                   #Std = sqrt(E[x^2] - E[x]^2), also vectorizable
     return(mean_arr + offset * std_arr)
 
-
 def lanczos_kernel(size, cutoff):
-    """
-    Generate a Lanczos kernel.
-
-    Parameters:
-        - size: The size of the kernel (should be an odd number).
-        - cutoff: The cutoff frequency, which determines the width of the central lobe.
-
-    Returns:
-        - A 1D numpy array representing the Lanczos kernel.
-    """
     if size % 2 == 0:
         raise ValueError("Kernel size should be an odd number")
 
@@ -906,8 +858,6 @@ def weighted_cold_bias(arr, radius, weight=0.1):
         return(sorted_vals[idx])  # Pick a colder value
     return(generic_filter(arr, func, size=2*radius+1, mode='wrap'))
 
-
-#Function to extract start datetime from file
 def extract_combined_nc_datetime(filename):
     basename = os.path.basename(filename)
     match0   = re.search(r'_s(\d{4})(\d{3})(\d{6})', basename)  #sYYYYDDDHHMMSS
