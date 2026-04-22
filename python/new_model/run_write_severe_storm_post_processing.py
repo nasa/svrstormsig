@@ -199,7 +199,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
     else:
         print('Satellite sector specified is not available. Enter M1, M2, F, or C. Please try again.')
         exit()
-    
+    rt = True
     if infile is not None:
         nc_files = [infile]
     else:
@@ -213,9 +213,11 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             # Convert to datetime objects
             dt1 = datetime.strptime(date1, '%Y-%m-%d %H:%M:%S')
             nc_files = sorted([f for f in nc_files if (dt := extract_combined_nc_datetime(f)) and dt1 <= dt])
+            rt = False
         if date2 != None:
             dt2 = datetime.strptime(date2, '%Y-%m-%d %H:%M:%S')
             nc_files = sorted([f for f in nc_files if (dt := extract_combined_nc_datetime(f)) and dt2 >= dt])
+            rt = False
 
     if len(nc_files) <= 0:
         print('No files found in specified directory???')
@@ -237,7 +239,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
     s       = generate_binary_structure(2,2)
     counter = 0
     for l in range(len(nc_files)):
-        if len(nc_files) <= 2: time.sleep(2)
+        if len(nc_files) <= 2 and not rt: time.sleep(2)
         nc_file = nc_files[l]
         if use_local != True:
             download_ncdf_gcs(c_bucket_name, nc_file, inroot)                                                                                          #Download netCDF file from GCP
