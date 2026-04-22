@@ -117,6 +117,8 @@
 #                                          clean up implementations in this new release. We significantly cut false alarms, particularly some of the edge artifacts we were seeing. We still might change the 
 #                                          optimal probability threshold for AACPs (currently at 0.3 which was reduced from 0.45) but these post-processing steps eliminated a lot of bad detections. Read Me 
 #                                          pdf will be updated over the next few days.
+#                              2026-04-22. MINOR REVISION. Potential issue where only run model in archive mode for a single file and tropdiff_ot or aacp variable not appended to netCDF file yet. Fixed issue
+#                                          by waiting 2 seconds if number of files waiting to complete are <=2. This allows for the background thread to complete the write to the combined netCDF.
 #
 #-
 
@@ -242,7 +244,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 4.0.0')
+  print('SVRSTORMSIG Software VERSION: 4.0.1')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
@@ -3783,31 +3785,60 @@ def run_all_plume_updraft_model_predict(verbose     = True,
     tstart0 = datetime.strptime(str(tstart), "%Y%m%d")
     tend0   = datetime.strptime(str(tend), "%Y%m%d")
     postproc_tasks = []
-    
-    while tstart0 <= tend0:
-      u          = tstart0.strftime("%Y%m%d")
-      directory0 = os.path.join(raw_data_root, 'combined_nc_dir', str(u))
-      
-      if os.path.isdir(directory0) and any(os.scandir(directory0)):
-        # Build the arguments for this specific day
-        task_kwargs = {
-            'inroot': directory0,
-            'date1': d_str1,
-            'date2': d_str2,
-            'use_local': use_local,
-            'write_gcs': run_gcs,
-            'del_local': del_local,
-            'c_bucket_name': 'ir-vis-sandwhich',
-            'object_type': 'BOTH' if mod_loc == 'BOTH' else object_type,
-            'mod_type': 'multiresunet' if mod_loc == 'BOTH' else mod_type,
-            'sector': sector,
-            'pthresh': None if mod_loc == 'BOTH' else pthresh,
-            'percent_omit': percent_omit,
-            'verbose': verbose
-        }
-        postproc_tasks.append(task_kwargs)
-        
-      tstart0 = tstart0 + timedelta(days=1)
+    if tstart0 == tend0:
+        u          = tstart0.strftime("%Y%m%d")
+        directory0 = os.path.join(raw_data_root, 'combined_nc_dir', str(u))
+        if os.path.isdir(directory0) and any(os.scandir(directory0)):
+          if mod_loc == 'BOTH':
+            run_write_severe_storm_post_processing(inroot        = directory0, 
+                                                   date1         = d_str1,
+                                                   date2         = d_str2,
+                                                   use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
+                                                   c_bucket_name = 'ir-vis-sandwhich',
+                                                   object_type   = 'BOTH',
+                                                   mod_type      = 'multiresunet',
+                                                   sector        = sector,
+                                                   pthresh       = None, 
+                                                   percent_omit  = percent_omit,
+                                                   verbose       = verbose)
+          else:
+            run_write_severe_storm_post_processing(inroot        = directory0, 
+                                                   date1         = d_str1,
+                                                   date2         = d_str2,
+                                                   use_local     = use_local, write_gcs = run_gcs, del_local = del_local,
+                                                   c_bucket_name = 'ir-vis-sandwhich',
+                                                   object_type   = object_type,
+                                                   mod_type      = mod_type,
+                                                   sector        = sector,
+                                                   pthresh       = pthresh,
+                                                   percent_omit  = percent_omit,
+                                                   verbose       = verbose)      
+        tstart0 = tstart0 + timedelta(days=1)
+    else:        
+        while tstart0 <= tend0:
+          u          = tstart0.strftime("%Y%m%d")
+          directory0 = os.path.join(raw_data_root, 'combined_nc_dir', str(u))
+          
+          if os.path.isdir(directory0) and any(os.scandir(directory0)):
+            # Build the arguments for this specific day
+            task_kwargs = {
+                'inroot': directory0,
+                'date1': d_str1,
+                'date2': d_str2,
+                'use_local': use_local,
+                'write_gcs': run_gcs,
+                'del_local': del_local,
+                'c_bucket_name': 'ir-vis-sandwhich',
+                'object_type': 'BOTH' if mod_loc == 'BOTH' else object_type,
+                'mod_type': 'multiresunet' if mod_loc == 'BOTH' else mod_type,
+                'sector': sector,
+                'pthresh': None if mod_loc == 'BOTH' else pthresh,
+                'percent_omit': percent_omit,
+                'verbose': verbose
+            }
+            postproc_tasks.append(task_kwargs)
+            
+          tstart0 = tstart0 + timedelta(days=1)
       
     if len(postproc_tasks) > 0:
         print(f"Launching post-processing for {len(postproc_tasks)} day(s) using 2 parallel workers...")

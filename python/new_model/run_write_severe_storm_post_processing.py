@@ -237,6 +237,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
     s       = generate_binary_structure(2,2)
     counter = 0
     for l in range(len(nc_files)):
+        if len(nc_files) <= 2: time.sleep(2)
         nc_file = nc_files[l]
         if use_local != True:
             download_ncdf_gcs(c_bucket_name, nc_file, inroot)                                                                                          #Download netCDF file from GCP
@@ -348,16 +349,18 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                     if channel_str is not None and channel_str not in var_key:
                         continue
                     try: 
-                      da.append(nc_dct_full[var_key].attrs['date_added'])
+                        da.append(nc_dct_full[var_key].attrs['date_added'])
                     except: 
-                      da.append('2025-08-08 12:00:00')
+                        da.append('2025-08-08 12:00:00')
                     keys0.append(var_key)
             
             if any('2_' in fff for fff in keys0): keys0 = [fff for fff in keys0 if "2_" in fff]
             if len(keys0) > 1: keys0 = [keys0[np.argmax([datetime.strptime(ddd, "%Y-%m-%d %H:%M:%S") for ddd in da])]]
             
             if len(keys0) <= 0:
-                if verbose: print(f'{current_obj} likelihood missing in {nc_file}. Skipping.')
+                if verbose: 
+                    print(f'{current_obj} likelihood missing in {nc_file}. Skipping.')
+                    print(var_keys)
                 continue
 
             var_key = keys0[0]
