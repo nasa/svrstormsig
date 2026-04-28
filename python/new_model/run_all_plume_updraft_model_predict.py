@@ -119,6 +119,8 @@
 #                                          pdf will be updated over the next few days.
 #                              2026-04-22. MINOR REVISION. Potential issue where only run model in archive mode for a single file and tropdiff_ot or aacp variable not appended to netCDF file yet. Fixed issue
 #                                          by waiting 2 seconds if number of files waiting to complete are <=2. This allows for the background thread to complete the write to the combined netCDF.
+#                              2026-04-28. MINOR REVISION. Potential issue where only run model in archive mode where combined netCDF creation hung due to too many multiprocessing pools being used. Default is now 2.
+#                                          Users with particularly strong machines should consider increasing this number to see an improvement in run time speed.
 #
 #-
 
@@ -3784,6 +3786,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
     
     tstart0 = datetime.strptime(str(tstart), "%Y%m%d")
     tend0   = datetime.strptime(str(tend), "%Y%m%d")
+
     postproc_tasks = []
     if tstart0 == tend0:
         u          = tstart0.strftime("%Y%m%d")
