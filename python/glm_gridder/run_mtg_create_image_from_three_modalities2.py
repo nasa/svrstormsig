@@ -505,7 +505,7 @@ def run_mtg_create_image_from_three_modalities2(inroot             = os.path.joi
         print('No files within date range! Returning empty sets so this date is skipped.')
         return([], [], None)
 
-    pool     = mp.Pool(3, maxtasksperchild = 20)                                                                                               #Set up multiprocessing threads
+    pool     = mp.Pool(2, maxtasksperchild = 30)                                                                                               #Set up multiprocessing threads
     results  = [pool.apply_async(mtg_create_image_from_three_modalities_parallel, args=(row, ir_files, vis_files, 
                                                                                         glm_in_dir, glm_out_dir, layered_dir,
                                                                                         img_out_dir, no_plot_glm, no_plot, 
@@ -529,7 +529,7 @@ def run_mtg_create_image_from_three_modalities2(inroot             = os.path.joi
             rerun_vfiles = find_images_not_created(fnames, ir_files[start_index:end_index+1])                                                  #Find vis data files that were not created        
         print('VIS/IR image files not created', rerun_vfiles)
         rerun_ifiles = [ir_files[vis_files.index(rv)] for rv in rerun_vfiles]                                                                  #Find ir files corresponding to vis files
-        pool         = mp.Pool(3, maxtasksperchild = 20)                                                                                       #Set up multiprocessing threads
+        pool         = mp.Pool(2, maxtasksperchild = 30)                                                                                       #Set up multiprocessing threads
         results      = [pool.apply_async(mtg_create_image_from_three_modalities_parallel, args=(row, rerun_ifiles, rerun_vfiles, 
                                                                                                 glm_in_dir, glm_out_dir, layered_dir,
                                                                                                 img_out_dir, no_plot_glm, no_plot, 
