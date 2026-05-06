@@ -804,6 +804,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                   dims          = dims,
                                   use_glm       = sig_chk_dn['day']['use_glm'] or sig_chk_dn['night']['use_glm'],
                                   use_updraft   = sig_use_updraft,
+                                  both_mode     = both_mode,
                                   d_str         = d_str,
                                   date_range    = date_range,
                                   sector        = sector00,
@@ -866,7 +867,10 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
 
         if len(nc_names_out) > 0:
           if rt:
-            im_names, df_out = write_plot_model_result_predictions(nc_names_out, [], tod = tod, res = [], use_local = use_local, no_plot = True, res_dir = outdir, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, model = mod0_sig + mod00_sig, chk_day_night = sig_chk_dn, grid_data = grid_data, proj = proj, outroot = os.path.join(outroot, 'aacp_results_imgs', mod1_sig, mod_pat_sig, pat, d_str, img_path, str(sector00).upper()), verbose = verbose)
+            if not no_plot:
+              im_names, df_out = write_plot_model_result_predictions(nc_names_out, [], tod = tod, res = [], use_local = use_local, no_plot = True, res_dir = outdir, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, model = mod0_sig + mod00_sig, chk_day_night = sig_chk_dn, grid_data = grid_data, proj = proj, outroot = os.path.join(outroot, 'aacp_results_imgs', mod1_sig, mod_pat_sig, pat, d_str, img_path, str(sector00).upper()), verbose = verbose)
+            else:
+              im_names = []
           else:
             if not no_plot:
               im_names, df_out = write_plot_model_result_predictions(nc_names_out, [], tod = tod, res = [], use_local = use_local, no_plot = no_plot, res_dir = outdir, region = region, latlon_domain = xy_bounds, pthresh = pthresh0, model = mod0_sig + mod00_sig, chk_day_night = sig_chk_dn, grid_data = grid_data, proj = proj if len(img_names) > 0 else None, outroot = os.path.join(outroot, 'aacp_results_imgs', mod1_sig, mod_pat_sig, pat, d_str, img_path, str(sector00).upper()), verbose = verbose)
@@ -2005,6 +2009,7 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                            use_night      = None, night_only = False, 
                                            rewrite_model  = False, 
                                            chk_day_night  = {}, 
+                                           both_mode      = False,
                                            use_native_ir  = False, 
                                            no_write_npy   = False, 
                                            verbose        = True):
@@ -2068,6 +2073,8 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                        DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
       no_write_npy   : IF keyword set (True), do not write numpy results files. Only append the combined netCDF files
                        DEFAULT = False -> write the numpy results files
+      both_mode      : IF keyword set (True), do not post-process data until after AACP run is complete.
+                       DEFAULT = False.
       verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
                        DEFAULT = True which implies to print verbose informational messages
   Returns:
@@ -2706,7 +2713,7 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           print(dn)
           print(chk_day_night)
           exit()
-      t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'rt': rt, 'optimal_thresh' : opt_pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'verbose': verbose})     #Write results to combined netCDF file
+      t2 = Thread(target = append_combined_ncdf_with_model_results, args = (ncf, results, mod_description), kwargs = {'rt': rt, 'optimal_thresh' : opt_pthresh, 'write_gcs': run_gcs, 'del_local': del_local, 'outroot': None, 'c_bucket_name': c_bucket_name, 'use_chkpnt': use_chkpnt, 'both_mode':both_mode, 'verbose': verbose})     #Write results to combined netCDF file
       t2.start()
       counter = counter + 1
 

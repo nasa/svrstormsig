@@ -1493,7 +1493,7 @@ def tf_1_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
 #    t2.close()
   return(os.path.join(outdir0, d_str2, str(sector)), pthresh, df)
 
-def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = False, optimal_thresh = None, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', use_chkpnt = None, verbose = True):
+def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = False, optimal_thresh = None, write_gcs = True, del_local = True, outroot = None, c_bucket_name = 'ir-vis-sandwhich', use_chkpnt = None, both_mode = False, verbose = True):
   '''
   This is a function to append the combined netCDF files with the model results data. 
   Args:
@@ -1516,6 +1516,8 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = 
                        DEFAULT = 'ir-vis-sandwhich'
       use_chkpnt     : Optional STRING keyword to specify file name and path to check point file with model weights from a previous model run you want to use.
                        Setting this keyword allows the user to skip over all the model creation stuff and go straight to loading the weights from a trained model.
+      both_mode      : IF keyword set (True) AND rt = True, do not post-process until after AACP files are complete.
+                       DEFAULT = False
       verbose        : BOOL keyword to specify whether or not to print verbose informational messages.
                        DEFAULT = True which implies to print verbose informational messages
   Output:
@@ -1580,7 +1582,12 @@ def append_combined_ncdf_with_model_results(nc_file, res, mod_description, rt = 
           mtype = 'attentionunet'
       else:
           mtype = 'unet'
-      run_write_severe_storm_post_processing(infile = nc_file, object_type = otype, mod_type = mtype, write_gcs = write_gcs, del_local = del_local, c_bucket_name = c_bucket_name, verbose = verbose)
+      if (otype == 'OT' and not both_mode) or otype == 'AACP':
+          if both_mode:
+              #Process both signatures simultaneously
+              run_write_severe_storm_post_processing(infile = nc_file, object_type = 'BOTH', mod_type = mtype, write_gcs = write_gcs, del_local = del_local, c_bucket_name = c_bucket_name, verbose = verbose)         
+          else:
+              run_write_severe_storm_post_processing(infile = nc_file, object_type = otype, mod_type = mtype, write_gcs = write_gcs, del_local = del_local, c_bucket_name = c_bucket_name, verbose = verbose)
   return()
   
 def main():
