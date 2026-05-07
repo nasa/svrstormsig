@@ -121,6 +121,10 @@
 #                                          by waiting 2 seconds if number of files waiting to complete are <=2. This allows for the background thread to complete the write to the combined netCDF.
 #                              2026-04-28. MINOR REVISION. Potential issue where only run model in archive mode where combined netCDF creation hung due to too many multiprocessing pools being used. Default is now 2.
 #                                          Users with particularly strong machines should consider increasing this number to see an improvement in run time speed.
+#                              2026-05-07. MINOR REVISION. Due to ability to run post-processing of OTs and AACPs simultaneously, setup the ability to do this for real-time runs. Real-time runs previously post-processed 
+#                                          OTs and then AACPs but now it waits until after AACP model is complete and the post-processes both variables simultaneously when the user specifies to run the software to detect 
+#                                          both OT and AACP signatures. Added OT post-processing to use GFS CAPE. Checks that GFS CAPE is ≥ 100 J/KG within ~83 km radius in order to retain OT detection. This threshold
+#                                          removes potentially faulty detections in high altitude, thick bumpy cirrus.
 #
 #-
 
@@ -246,7 +250,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 4.0.1')
+  print('SVRSTORMSIG Software VERSION: 4.0.2')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 

@@ -54,7 +54,7 @@ import glob
 import os
 import re
 from math import ceil, floor
-from scipy.ndimage import label, generate_binary_structure, convolve, uniform_filter, generic_filter, distance_transform_edt, binary_dilation, find_objects
+from scipy.ndimage import label, generate_binary_structure, convolve, uniform_filter, generic_filter, distance_transform_edt, binary_dilation, find_objects, maximum_filter
 from scipy.interpolate import interpn
 import xarray as xr
 from datetime import datetime, timedelta
@@ -262,6 +262,12 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             bt0 = bt.values[0, :, :]
             sat = f['imager_projection'].attrs['satellite_name']
             
+#             proj_attrs = f['imager_projection'].attrs
+#             req        = proj_attrs.get('semi_major_axis', 6378137.0)
+#             rpol       = proj_attrs.get('semi_minor_axis', 6356752.31424518)
+#             sat_h      = proj_attrs.get('perspective_point_height', 35786400.0)
+#             sat_lon    = proj_attrs.get('longitude_of_projection_origin', 0.0)
+            
             # Pre-load OT distance mask for AACP filtering
             ot_res_for_dist     = None
             ot_pthresh_for_dist = None
@@ -289,9 +295,13 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             nc_dct_full = {k: f[k] for k in var_keys}
 
         # Calculate GFS tropopause
-        tropT2 = bt0 * np.nan
+        tropT2     = bt0 * np.nan
+        cape2_max  = bt0 * np.nan
         files_used = []
-        if len(gfs_files) > 0 and 'tropopause_temperature' not in var_keys:
+        if 'tropopause_temperature' in var_keys:
+            tropT2 = nc_dct_full['tropopause_temperature'].values[0, :, :]
+#        elif len(gfs_files) > 0:
+        if len(gfs_files) > 0:
             near_date = gfs_nearest_time(date, GFS_ANALYSIS_DT, ROUND = 'round')
             nd_str    = near_date.strftime("%Y%m%d%H")
             no_f = 0
@@ -310,32 +320,65 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                     except: 
                       no_f = 1
                     if no_f == 0: break    
-            
+
             if no_f == 0:
                 x_sat_conv = convert_longitude(x_sat, to_model = True)
                 if gfs_file != gfsf:
                     grbs  = pygrib.open(gfs_file)
-                    grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]
-                    tropT = np.copy(grb.values)
-                    lats, lons = grb.latlons()
-                    tropT = np.flip(tropT, axis = 0)
-                    tropT = circle_mean_with_offset(tropT, 20, -0.6)        
-                    lats  = np.flip(lats[:, 0])
-                    lons  = convert_longitude(lons[0, :], to_model = True)
-
-                    N_wrap = 10
-                    lons_extended = np.concatenate((lons[-N_wrap:] - 360, lons, lons[:N_wrap] + 360))
-                    tropT_extended = np.concatenate((tropT[:, -N_wrap:], tropT, tropT[:, :N_wrap]), axis=1)
-                    tropT_extended = convolve(tropT_extended, lanczos_kernel0)
+                    grb_cape = grbs.select(name='Convective available potential energy', typeOfLevel='surface')[0]
+                    if 'tropopause_temperature' not in var_keys:
+                        grb   = grbs.select(name='Temperature', typeOfLevel='tropopause')[0]
+                        tropT = np.copy(grb.values)
+                        lats, lons = grb.latlons()
+                        tropT = np.flip(tropT, axis = 0)
+                        tropT = circle_mean_with_offset(tropT, 20, -0.6)        
+                        lats  = np.flip(lats[:, 0])
+                        lons  = convert_longitude(lons[0, :], to_model = True)
+    
+                        N_wrap = 10
+                        lons_extended = np.concatenate((lons[-N_wrap:] - 360, lons, lons[:N_wrap] + 360))
+                        tropT_extended = np.concatenate((tropT[:, -N_wrap:], tropT, tropT[:, :N_wrap]), axis=1)
+                        tropT_extended = convolve(tropT_extended, lanczos_kernel0)
+                        
+                        tropT2 = interpn((lats, lons_extended), tropT_extended, (y_sat, x_sat_conv), method='linear', bounds_error=False, fill_value=np.nan)
+                    else:
+                        lats, lons = grb_cape.latlons()
+                        lats  = np.flip(lats[:, 0])
+                        lons  = convert_longitude(lons[0, :], to_model = True)
+                        N_wrap = 10
+                        lons_extended = np.concatenate((lons[-N_wrap:] - 360, lons, lons[:N_wrap] + 360))
                     
-                    tropT2 = interpn((lats, lons_extended), tropT_extended, (y_sat, x_sat_conv), method='linear', bounds_error=False, fill_value=np.nan)
-                    grbs.close()
+                    cape_vals = np.copy(grb_cape.values)
+                    cape_vals = np.flip(cape_vals, axis = 0)
+                    cape_max_coarse = maximum_filter(cape_vals, size=7, mode='nearest')
+                    cape_extended = np.concatenate((cape_max_coarse[:, -N_wrap:], cape_max_coarse, cape_max_coarse[:, :N_wrap]), axis=1)
+                    
+                    cape2_max = interpn((lats, lons_extended), cape_extended, (y_sat, x_sat_conv), method='linear', bounds_error=False, fill_value=np.nan)                    
+                    
                     gfsf   = gfs_file
                     x_sat0 = x_sat_conv
                     y_sat0 = y_sat
+                    cached_cape_extended = cape_extended
+                    cached_cape2_max = cape2_max.copy()  # Save the fully interpolated CAPE array
+                    if 'tropopause_temperature' not in var_keys:
+                        cached_tropT_extended = tropT_extended
+                        cached_tropT2 = tropT2.copy()    # Save the fully interpolated Trop array
+                    grbs.close()
                 else:
                     if np.nanmax(np.abs(x_sat_conv - x_sat0)) != 0 or np.nanmax(np.abs(y_sat - y_sat0)) != 0:
-                        tropT2 = interpn((lats, lons_extended), tropT_extended, (y_sat, x_sat_conv), method='linear', bounds_error=False, fill_value=np.nan)
+                        # Grid moved, but same GFS file -> Re-interpolate from coarse cache
+                        if 'tropopause_temperature' not in var_keys:
+                            tropT2 = interpn((lats, lons_extended), cached_tropT_extended, (y_sat, x_sat_conv), method='linear', bounds_error=False, fill_value=np.nan)
+                            cached_tropT2 = tropT2.copy()
+                        cape2_max = interpn((lats, lons_extended), cached_cape_extended, (y_sat, x_sat_conv), method='linear', bounds_error=False, fill_value=np.nan)
+                        cached_cape2_max = cape2_max.copy()
+                        x_sat0 = x_sat_conv
+                        y_sat0 = y_sat
+                    else:
+                        # Grid is identical, GFS file is identical -> Load from fast cache instead of leaving as NaNs!
+                        cape2_max = cached_cape2_max.copy()
+                        if 'tropopause_temperature' not in var_keys:
+                            tropT2 = cached_tropT2.copy()
                 files_used = [os.path.realpath(gfs_file)]
 
         #Process objects in memory
@@ -537,7 +580,6 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 # Find min BT index locally
                                 min_ind_flat = np.nanargmin(plume_bts)
                                 min_bt0 = plume_bts[min_ind_flat]
-                                
                                 if current_obj == 'OT':
                                     # Convert local min BT index to 2D local coordinates, then to global coordinates
                                     local_coords = np.argwhere(local_inds2)
@@ -545,6 +587,27 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                     global_y = min_local_y + slc2[0].start
                                     global_x = min_local_x + slc2[1].start
                                     
+                                    # Get Tropopause temp at the core
+                                    core_trop = tropT2[global_y, global_x]
+                                    if np.isfinite(core_trop):
+                                        trop_diff = min_bt0 - core_trop
+                                        raw_max_prob = np.nanmax(res_safe[slc2][local_inds2])
+                                        delete_obj = False
+                                        if trop_diff > 10.0:
+                                            delete_obj = True
+#                                         elif (trop_diff > 5.0) and (raw_max_prob < 0.7):
+#                                             delete_obj = True
+                                        if abs(y_sat[global_y, global_x]) > 15.0:                     # Only apply CAPE filter in mid-/upper-latitudes
+                                            local_max_cape = cape2_max[global_y, global_x]
+                                            if np.isfinite(local_max_cape) and local_max_cape < 100:  # Less than 100 J/kg means no convection
+                                                delete_obj = True                                        
+                                       
+                                        if delete_obj:
+                                            global_inds2_delete = (labeled_array2 == u + 1)
+                                            labeled_array2[global_inds2_delete] = 0
+                                            res[global_inds2_delete] = 0
+                                            continue  # Skip Anvil BTD calculation and do not save this object
+
                                     # Bounding box for anvil using global coordinates
                                     i_pix = [max(0, global_y - int(anv_p/2)), min(bt0.shape[0], global_y + ceil(anv_p/2))]
                                     j_pix = [max(0, global_x - int(anv_p/2)), min(bt0.shape[1], global_x + ceil(anv_p/2))]
@@ -840,6 +903,31 @@ def circle_mean_with_offset(arr, radius, offset):
     std_arr  = np.sqrt(np.maximum(mean_sq - np.square(mean_arr), 0))                                                                                   #Std = sqrt(E[x^2] - E[x]^2), also vectorizable
     return(mean_arr + offset * std_arr)
 
+def calculate_pixel_vza(pixel_lat, pixel_lon, req, rpol, sat_h, sat_lon):
+    """Calculates Viewing Zenith Angle using exact ellipsoid geodetic math."""
+    phi   = np.radians(pixel_lat)
+    lam   = np.radians(pixel_lon)
+    lam_0 = np.radians(sat_lon)
+    e2    = 1 - (np.square(rpol) / np.square(req))
+    N_phi = req / np.sqrt(1 - e2 * np.square(np.sin(phi)))
+    
+    Px = N_phi * np.cos(phi) * np.cos(lam)
+    Py = N_phi * np.cos(phi) * np.sin(lam)
+    Pz = N_phi * (1 - e2) * np.sin(phi)
+    
+    Rs = req + sat_h
+    Sx = Rs * np.cos(lam_0)
+    Sy = Rs * np.sin(lam_0)
+    Sz = 0.0
+    
+    Vx, Vy, Vz = Sx - Px, Sy - Py, Sz - Pz
+    V_mag = np.sqrt(np.square(Vx) + np.square(Vy) + np.square(Vz))
+    
+    nx, ny, nz = np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)
+    dot_product = (nx * Vx + ny * Vy + nz * Vz)
+    
+    return(np.degrees(np.arccos(dot_product / V_mag)))
+    
 def lanczos_kernel(size, cutoff):
     if size % 2 == 0:
         raise ValueError("Kernel size should be an odd number")
