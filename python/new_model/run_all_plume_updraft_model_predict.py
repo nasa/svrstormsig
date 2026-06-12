@@ -125,7 +125,11 @@
 #                                          OTs and then AACPs but now it waits until after AACP model is complete and the post-processes both variables simultaneously when the user specifies to run the software to detect 
 #                                          both OT and AACP signatures. Added OT post-processing to use GFS CAPE. Checks that GFS CAPE is ≥ 100 J/KG within ~83 km radius in order to retain OT detection. This threshold
 #                                          removes potentially faulty detections in high altitude, thick bumpy cirrus.
-#
+#                              2026-05-21. MINOR REVISION. Due to ability to run post-processing of OTs and AACPs simultaneously, setup the ability to do this for real-time runs. Real-time runs previously post-processed 
+#                                          OTs and then AACPs but now it waits until after AACP model is complete and the post-processes both variables simultaneously when the user specifies to run the software to detect 
+#                                          both OT and AACP signatures. Added OT post-processing to use GFS CAPE. Checks that GFS CAPE is ≥ 100 J/KG within ~83 km radius in order to retain OT detection. This threshold
+#                                          removes potentially faulty detections in high altitude, thick bumpy cirrus.
+#                              2026-06-12. MINOR REVISION. Fixed GLM files key issue that results from mutliple days worth of GOES/MTG files in the same daiys directory.
 #-
 
 #### Environment Setup ###
@@ -250,7 +254,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 4.0.2')
+  print('SVRSTORMSIG Software VERSION: 4.0.3')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
@@ -3614,7 +3618,25 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   else:
     if 'mtg' in sat.lower():
       sector = 'F'
-  
+
+  if sat.lower() == 'seviri' or sat.lower() == 'meteosat09' or sat.lower() == 'meteosat-09' or sat.lower() == 'meteosat9' or sat.lower() == 'meteosat-9':
+    # Determine the effective start date to check
+    if d_str1 is not None:
+      check_date = datetime.strptime(d_str1, "%Y-%m-%d %H:%M:%S")
+    else:
+      check_date = datetime.utcnow()
+      
+    # Meteosat-09 took over the IODC domain on 1 June 2022
+    if check_date < datetime(2022, 6, 1):
+      print('ERROR: Software is not yet setup to handle Meteosat-09 SEVIRI data prior to June 1, 2022.')
+      print('Exiting program.')
+      exit()
+
+  if 'mtg' in sat.lower() and len(xy_bounds) > 0:
+    sector = mtg_extract_data_sector_from_region(xy_bounds[1], xy_bounds[3], verbose = verbose)
+  else:
+    if 'mtg' in sat.lower():
+      sector = 'F'  
   #Specify cut off date for when we started to use new tropdiff weighting scheme
   cutoff_date = datetime(2025, 6, 19)
   if mod_loc == 'BOTH':
@@ -3887,8 +3909,11 @@ def run_all_plume_updraft_model_predict(verbose     = True,
         t_sec = sat_time_intervals(sat, sector = 'F')                                                                              #Extract time interval between satellite sector scan files (sec)    
     elif 'goes' in sat.lower():
         t_sec = sat_time_intervals(sat, sector = sector)                                                                           #Extract time interval between satellite sector scan files (sec)
+    elif 'seviri' in sat.lower() or 'msg09' in sat.lower():
+        t_sec = sat_time_intervals(sat, sector = sector)                                                                           #Extract time interval between satellite sector scan files (sec)
     else:
         print('Something went wrong and satellite specified not found here')
+        print(sat)
         print('run_all_pliume_updraft_model_predict.py')
         exit()
     

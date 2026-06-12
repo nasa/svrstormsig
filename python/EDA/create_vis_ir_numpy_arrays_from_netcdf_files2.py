@@ -865,8 +865,7 @@ def create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = os.path.joi
                         ir_vis2 = df_vis2.merge(df_ir2,  on = 'date_time', how = 'outer', sort = True)                                         #Merge the two lists together ensuring that the largest one is kept
                     else:
                         ir_vis2  = df_ir2.copy()
-                    if not no_write_glm: 
-                        ir_vis2 = ir_vis2.merge(df_glm2, on = 'date_time', how = 'outer', sort = True)                                         #Merge the two lists together ensuring that the largest one is kept
+                    ir_vis2 = ir_vis2.merge(df_glm2, on = 'date_time', how = 'outer', sort = True)                                         #Merge the two lists together ensuring that the largest one is kept
                  
                     ir_vis2 = ir_vis2.merge(df_comb, on = 'date_time', how = 'outer', sort = True)                                             #Merge the two lists together ensuring that the largest one is kept
                     ir_vis2 = ir_vis2.merge(df_tod2, on = 'date_time', how = 'outer', sort = True)                                             #Merge the two lists together ensuring that the largest one is kept
