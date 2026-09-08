@@ -926,7 +926,6 @@ def mtg_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot          = os.path.
                     df_tod2 = pd.DataFrame({'day_night': tod})                                                                                 #Create data structure containing night or day string
                     df_ir2['date_time']  = df_ir2['ir_files'].apply(lambda x: datetime.strptime(((re.split('_|-|,|\+', os.path.basename(x)))[23])[:],'%Y%m%d%H%M%S'))#Extract date of file scan and put into data structure
                     df_ir2.set_index('ir_index')                                                                                               #Extract IR data index and put into data structure
-              #      if no_write_glm == False:
                     df_glm2 = pd.DataFrame({'glm_files': g_files, 'glm_index':range(len(g_files))})                                            #Create data structure containing GLM data file names
                     df_glm2['date_time'] = df_glm2['glm_files'].apply(lambda x: datetime.strptime(((re.split('_s|_', os.path.basename(x)))[5])[0:-1],'%Y%j%H%M%S'))  #Extract date of file scan and put into data structure
                     df_glm2.set_index('glm_index')                                                                                             #Extract GLM data index and put into data structure

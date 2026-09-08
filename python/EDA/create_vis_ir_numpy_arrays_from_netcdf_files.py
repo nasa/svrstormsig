@@ -146,7 +146,8 @@ def fetch_convert_vis(combined_nc_file, min_value = 0.0, max_value = 1.0, no_wri
         zen     = math.degrees(zen)                                                                                                            #Calculate solar zenith angle in degrees
 
     vis.close()                                                                                                                                #Close VIS data file
-    mid_zen = zen[int(zen.shape[0]/2), int(zen.shape[1]/2)]                                                                                    #Calculate solar zenith angle for mid point of domain (degrees)
+#    mid_zen = zen[int(zen.shape[0]/2), int(zen.shape[1]/2)]                                                                                    #Calculate solar zenith angle for mid point of domain (degrees)
+    mid_zen = np.nanmax(zen)                                                                                                                   #Calculate solar zenith angle for mid point of domain (degrees)
     if no_write_vis == False:
         vis_dat[vis_dat < min_value] = min_value                                                                                               #Clip all reflectance below min value to min value
         vis_dat[vis_dat > max_value] = max_value                                                                                               #Clip all reflectance above max value to max value
