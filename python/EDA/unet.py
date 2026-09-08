@@ -39,9 +39,13 @@ from keras.layers import *
 from keras.optimizers import *
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
 from keras import backend as keras
-from keras.preprocessing.image import ImageDataGenerator
+try:
+    from keras.preprocessing.image import ImageDataGenerator
+except:
+    from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
 from keras.regularizers import l1
-from keras.utils.vis_utils import plot_model, model_to_dot
+#from keras.utils.vis_utils import plot_model, model_to_dot
 from tensorflow.keras.optimizers import Adam
 
 def unet(pretrained_weights = None, input_size = (256,256,3), loss_weights = None, adam_optimizer = 1e-3):
