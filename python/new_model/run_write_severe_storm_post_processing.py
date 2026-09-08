@@ -251,9 +251,22 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
             x_sat = f['longitude'].values                                                                                                              #Extract latitude and longitude satellite domain
             y_sat = f['latitude'].values                                                                                                               #Extract latitude and longitude satellite domain
             var_keys = list(f.keys())                                                                                                                  #Get list of variables contained within the netCDF file
-            try: xyres = f.spatial_resolution
+            seviri_res = False
+            native_ir  = False
+            try: 
+                xyres = f.spatial_resolution
+                if '3km' in xyres or 'seviri' in inroot.lower():
+                    seviri_res = True
+                elif '2km' in xyres:
+                    native_ir = True
             except:
-                if 'visible_reflectance' in var_keys: xyres = '0.5km at nadir'
+                if 'seviri' in inroot:
+                    print('Had to use this')
+                    print()
+                    xyres = '3km at nadir'
+                    seviri_res = True
+                elif 'visible_reflectance' in var_keys:
+                    xyres = '0.5km at nadir'
                 else:    
                     xyres = '2km at nadir'
                     native_ir = True
@@ -457,8 +470,23 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                             if slc is None: continue
                             
                             # Pad the bounding box so the dilation has room to grow
-                            pad  = 4 if native_ir else 15
-                            pad2 = 4 if native_ir else 6
+                            if native_ir and not seviri_res:
+                              pad  = 4
+                              pad2 = 4
+                              dist_thresh = 3
+                            elif seviri_res:
+                              pad  = 3
+                              pad2 = 3
+                              dist_thresh = 3
+                            else:
+                              pad  = 15
+                              pad2 = 6
+                              dist_thresh = 10
+                           
+                            min_plume_pixels   = max(3, int(4.0 / (xyres0**2)))                     # dynamic_plume_pixels filter ~4km^2 (VIS=16, IR=3, SEVIRI=3):
+                            max_ot_dist_pixels = max(3, int(2.5 / xyres0))
+                            min_core_pixels    = max(3, int(1.25 / (xyres0**2))) 
+                           
                             y_start = max(0, slc[0].start - pad)
                             y_stop  = min(bt0.shape[0], slc[0].stop + pad)
                             x_start = max(0, slc[1].start - pad)
@@ -490,7 +518,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 
                                 # Fast Local Dilation
                                 local_dilated = binary_dilation(local_inds0, iterations=pad)
-                                dist_thresh = 3 if native_ir else 10
+                                
                                 local_ring = np.logical_and(local_dilated, ~local_inds0)
                                 
                                 local_dilated2 = binary_dilation(local_inds0, iterations=pad2)
@@ -533,9 +561,9 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                     local_ot_dist = dist_to_nearest_ot[padded_slc]
                                     min_ot_dist = np.min(local_ot_dist[local_inds0])
                                 
-                                is_textbook_plume = (max_prob > 0.8) and ((core_pixel_count >= 5)) and (fill_ratio > 0.50) and (min_ot_dist <= 5) and (plume_to_cell_ratio < 0.25) and (max_ring_bt2 <= ring_thresh)
+                                is_textbook_plume = (max_prob > 0.8) and ((core_pixel_count >= min_core_pixels)) and (fill_ratio > 0.50) and (min_ot_dist <= max_ot_dist_pixels) and (plume_to_cell_ratio < 0.25) and (max_ring_bt2 <= ring_thresh)
                                 if not is_textbook_plume:
-                                    if (min_dist > dist_thresh) or (max_ring_bt > ring_thresh) or (dynamic_plume_pixels < 16) or ((fill_ratio < 0.25) or (fill_ratio < 0.35 and max_prob < 0.5)) or (core_pixel_count <= 5) or (plume_to_cell_ratio >= 0.75):                    
+                                    if (min_dist > dist_thresh) or (max_ring_bt > ring_thresh) or (dynamic_plume_pixels < min_plume_pixels) or ((fill_ratio < 0.25) or (fill_ratio < 0.35 and max_prob < 0.5)) or (core_pixel_count <= min_core_pixels) or (plume_to_cell_ratio >= 0.75):                    
                                         res[labeled_array0 == (u0 + 1)] = 0.05
                                            
                                     # Distance to OT filter
@@ -758,7 +786,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
         outdir = os.path.join(outroot, (os.sep).join(re.split('/', os.path.dirname(file))))
         if not os.path.exists(os.path.join(outdir, ofile)):
             try:
-                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+#                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                response = requests.get("https://data.gdex.ucar.edu/d084001/" + file)
             except:
                 response = SimpleResponse()
             
@@ -773,7 +802,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
             else:
                 time.sleep(1)
                 try:
-                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+#                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                    response = requests.get("https://data.gdex.ucar.edu/d084001/" + file)
                 except:
                     response = SimpleResponse()
                 
@@ -787,7 +817,7 @@ def download_gfs_analysis_files(date_str1, date_str2,
                     with open(os.path.join(outdir, ofile), "wb") as f:
                         f.write(response.content)
                 else:                
-                    print('No GFS files found in rda.ucar.edu. Trying Google Cloud.')
+                    print('No GFS files found in gdex.ucar.edu. Trying Google Cloud.')
                     dd = os.path.basename(file).split('.')[2]
                     dates = [datetime.strptime(dd, "%Y%m%d%H").strftime("%Y-%m-%d %H:%M:%S")]
                     for dd in dates:

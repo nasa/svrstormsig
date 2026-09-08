@@ -638,7 +638,7 @@ def sat_time_intervals(sat, sector = None):
             print('Specified sector = ' + str(sector))
             print('Sectors for GOES satellite are Full, CONUS, Mesoscale.')
             exit()
-    elif sat.lower() == 'seviri':
+    elif 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower():
         if sector == None:
             print('Sector must be specified for SEVIRI satellite in sat_time_intervals function!!')
             print('Only full disk currently available')

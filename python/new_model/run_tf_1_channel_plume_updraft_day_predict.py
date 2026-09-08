@@ -105,13 +105,13 @@ from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
 #from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras import backend as keras
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+#from tensorflow.keras.preprocessing.image import ImageDataGenerator
 #from tensorflow.keras.regularizers import l1
 from keras import backend
 from tensorflow.keras.models import load_model
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.losses import BinaryCrossentropy
-from keras.utils.vis_utils import plot_model, model_to_dot
+#from keras.utils.vis_utils import plot_model, model_to_dot
 from datetime import datetime, timedelta
 import os
 import re
@@ -378,7 +378,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
     else:
       date1  = date.strftime("%Y-%m-%d %H:%M:%S")
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S") 
-      if essl and 'mtg' in sat.lower():
+      if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower()):
         og_dir = [os.path.join(outroot, date01.strftime("%Y"), date01.strftime("%m"), date01.strftime("%d"))]
       else:
         og_dir = [os.path.join(outroot, date01.strftime("%Y%m%d"))]
@@ -430,7 +430,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
 
 
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
-      if essl and 'mtg' in sat.lower():
+      if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower()):
         if d_strs[-1] > date02.strftime("%Y%m%d"):
           og_dir = og_dir[:-1]      
           d_strs = d_strs[:-1]    
@@ -441,7 +441,7 @@ def run_tf_1_channel_plume_updraft_day_predict(date1          = None, date2 = No
     else:
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
-      if essl and 'mtg' in sat.lower():
+      if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower()):
         # Generate directories in "/yyyy/mm/dd/" format and store full "yyyymmdd" dates
         og_dir = sorted(list(set([
             os.path.join(outroot, 

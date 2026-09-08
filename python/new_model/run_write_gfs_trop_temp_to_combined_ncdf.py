@@ -580,7 +580,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
 #                response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
                 #New path?
                 try:
-                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+#                    response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                    response = requests.get("https://data.gdex.ucar.edu/d084001/" + file)
                 except:
                     response = SimpleResponse2()
                 if verbose:
@@ -597,7 +598,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
 #                    response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
                     #New path?
                     try:
-                        response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+#                        response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                        response = requests.get("https://data.gdex.ucar.edu/d084001/" + file)
                     except:
                         response = SimpleResponse2()
                     if verbose:
@@ -618,7 +620,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
         file     = yyyy + '/' + yyyymmdd + '/' + fb
         outdir   = os.path.realpath(os.path.join(outroot, yyyy, yyyymmdd))
         try:
-            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+#            response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+            response = requests.get("https://data.gdex.ucar.edu/d084001/" + file)
         except:
             response = SimpleResponse2()
         if verbose:
@@ -637,7 +640,8 @@ def download_gfs_analysis_files(date_str1, date_str2,
 #            response = requests.get("https://data.rda.ucar.edu/ds084.1/" + file)
             #New path?
             try:
-                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+#                response = requests.get("https://data.rda.ucar.edu/d084001/" + file)
+                response = requests.get("https://data.gdex.ucar.edu/d084001/" + file)
             except:
                 response = SimpleResponse2()
             if verbose:

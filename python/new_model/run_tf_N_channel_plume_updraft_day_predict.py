@@ -127,13 +127,13 @@ from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
 #from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras import backend as keras
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+#from tensorflow.keras.preprocessing.image import ImageDataGenerator
 #from tensorflow.keras.regularizers import l1
 from keras import backend
 from tensorflow.keras.models import load_model
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.losses import BinaryCrossentropy
-from keras.utils.vis_utils import plot_model, model_to_dot
+#from keras.utils.vis_utils import plot_model, model_to_dot
 from datetime import datetime, timedelta
 import os
 import re
@@ -142,7 +142,7 @@ import time
 from netCDF4 import Dataset
 import pandas as pd
 from math import ceil
-from scipy.ndimage import label, generate_binary_structure, find_objects
+from scipy.ndimage import label, generate_binary_structure, find_objects, binary_dilation
 from threading import Thread
 import multiprocessing as mp
 import sys 
@@ -172,6 +172,13 @@ from visualize_results.visualize_time_aggregated_results import visualize_time_a
 from visualize_results.run_write_plot_model_result_predictions import write_plot_model_result_predictions
 from new_model.run_write_severe_storm_post_processing import download_gfs_analysis_files_from_gcloud, download_gfs_analysis_files
 from new_model.run_write_gfs_trop_temp_to_combined_ncdf import run_write_gfs_trop_temp_to_combined_ncdf
+
+from glm_gridder.run_download_seviri_iodc_data import *
+from glm_gridder.run_download_seviri_iodc_data_parallel import *
+from glm_gridder.run_seviri_create_image_from_three_modalities import *
+from glm_gridder.run_seviri_create_image_from_three_modalities2 import *
+from EDA.seviri_create_vis_ir_numpy_arrays_from_netcdf_files2 import *
+#from EDA.MultiResUnet_new_UPsampling_v2 import MultiResUnet_new_UPsampling_v2
 backend.clear_session()
 
 
@@ -301,8 +308,16 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                isinstance(chk_day_night['AACP'], dict) and
                'day'  in chk_day_night['OT'] and
                'night' in chk_day_night['OT'])
+  
+  use_seviri = False
+  if sat.lower() in ['seviri', 'seviri-iodc', 'seviriiodc', 'msg1', 'msg2', 'msg3', 'msg4', 'msg01', 'msg02', 'msg03', 'msg04']:
+    use_seviri    = True
+    use_native_ir = False
 
   if both_mode:
+    if sat.lower() in ['seviri', 'seviri-iodc', 'seviriiodc', 'msg1', 'msg2', 'msg3', 'msg4', 'msg01', 'msg02', 'msg03', 'msg04']:
+      print('Not sure how you made it this far but software is currently only set up to detect OTs with SEVIRI data. Exiting program. Please try again.')
+      exit()
     # ------------------------------------------------------------------
     # BOTH mode: OT + AACP simultaneous detection.
     #
@@ -340,15 +355,16 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
       _has_tropdiff   = (len(re.split('tropdiff',  chk)) != 1 and not _has_tropdiffot)
 
       return {
-        'use_glm'        : len(re.split('glm',          chk)) != 1,
-        'use_irdiff'     : len(re.split('_wvirdiff',    chk)) != 1,
-        'use_dirtyirdiff': len(re.split('_dirtyirdiff', chk)) != 1,
-        'use_irgradient' : len(re.split('_irgradient',  chk)) != 1,
-        'use_tropdiff'   : _has_tropdiff,
-        'use_tropdiffot' : _has_tropdiffot,
-        'use_snowice'    : len(re.split('_snowice',     chk)) != 1,
-        'use_cirrus'     : len(re.split('_cirrus',      chk)) != 1,
-        'use_vis'        : True,
+        'use_glm'         : len(re.split('glm',          chk)) != 1,
+        'use_irdiff'      : len(re.split('_wvirdiff',    chk)) != 1,
+        'use_dirtyirdiff' : len(re.split('_dirtyirdiff', chk)) != 1,
+        'use_irgradient'  : len(re.split('_irgradient',  chk)) != 1,
+        'use_irlaplacian' : len(re.split('_irlaplacian',  chk)) != 1,
+        'use_tropdiff'    : _has_tropdiff,
+        'use_tropdiffot'  : _has_tropdiffot,
+        'use_snowice'     : len(re.split('_snowice',     chk)) != 1,
+        'use_cirrus'      : len(re.split('_cirrus',      chk)) != 1,
+        'use_vis'         : True,
 #         'use_vis'        : (len(re.split('_vis',        chk)) != 1 or
 #                             len(re.split('vis_',        chk)) != 1 or
 #                             len(re.split('_snowice',    chk)) != 1 or
@@ -368,6 +384,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
     no_snowice     = not union['use_snowice']
     no_cirrus      = not union['use_cirrus']
     no_irgradient  = not union['use_irgradient']
+    no_irlaplacian = not union['use_irlaplacian']
     use_glm0       = union['use_glm']
     no_vis         = not union['use_vis'] if not use_native_ir else True
     use_tropdiffot = union['use_tropdiffot']
@@ -415,6 +432,13 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
       if rt:
         if date.minute < 10:
           date = date - timedelta(minutes = 10)
+    elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+        sector00 = sector.upper()
+        if sector00.lower() == 'full':
+          sector00 = 'F'
+        if rt:
+          if date.minute < 10:
+            date = date - timedelta(minutes = 10)  
     else:
       if 'meso' in sector.lower() or sector[0].lower() == 'm':
         m_sector = int(sector[-1])
@@ -457,6 +481,15 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                      no_native = no_irdiff and no_dirtyirdiff and no_cirrus and no_snowice,
                                                      essl      = essl,
                                                      verbose   = verbose)
+        elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+          og_dir, d_strs = run_download_seviri_iodc_data(date1     = date1, date2 = date2,
+                                                         outroot   = outroot,
+                                                         sat       = sat,
+                                                         sector    = sector,
+                                                         del_local = False,
+                                                         download_format = 'native',
+                                                         essl      = essl,
+                                                         verbose   = verbose)        
         else:
           og_dir = run_download_goes_ir_vis_l1b_glm_l2_data(date1      = date1, date2 = date2,
                                                             outroot    = outroot,
@@ -475,7 +508,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
       else:
         date1  = date.strftime("%Y-%m-%d %H:%M:%S")
         date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
-        if essl and 'mtg' in sat.lower():
+        if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower()):
           og_dir = [os.path.join(outroot, date01.strftime("%Y"), date01.strftime("%m"), date01.strftime("%d"))]
         else:
           og_dir = [os.path.join(outroot, date01.strftime("%Y%m%d"))]
@@ -513,6 +546,20 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
             print(date1)
             print(date2)
             exit()
+        elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+          og_dir, d_strs = run_download_seviri_iodc_data_parallel(date1     = date1, date2 = date2,
+                                                                  outroot   = outroot,
+                                                                  sat       = sat,
+                                                                  sector    = sector,
+                                                                  del_local = False,
+                                                                  download_format = 'native',
+                                                                  essl      = essl,
+                                                                  verbose   = verbose)        
+          if len(og_dir) <= 0:
+            print('No SEVIRI data found to download???')
+            print(date1)
+            print(date2)
+            exit()
         else:
           og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1      = date1, date2 = date2,
                                                                      outroot    = outroot,
@@ -528,7 +575,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                      del_local  = False,
                                                                      verbose    = verbose)
         date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")
-        if essl and 'mtg' in sat.lower():
+        if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower()):
           if d_strs[-1] > date02.strftime("%Y%m%d"):
             og_dir = og_dir[:-1]
             d_strs = d_strs[:-1]
@@ -539,7 +586,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
       else:
         date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")
         date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")
-        if essl and 'mtg' in sat.lower():
+        if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower()):
           og_dir = sorted(list(set([
               os.path.join(outroot,
                            (date01 + timedelta(hours=x)).strftime("%Y"),
@@ -645,6 +692,44 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                             real_time            = rt, del_local = False,
                                             satellite            = sat,
                                             in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
+                                            verbose              = verbose)
+          p = None
+      elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+        if rt:
+          img_names, nc_names, proj, p = run_seviri_create_image_from_three_modalities(
+                                            inroot               = o,
+                                            layered_dir          = os.path.join(outroot, 'combined_nc_dir'),
+                                            img_out_dir          = os.path.join(outroot, 'aacp_results_imgs', mod1_both, ot_mod_pat, pat, d_str, d_str2, str(sector)),
+                                            no_plot              = no_plot, grid_data = grid_data,
+                                            no_write_vis         = no_vis,
+                                            no_write_irdiff      = no_irdiff,
+                                            no_write_dirtyirdiff = no_dirtyirdiff,
+                                            domain_sector        = sector,
+                                            run_gcs              = run_gcs,
+                                            append_nc            = True,
+                                            region               = region, xy_bounds = xy_bounds,
+                                            real_time            = rt, del_local = False,
+                                            plt_model            = os.path.join(res_dir, d_str2, str(sector)),
+                                            model                = mod0_both + ' OT Detection',
+                                            satellite            = sat,
+                                            chk_day_night        = chk_day_night['OT'],
+                                            pthresh              = pthresh,
+                                            verbose              = verbose)
+        else:
+          img_names, nc_names, proj = run_seviri_create_image_from_three_modalities2(
+                                            inroot               = o,
+                                            layered_dir          = os.path.join(outroot, 'combined_nc_dir'),
+                                            date_range           = date_range,
+                                            no_plot              = True, grid_data = grid_data,
+                                            no_write_vis         = no_vis,
+                                            no_write_irdiff      = no_irdiff,
+                                            no_write_dirtyirdiff = no_dirtyirdiff,
+                                            domain_sector        = sector,
+                                            run_gcs              = run_gcs,
+                                            append_nc            = True,
+                                            region               = region, xy_bounds = xy_bounds,
+                                            real_time            = rt, del_local = False,
+                                            satellite            = sat,
                                             verbose              = verbose)
           p = None
       else:
@@ -825,6 +910,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                   rewrite_model = rewrite_model,
                                   chk_day_night = sig_chk_dn,
                                   use_native_ir = use_native_ir,
+                                  use_seviri    = use_seviri,
                                   no_write_npy  = no_write_npy,
                                   verbose       = verbose)
 
@@ -1096,6 +1182,13 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
       if rt:
         if date.minute < 10:
           date = date - timedelta(minutes = 10)
+  elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+      sector00 = sector.upper()
+      if sector00.lower() == 'full':
+        sector00 = 'F'
+      if rt:
+        if date.minute < 10:
+          date = date - timedelta(minutes = 10)  
   else:
     if 'meso' in sector.lower() or sector[0].lower() == 'm': 
       m_sector = int(sector[-1])                                                                                                                                            #Extract meso scale sector number
@@ -1149,6 +1242,10 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
         no_cirrus = False
       else:
         no_cirrus = True
+      if len(re.split('_irlaplacian', use_chkpnt)) != 1:
+        no_irlaplacian = False
+      else:
+        no_irlaplacian = True
 
       if len(re.split('updraft_day_model', use_chkpnt)) != 1:
         use_updraft = True
@@ -1235,6 +1332,11 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
     else:
       no_snowice = True
 
+    if len(re.split('irlaplacian', day0['use_chkpnt'])) != 1 or len(re.split('irlaplacian', night0['use_chkpnt'])) != 1:
+      no_irlaplacian = False
+    else:
+      no_irlaplacian = True
+
   if use_native_ir:
     no_vis = True
 
@@ -1264,6 +1366,15 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                    no_native = no_irdiff and no_dirtyirdiff and no_cirrus and no_snowice,
                                                    essl      = essl,
                                                    verbose   = verbose)
+      elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+        og_dir, d_strs = run_download_seviri_iodc_data(date1     = date1, date2 = date2,
+                                                       outroot   = outroot,
+                                                       sat       = sat,
+                                                       sector    = sector,
+                                                       del_local = False,
+                                                       download_format = 'native',
+                                                       essl      = essl,
+                                                       verbose   = verbose)        
       else:
         og_dir = run_download_goes_ir_vis_l1b_glm_l2_data(date1          = date1, date2 = date2,                                                                            #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
                                                           outroot        = outroot, 
@@ -1283,7 +1394,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
     else:
       date1  = date.strftime("%Y-%m-%d %H:%M:%S")
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S") 
-      if essl and 'mtg' in sat.lower():
+      if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower()):
         og_dir = [os.path.join(outroot, date01.strftime("%Y"), date01.strftime("%m"), date01.strftime("%d"))]
       else:
         og_dir = [os.path.join(outroot, date01.strftime("%Y%m%d"))]
@@ -1322,6 +1433,21 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
           print(date1)
           print(date2)
           exit()
+      elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+        og_dir, d_strs = run_download_seviri_iodc_data_parallel(date1     = date1, date2 = date2,
+                                                                outroot   = outroot,
+                                                                sat       = sat,
+                                                                sector    = sector,
+                                                                del_local = False,
+                                                                download_format = 'native',
+                                                                essl      = essl,
+                                                                verbose   = verbose)        
+        if len(og_dir) <= 0:
+          print('No SEVIRI data found to download???')
+          print(date1)
+          print(date2)
+          exit()
+
       else:
         og_dir = run_download_goes_ir_vis_l1b_glm_l2_data_parallel(date1          = date1, date2 = date2,                                                                   #Download satellite GLM, VIS, and IR data for specified date range or real time (returns all output directories)
                                                                    outroot        = outroot, 
@@ -1338,7 +1464,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                    verbose        = verbose)
 
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
-      if essl and 'mtg' in sat.lower():
+      if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower()):
         if d_strs[-1] > date02.strftime("%Y%m%d"):
           og_dir = og_dir[:-1]      
           d_strs = d_strs[:-1]    
@@ -1349,7 +1475,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
     else:
       date01 = datetime.strptime(date1, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
       date02 = datetime.strptime(date2, "%Y-%m-%d %H:%M:%S")                                                                                                                #Year-month-day hour:minute:second of start time to download data
-      if essl and 'mtg' in sat.lower():
+      if essl and ('mtg' in sat.lower() or 'seviri' in sat.lower() or 'meteosat' in sat.lower() or 'msg' in sat.lower()):
         og_dir = sorted(list(set([
             os.path.join(outroot, 
                          (date01 + timedelta(hours=x)).strftime("%Y"),
@@ -1453,6 +1579,9 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
         elif len(re.split('ir_tropdiff', use_chkpnt)) > 1:
           mod0 = 'IR+TROPDIFF';                  mod1 = 'ir_tropdiff';
           if use_night == None: use_night = True
+        elif len(re.split('model_checkpoints' + os.sep + 'tropdiff_irlaplacian', use_chkpnt)) > 1:
+          mod0 = 'TROPDIFF+IRLAPLACIAN';          mod1 = 'tropdiff_irlaplacian';
+          if use_night == None: use_night = True
         elif len(re.split('model_checkpoints' + os.sep + 'tropdiff', use_chkpnt)) > 1:
           mod0 = 'TROPDIFF';                     mod1 = 'tropdiff';
           if use_night == None: use_night = True
@@ -1517,6 +1646,44 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                                 satellite            = sat, 
                                                                                 in_bucket_name       = og_bucket_name, out_bucket_name = c_bucket_name,
                                                                                 verbose              = verbose)
+    elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+      if rt:
+        img_names, nc_names, proj, p = run_seviri_create_image_from_three_modalities(
+                                          inroot               = o,
+                                          layered_dir          = os.path.join(outroot, 'combined_nc_dir'),
+                                          img_out_dir          = os.path.join(outroot, 'aacp_results_imgs', mod1, mod_pat, pat, d_str, d_str2, str(sector)),
+                                          no_plot              = no_plot, grid_data = grid_data,
+                                          no_write_vis         = no_vis,
+                                          no_write_irdiff      = no_irdiff,
+                                          no_write_dirtyirdiff = no_dirtyirdiff,
+                                          domain_sector        = sector,
+                                          run_gcs              = run_gcs,
+                                          append_nc            = True,
+                                          region               = region, xy_bounds = xy_bounds,
+                                          real_time            = rt, del_local = False,
+                                          plt_model            = os.path.join(res_dir, d_str2, str(sector)),
+                                          model                = mod0 + mod00,
+                                          satellite            = sat,
+                                          chk_day_night        = chk_day_night,
+                                          pthresh              = pthresh,
+                                          verbose              = verbose)
+      else:
+        img_names, nc_names, proj = run_seviri_create_image_from_three_modalities2(
+                                          inroot               = o,
+                                          layered_dir          = os.path.join(outroot, 'combined_nc_dir'),
+                                          date_range           = date_range,
+                                          no_plot              = True, grid_data = grid_data,
+                                          no_write_vis         = no_vis,
+                                          no_write_irdiff      = no_irdiff,
+                                          no_write_dirtyirdiff = no_dirtyirdiff,
+                                          domain_sector        = sector,
+                                          run_gcs              = run_gcs,
+                                          append_nc            = True,
+                                          region               = region, xy_bounds = xy_bounds,
+                                          real_time            = rt, del_local = False,
+                                          satellite            = sat,
+                                          verbose              = verbose)
+        p = None
     else:
       if rt:
         img_names, nc_names, proj, p = run_create_image_from_three_modalities(inroot               = o,                                                                     #Create combined netCDF file (do not create image)
@@ -1606,6 +1773,25 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                            proc_bucket_name     = p_bucket_name, 
                                                                            new_weighting        = new_weighting,
                                                                            verbose              = verbose)
+      elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+        print('starting pre-processing of seviri')
+        ir_file0, dims = seviri_create_vis_ir_numpy_arrays_from_netcdf_files2(inroot           = o, 
+                                                                              layered_root     = os.path.join(outroot, 'combined_nc_dir'),
+                                                                              outroot          = os.path.join(outroot, 'labelled', pat),
+                                                                              json_root        = os.path.join(outroot, 'labelled'),  
+                                                                              date_range       = date_range, 
+                                                                              domain_sector    = sector00, 
+                                                                              satellite        = 'Meteosat09',
+                                                                              ir_min_value     = 180, ir_max_value   = 230, gradient_sigma = 1.0,
+                                                                              no_write_vis = no_vis, no_write_irdiff = True, 
+                                                                              no_write_glm     = True,
+                                                                              no_write_cirrus  = True, no_write_snowice = True, no_write_dirtyirdiff = True, no_write_trop = no_tropdiff, no_write_irlaplacian = no_irlaplacian, 
+                                                                              run_gcs          = run_gcs, real_time = rt, del_local = del_local, use_local = True,
+                                                                              og_bucket_name   = og_bucket_name, comb_bucket_name = c_bucket_name, proc_bucket_name = p_bucket_name, 
+                                                                              use_native_ir    = False, 
+                                                                              new_weighting    = new_weighting,
+                                                                              verbose          = verbose)
+     
       else:
         ir_file0, dims = create_vis_ir_numpy_arrays_from_netcdf_files2(inroot               = o,                                                                            #Create VIS, IR, GLM and solar zenith angle numpy arrays. (returns ir.npy file name and path as well as image dimensions)
                                                                        layered_root         = os.path.join(outroot, 'combined_nc_dir'),
@@ -1666,6 +1852,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                       rewrite_model = rewrite_model, 
                                                                       chk_day_night = chk_day_night, 
                                                                       use_native_ir = use_native_ir,
+                                                                      use_seviri    = use_seviri, 
                                                                       no_write_npy  = no_plot,
                                                                       verbose       = verbose)
       else:
@@ -1701,6 +1888,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                       rewrite_model = rewrite_model, 
                                                                       chk_day_night = chk_day_night, 
                                                                       use_native_ir = use_native_ir,
+                                                                      use_seviri    = use_seviri, 
                                                                       no_write_npy  = no_plot,
                                                                       verbose       = verbose)
         outdir = day_outdir
@@ -1734,6 +1922,7 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                       rewrite_model = rewrite_model, 
                                                                       chk_day_night = chk_day_night, 
                                                                       use_native_ir = use_native_ir,
+                                                                      use_seviri    = use_seviri, 
                                                                       no_write_npy  = no_plot,
                                                                       verbose       = verbose)
           outdir = night_outdir
@@ -2011,6 +2200,7 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                            chk_day_night  = {}, 
                                            both_mode      = False,
                                            use_native_ir  = False, 
+                                           use_seviri     = False,
                                            no_write_npy   = False, 
                                            verbose        = True):
   '''
@@ -2070,6 +2260,8 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       chk_day_night  : Structure containing day and night model data information in order to make seemless transition in predictions of the 2.
                        DEFAULT = {} -> do not use day_night transition                 
       use_native_ir  : IF keyword set (True), run model at the native IR data resolution.
+                       DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
+      use_seviri     : IF keyword set (True), run model for SEVIRI data resolution.
                        DEFAULT = False -> interpolate IR resolution data to higher resolution visible data grid.
       no_write_npy   : IF keyword set (True), do not write numpy results files. Only append the combined netCDF files
                        DEFAULT = False -> write the numpy results files
@@ -2193,12 +2385,18 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     elif len(re.split('ir_tropdiff', use_chkpnt)) > 1:
       mod0 = 'IR+TROPDIFF';                  mod1 = 'ir_tropdiff';
       if use_night == None: use_night = True
+    elif len(re.split('model_checkpoints' + os.sep + 'tropdiff_irlaplacian', use_chkpnt)) > 1:
+      mod0 = 'TROPDIFF+IRLAPLACIAN';         mod1 = 'tropdiff_irlaplacian';
+      if use_night == None: use_night = True
     # 1-channel
     elif len(re.split('model_checkpoints' + os.sep + 'tropdiff', use_chkpnt)) > 1:
       mod0 = 'TROPDIFF';                     mod1 = 'tropdiff';
       if use_night == None: use_night = True
     elif len(re.split('model_checkpoints' + os.sep + 'ir', use_chkpnt)) > 1:
       mod0 = 'IR';                           mod1 = 'ir';
+      if use_night == None: use_night = True
+    elif len(re.split('model_checkpoints' + os.sep + 'tropdiff_irlaplacian', use_chkpnt)) > 1:
+      mod0 = 'TROPDIFF+IRLAPLACIAN';         mod1 = 'tropdiff_irlaplacian';
       if use_night == None: use_night = True
     else:
       print('Not set up to handle model specified.')
@@ -2291,7 +2489,11 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         if len(re.split('tropdiffots', use_chkpnt)) != 1:
             model = MultiResUnet(512, 512, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
         else:
-            model = MultiResUnet(dims[1], dims[2], n_channels)                                                                                                                  #Run MultiResUnet function with N channels
+            if use_seviri:
+              model = MultiResUnet(64, 64, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
+#              model = MultiResUnet_new_UPsampling_v2(64, 64, n_channels) 
+            else:
+              model = MultiResUnet(dims[1], dims[2], n_channels)                                                                                                            #Run MultiResUnet function with N channels
 #            model = MultiResUnet(128, 128, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
         
       else:  
@@ -2420,6 +2622,8 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                                    ('vis_index', 'snowice',     '_snowice.npy')],
         'ir_tropdiff'                           : [('ir_index',  'ir',          '_ir.npy'),
                                                    ('ir_index',  'tropdiff',    '_tropdiff.npy')],
+        'tropdiff_irlaplacian'                  : [('ir_index',  'tropdiff',    '_tropdiff.npy'),
+                                                   ('ir_index',  'irlaplacian', '_irlaplacian.npy')],
         'tropdiff'                              : [('ir_index',  'tropdiff',    '_tropdiff.npy')],
         'ir'                                    : [('ir_index',  'ir',          '_ir.npy')],
       }
@@ -2556,18 +2760,23 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
             if mod_type.lower() == 'unet':
               model = unet(input_size=(patch_sz, patch_sz, n_channels))
             elif mod_type.lower() == 'multiresunet':
-              model = MultiResUnet(patch_sz, patch_sz, n_channels)
+              if use_seviri:
+                  model = MultiResUnet(patch_sz, patch_sz, n_channels)
+#                  model = MultiResUnet_new_UPsampling_v2(patch_sz, patch_sz, n_channels)
+#                  print(patch_sz)
+              else:
+                  model = MultiResUnet(patch_sz, patch_sz, n_channels)
             else:
               print('Not set up to do model specified.')
               print(mod_type)
               exit()
             model.load_weights(use_chkpnt).expect_partial()
-
+  
           # Skip all-zero (empty) tiles
           mnval, mxval = np.min(imgs_tiled[:, :, :, 0], axis=(1, 2)), np.max(imgs_tiled[:, :, :, 0], axis=(1, 2))
           rem    = np.where((mxval != 0) & (mnval != 1))
           imgs2  = imgs_tiled[rem[0], :, :, :] if len(rem[0]) > 0 else imgs_tiled
-
+  
           # Predict on non-empty tiles using patch-based overlap-averaging
 #          batch_size = 10 if 'plume_day_model' in (use_chkpnt if use_chkpnt is not None else '') else 16
           batch_size = 16
@@ -2576,35 +2785,43 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
                                                       overlap    = 64,
                                                       batch_size = batch_size,
                                                       verbose    = verbose)
-
+  
           # Re-insert non-empty results back into full tile array
           if len(rem[0]) > 0:
             results2 = np.zeros((imgs_tiled.shape[0], imgs_tiled.shape[1], imgs_tiled.shape[2], results_tiles.shape[3]))
             results2[rem[0], :, :, :] = results_tiles
             results_tiles = results2
-
+  
           # Reconstruct full spatial domain from tiles
           results = reconstruct_tensor_from_subset3(results_tiles, dims[1], dims[2], chunks)
-
+  
         else:
           #dims <= 2000
-          if 'updraft_day_model' in (use_chkpnt if use_chkpnt is not None else ''):
-            dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(1)                                                                                                   #Creates a Dataset whose elements are slices of the given tensors
-            dataset.cache                                                                                                                                                   #Cache the elements in the dataset
-            dataset.prefetch(1)                                                                                                                                             #Creates a Dataset that prefetches elements from this dataset
-            results = model.predict(dataset)
+          if use_seviri:
+            results = predict_large_image_patches(model, imgs,
+                                                  patch_size = 64,
+                                                  overlap    = 32,
+                                                  batch_size = 16,
+                                                  verbose    = verbose)
+          
           else:
-            if len(re.split('tropdiffots', use_chkpnt)) == 1:
-              dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(1)                                                                                                 #Creates a Dataset whose elements are slices of the given tensors
-              dataset.cache                                                                                                                                                 #Cache the elements in the dataset
-              dataset.prefetch(1)                                                                                                                                           #Creates a Dataset that prefetches elements from this dataset
+            if 'updraft_day_model' in (use_chkpnt if use_chkpnt is not None else ''):
+              dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(1)                                                                                                   #Creates a Dataset whose elements are slices of the given tensors
+#               dataset.cache                                                                                                                                                   #Cache the elements in the dataset
+#               dataset.prefetch(1)                                                                                                                                             #Creates a Dataset that prefetches elements from this dataset
               results = model.predict(dataset)
             else:
-              results = predict_large_image_patches(model, imgs,
-                                                    patch_size = patch_sz,
-                                                    overlap    = 64,
-                                                    batch_size = 16,
-                                                    verbose    = verbose)
+              if len(re.split('tropdiffots', use_chkpnt)) == 1:
+                dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(1)                                                                                                 #Creates a Dataset whose elements are slices of the given tensors
+#                 dataset.cache                                                                                                                                                 #Cache the elements in the dataset
+#                 dataset.prefetch(1)                                                                                                                                           #Creates a Dataset that prefetches elements from this dataset
+                results = model.predict(dataset)
+              else:
+                results = predict_large_image_patches(model, imgs,
+                                                      patch_size = patch_sz,
+                                                      overlap    = 64,
+                                                      batch_size = 16,
+                                                      verbose    = verbose)
 #       if full_pred:
 #         # Edge zeroing
 #         if mod_type.lower() == 'multiresunet':
@@ -2644,48 +2861,98 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
         results0 = np.copy(results) 
       if np.sum(na) > 0:
         results[na, 0] = 0                                                                                                                                                  #Set all model predictions scores to 0 in regions that there was no valid satellite data
-        r0 = results[0, :, :, 0]
-        r0[np.where(np.min(np.asarray([r0, np.roll(r0, 1, axis = 0), np.roll(r0, -1, axis = 0), np.roll(r0, 1, axis = 1), np.roll(r0, -1, axis = 1), 
-                                       np.roll(r0, (1, 1), axis = (0, 1)), np.roll(r0, (1, 1), axis = (1, 0)), np.roll(r0, (-1, -1), axis = (0, 1)), np.roll(r0, (-1, -1), axis = (1, 0))]), axis = 0) == 0)] = 0 #Set likelihood scores near to edges of domain to 0s.
-        results[0, :, :, 0] = r0
+        if not use_seviri:
+          r0 = results[0, :, :, 0]
+          r0[np.where(np.min(np.asarray([r0, np.roll(r0, 1, axis = 0), np.roll(r0, -1, axis = 0), np.roll(r0, 1, axis = 1), np.roll(r0, -1, axis = 1), 
+                                         np.roll(r0, (1, 1), axis = (0, 1)), np.roll(r0, (1, 1), axis = (1, 0)), np.roll(r0, (-1, -1), axis = (0, 1)), np.roll(r0, (-1, -1), axis = (1, 0))]), axis = 0) == 0)] = 0 #Set likelihood scores near to edges of domain to 0s.
+          results[0, :, :, 0] = r0
+        else:
+          r0 = results[0, :, :, 0]
+          r0[np.where(np.min(np.asarray([r0, np.roll(r0, 1, axis = 0), np.roll(r0, -1, axis = 0), np.roll(r0, 1, axis = 1), np.roll(r0, -1, axis = 1), 
+                                         np.roll(r0, (1, 1), axis = (0, 1)), np.roll(r0, (1, 1), axis = (1, 0)), np.roll(r0, (-1, -1), axis = (0, 1)), np.roll(r0, (-1, -1), axis = (1, 0))]), axis = 0) == 0)] = 0 #Set likelihood scores near to edges of domain to 0s.
+          results[0, :, :, 0] = r0
+#           invalid_mask = np.squeeze(na)
+#           
+#           if invalid_mask.ndim == 3:
+#               invalid_mask = invalid_mask[:, :, 0]
+#           
+#           invalid_mask = invalid_mask.astype(bool)
+#           
+#           # Also include non-finite model output
+#           r0 = results[0, :, :, 0]
+#           invalid_mask = invalid_mask | (~np.isfinite(r0))
+#           
+#           edge_buffer = 24
+#           edge_guard = binary_dilation(invalid_mask, iterations=edge_buffer)
+#           
+#           r0[edge_guard] = 0
+#           results[0, :, :, 0] = r0
+
+        
       if np.sum(na2) > 0:
         results[na2, 0] = 0
       if np.sum(na3) > 0:
         results[na3, 0] = results0[na3, 0]
         results0 = None
 
-      binary_mask = (results[0, :, :, 0] > 0).astype(int)
-      labeled_array, num_features = label(binary_mask)
-      
-      slices = find_objects(labeled_array)
-      
-      for i, slc in enumerate(slices):
-          if slc is None: 
-              continue
-              
-          # Isolate the exact bounding box for this blob
-          local_label = labeled_array[slc]
-          local_mask = (local_label == (i + 1))
-          
-          # Calculate the size (number of pixels)
-          size = np.sum(local_mask)
-          if size >= 50:
-              continue  # Skip large, valid detections instantly
-              
-          # Extract probabilities just for this tiny blob
-          local_probs = results[0, slc[0], slc[1], 0] * local_mask
-          
-          # Find the peak probability coordinates within this small box
-          max_y_local, max_x_local = np.unravel_index(np.argmax(local_probs), local_probs.shape)
-          
-          # Check if the peak is physically sheared against the flat edge
-          on_edge_y = (max_y_local == 0) or (max_y_local == local_mask.shape[0] - 1)
-          on_edge_x = (max_x_local == 0) or (max_x_local == local_mask.shape[1] - 1)
-          
-          # IF the peak is jammed against an edge AND the blob is small (< 50 pixels) -> Delete it
-          if on_edge_y or on_edge_x:
-              # Use the full labeled_array to ensure the original array is modified
-              results[0, labeled_array == (i + 1), 0] = 0
+#       print('2. Max OT probability in 10 pixel box around pixel [0, 998, 2761, 0] = ' + str(np.nanmax(results[0, 998-10:998+10, 2761-10:2761+10, 0])))
+#       print('2. Max OT probability in 10 pixel box around pixel [0, 2761, 998, 0] = ' + str(np.nanmax(results[0, 2761-10:2761+10, 998-10:998+10, 0])))
+      if not use_seviri:
+        binary_mask = (results[0, :, :, 0] > 0).astype(int)
+        labeled_array, num_features = label(binary_mask)
+        
+        slices = find_objects(labeled_array)
+        
+        for i, slc in enumerate(slices):
+            if slc is None: 
+                continue
+                
+            # Isolate the exact bounding box for this blob
+            local_label = labeled_array[slc]
+            local_mask = (local_label == (i + 1))
+            
+            # Calculate the size (number of pixels)
+            size = np.sum(local_mask)
+            if size >= 50:
+                continue  # Skip large, valid detections instantly
+                
+            # Extract probabilities just for this tiny blob
+            local_probs = results[0, slc[0], slc[1], 0] * local_mask
+            
+            # Find the peak probability coordinates within this small box
+            max_y_local, max_x_local = np.unravel_index(np.argmax(local_probs), local_probs.shape)
+            
+            # Check if the peak is physically sheared against the flat edge
+            on_edge_y = (max_y_local == 0) or (max_y_local == local_mask.shape[0] - 1)
+            on_edge_x = (max_x_local == 0) or (max_x_local == local_mask.shape[1] - 1)
+            
+            # IF the peak is jammed against an edge AND the blob is small (< 50 pixels) -> Delete it
+            if on_edge_y or on_edge_x:
+                # Use the full labeled_array to ensure the original array is modified
+                results[0, labeled_array == (i + 1), 0] = 0
+      else:
+        # Light SEVIRI cleanup:
+        # Remove only extremely tiny very-low-probability speckles, but keep compact high-confidence OT detections.
+        binary_mask = (results[0, :, :, 0] > 0).astype(int)
+        labeled_array, num_features = label(binary_mask)
+    
+        slices = find_objects(labeled_array)
+    
+        for i, slc in enumerate(slices):
+            if slc is None:
+                continue
+    
+            local_label = labeled_array[slc]
+            local_mask = (local_label == (i + 1))
+    
+            local_probs = results[0, slc[0], slc[1], 0] * local_mask
+            size = np.sum(local_mask)
+            max_prob = np.nanmax(local_probs)
+    
+            # Very conservative SEVIRI cleanup.
+            # Only remove tiny weak noise. Keep small high-probability objects.
+            if size <= 2 and max_prob < 0.10:
+                results[0, labeled_array == (i + 1), 0] = 0      
       
       if not no_write_npy:
         np.save(fname, results)                                                                                                                                            #Save model results to numpy file in local storage
