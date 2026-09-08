@@ -795,7 +795,11 @@ def build_subset_tensor3(orig_tens, new_dim_x, new_dim_y):
 
     for c, chunk in enumerate(chunks.split()):
       if c == 0:
-        new_tens = np.empty( (np.product(chunks.nChunks), *chunk.shape[1:]), dtype=chunk.dtype )
+        try:
+          new_tens = np.empty( (np.product(chunks.nChunks), *chunk.shape[1:]), dtype=chunk.dtype )
+        except:
+          new_tens = np.empty( (np.prod(chunks.nChunks), *chunk.shape[1:]), dtype=chunk.dtype )
+        
       new_tens[c] = chunk
     
     return(new_tens, chunks)

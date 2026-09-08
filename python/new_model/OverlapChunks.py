@@ -99,7 +99,11 @@ class OverlapChunks( object ):
 #         print(tmp.shape)
 #         print(np.reshape(tmp, ( np.product(self.nChunks), *tmp.shape[self._array.ndim:])).shape )
         # Yield the chunks from the sliding window view
-        return(np.reshape(tmp, ( np.product(self.nChunks), *tmp.shape[self._array.ndim:])))
+        try:
+            return(np.reshape(tmp, ( np.product(self.nChunks), *tmp.shape[self._array.ndim:])))
+        except:
+            return(np.reshape(tmp, ( np.prod(self.nChunks), *tmp.shape[self._array.ndim:])))
+            
 #         yield from np.reshape( 
 #             tmp, 
 #             ( np.product(self.nChunks), *tmp.shape[self._array.ndim:])
