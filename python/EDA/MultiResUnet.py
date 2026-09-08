@@ -12,10 +12,18 @@
 from keras.layers import Input, Conv2D, MaxPooling2D, Conv2DTranspose, concatenate, BatchNormalization, Activation, add
 from keras.models import Model, model_from_json
 #from keras.optimizers import Adam
-from tensorflow.keras.optimizers import Adam
-from keras.layers.advanced_activations import ELU, LeakyReLU
+#from tensorflow.keras.optimizers import Adam
+try:
+    from tensorflow.keras.optimizers.legacy import Adam
+except ImportError:
+    from keras.optimizers import Adam
+
+try:
+    from keras.layers.advanced_activations import ELU, LeakyReLU
+except:
+    from tensorflow.keras.layers import ELU, LeakyReLU
 #from keras.layers import ELU, LeakyReLU
-from keras.utils.vis_utils import plot_model
+#from keras.utils.vis_utils import plot_model
 
 def conv2d_bn(x, filters, num_row, num_col, padding='same', strides=(1, 1), activation='relu', name=None):
     '''

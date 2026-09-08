@@ -14,11 +14,19 @@ import tensorflow as tf
 from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Conv2DTranspose, concatenate, BatchNormalization, Activation, add, Dropout
 from keras.models import Model, model_from_json
 #from keras.optimizers import Adam
-from tensorflow.keras.optimizers import Adam
-from keras.layers.advanced_activations import ELU, LeakyReLU
+#from tensorflow.keras.optimizers import Adam
+try:
+    from tensorflow.keras.optimizers.legacy import Adam
+except ImportError:
+    from keras.optimizers import Adam
+try:
+    from keras.layers.advanced_activations import ELU, LeakyReLU
+except:
+    from tensorflow.keras.layers import ELU, LeakyReLU
+
 #from keras.layers import ELU, LeakyReLU
 
-from keras.utils.vis_utils import plot_model
+#from keras.utils.vis_utils import plot_model
 
 def conv2d_bn(x, filters, num_row, num_col, padding='same', strides=(1, 1), activation='relu', name=None):
     '''
@@ -223,7 +231,10 @@ def MultiResUnet_new_UPsampling(height, width, n_channels, pretrained_weights = 
         [keras model] -- MultiResUNet model
     '''
 
-
+    if height <= 8 and width <= 8:
+      psize = 1
+    else:
+      psize = 2  
     inputs = Input((height, width, n_channels))
 #     print()
 #     print(inputs.shape)
@@ -231,7 +242,7 @@ def MultiResUnet_new_UPsampling(height, width, n_channels, pretrained_weights = 
     mresblock1 = MultiResBlock(32, inputs)
 #     print(mresblock1.shape)
  #   mresblock1 = Dropout(0.5)(mresblock1)                                                                                                                                   #Randomly sets input units to 0 with a frequency of rate of 0.5 at each step during training time, which helps prevent overfitting
-    pool1 = MaxPooling2D(pool_size=(2, 2))(mresblock1)
+    pool1 = MaxPooling2D(pool_size=(psize, psize))(mresblock1)
     mresblock1 = ResPath(32, 4, mresblock1)
 #     print(mresblock1.shape)
 #     print()
@@ -239,7 +250,7 @@ def MultiResUnet_new_UPsampling(height, width, n_channels, pretrained_weights = 
     mresblock2 = MultiResBlock(32*2, pool1)
 #     print(mresblock2.shape)
 #    mresblock2 = Dropout(0.5)(mresblock2)                                                                                                                                   #Randomly sets input units to 0 with a frequency of rate of 0.5 at each step during training time, which helps prevent overfitting
-    pool2 = MaxPooling2D(pool_size=(2, 2))(mresblock2)
+    pool2 = MaxPooling2D(pool_size=(psize, psize))(mresblock2)
     mresblock2 = ResPath(32*2, 3, mresblock2)
 #     print(mresblock2.shape)
 #     print()
@@ -247,14 +258,14 @@ def MultiResUnet_new_UPsampling(height, width, n_channels, pretrained_weights = 
     mresblock3 = MultiResBlock(32*4, pool2)
 #     print(mresblock3.shape)
 #    mresblock3 = Dropout(0.5)(mresblock3)                                                                                                                                   #Randomly sets input units to 0 with a frequency of rate of 0.5 at each step during training time, which helps prevent overfitting
-    pool3 = MaxPooling2D(pool_size=(2, 2))(mresblock3)
+    pool3 = MaxPooling2D(pool_size=(psize, psize))(mresblock3)
     mresblock3 = ResPath(32*4, 2, mresblock3)
 #     print(mresblock3.shape)
 #     print()
     mresblock4 = MultiResBlock(32*8, pool3)
 #    mresblock4 = Dropout(0.5)(mresblock4)                                                                                                                                   #Randomly sets input units to 0 with a frequency of rate of 0.5 at each step during training time, which helps prevent overfitting
 #     print(mresblock4.shape)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(mresblock4)
+    pool4 = MaxPooling2D(pool_size=(psize, psize))(mresblock4)
     mresblock4 = ResPath(32*8, 1, mresblock4)
 #     print(mresblock4.shape)
 #     print()
@@ -288,25 +299,25 @@ def MultiResUnet_new_UPsampling(height, width, n_channels, pretrained_weights = 
 #     print()
 
 #3:00pm 11/17 (only gridding issues in corners of domain; second run got rid of them. Max IoU = 0.37, 0.36)
-    up6 = concatenate([UpSampling2D(size = (2,2))(mresblock5), mresblock4], axis=3)
+    up6 = concatenate([UpSampling2D(size = (psize,psize))(mresblock5), mresblock4], axis=3)
 #     print(up6.shape)
     mresblock6 = MultiResBlock(32*8, up6)
 #     print(mresblock6.shape)
 #     print()
     
-    up7 = concatenate([UpSampling2D(size = (2,2))(mresblock6), mresblock3], axis=3)
+    up7 = concatenate([UpSampling2D(size = (psize,psize))(mresblock6), mresblock3], axis=3)
 #     print(up7.shape)
     mresblock7 = MultiResBlock(32*4, up7)
 #     print(mresblock7.shape)
 #     print()
 
-    up8 = concatenate([UpSampling2D(size = (2,2))(mresblock7), mresblock2], axis=3)
+    up8 = concatenate([UpSampling2D(size = (psize,psize))(mresblock7), mresblock2], axis=3)
 #     print(up8.shape)
     mresblock8 = MultiResBlock(32*2, up8)
 #     print(mresblock8.shape)
 #     print()
 
-    up9 = concatenate([UpSampling2D(size = (2,2))(mresblock8), mresblock1], axis=3)
+    up9 = concatenate([UpSampling2D(size = (psize,psize))(mresblock8), mresblock1], axis=3)
 #     print(up9.shape)
     mresblock9 = MultiResBlock(32, up9)
 #     print(mresblock9.shape)
