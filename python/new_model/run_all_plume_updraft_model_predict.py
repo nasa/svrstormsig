@@ -131,6 +131,8 @@
 #                                          removes potentially faulty detections in high altitude, thick bumpy cirrus.
 #                              2026-06-12. MINOR REVISION. Fixed GLM files key issue that results from mutliple days worth of GOES/MTG files in the same daiys directory.
 #                              2026-09-03. MAJOR REVISION. Integrated SEVIRI data into software structure. Due to satpy license change, able to use that as well.
+#                              2026-09-30. MINOR REVISION. Fixed issue where user tried to use optimal models but could not change the likelihood threshold because it was buried inside of 
+#                                          a seamless transition block. User should now be able to specify the threshold they would like to use for all model types.
 #-
 
 #### Environment Setup ###
@@ -245,6 +247,7 @@ from EDA.seviri_create_vis_ir_numpy_arrays_from_netcdf_files2 import *
 
 backend.clear_session()
 tf.get_logger().setLevel('ERROR')
+
 def run_all_plume_updraft_model_predict(verbose     = True,
                                         drcs        = False,
                                         essl        = False, 
@@ -274,7 +277,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 5.0.0')
+  print('SVRSTORMSIG Software VERSION: 5.0.1')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
@@ -648,6 +651,39 @@ def run_all_plume_updraft_model_predict(verbose     = True,
           for sig in ['OT', 'AACP']:
             chk_day_night[sig]['day']['use_glm']   = True
             chk_day_night[sig]['night']['use_glm'] = True
+        
+        opt_params = str(input('Would you like to use the optimal likelihood threshold for OTs and AACPs? (y/n): ')).replace("'", '')
+        if opt_params == '':
+          opt_params = 'y'
+        if opt_params[0].lower() != 'y':
+            counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+            mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
+            while mod_check == 0:
+              ot_pthresh   = input('You have chosen not to use optimal thresholds. Enter the OT likelihood value you would like to use (0-1): ')
+              aacp_pthresh = input('You have chosen not to use optimal thresholds. Enter the AACP likelihood value you would like to use (0-1): ')
+              counter = counter + 1
+              if counter == 4:
+                print('Too many failed attempts! Exiting program.')
+                exit()
+              try:
+                ot_pthresh   = float(ot_pthresh)
+                aacp_pthresh = float(aacp_pthresh)
+                if ot_pthresh < 0 or ot_pthresh > 1 or aacp_pthresh < 0 or aacp_pthresh > 1:
+                  print('Likelihood value must be between 0 and 1. Please try again.')
+                  print()
+                else:
+                  mod_check = 1
+              except:
+                print('Wrong type entered! Likelihood value must either be set to an integer or floating point value between 0 and 1. Please try again.')
+                print('Format OT likelihood type entered = ' + str(type(ot_pthresh)))
+                print('Format AACP likelihood type entered = ' + str(type(aacp_pthresh)))
+                print()
+            
+            chk_day_night['OT']['day']['pthresh']     = ot_pthresh
+            chk_day_night['OT']['night']['pthresh']   = ot_pthresh
+            chk_day_night['AACP']['day']['pthresh']   = aacp_pthresh
+            chk_day_night['AACP']['night']['pthresh'] = aacp_pthresh
+
 
         print('BOTH mode selected. Optimal day/night models will be used for simultaneous OT and AACP detection.')
         print('OT   day   model : ' + chk_day_night['OT']['day']['mod_inputs']     + ' ' + chk_day_night['OT']['day']['mod_type'])
@@ -803,7 +839,12 @@ def run_all_plume_updraft_model_predict(verbose     = True,
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
             else:
-              use_native_ir = True
+              if not use_seviri_ir:
+                no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                if no_native.lower() != 'n':
+                  use_native_ir = False
+                else:
+                  use_native_ir = True
               day0        = best_model_checkpoint_and_thresh('best', mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
               mod_type    = day0[1]
               mod_inputs  = day0[0]
@@ -877,7 +918,12 @@ def run_all_plume_updraft_model_predict(verbose     = True,
               use_chkpnt  = os.path.realpath(day0[2])
               opt_pthres0 = pthresh
             else:  
-              use_native_ir = True
+              if not use_seviri_ir:
+                no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                if no_native.lower() != 'n':
+                  use_native_ir = False
+                else:
+                  use_native_ir = True
               day0        = best_model_checkpoint_and_thresh('best', mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
               mod_type    = day0[1]
               mod_inputs  = day0[0]
@@ -1060,7 +1106,13 @@ def run_all_plume_updraft_model_predict(verbose     = True,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                use_native_ir = True
+                if not use_seviri_ir:
+                  no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                  if no_native.lower() != 'n':
+                    use_native_ir = False
+                  else:
+                    use_native_ir = True
+
                 day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
@@ -1074,7 +1126,12 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                 print(mod_inputs)
                 exit()
             else:
-              use_native_ir = True
+              if not use_seviri_ir:
+                no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                if no_native.lower() != 'n':
+                  use_native_ir = False
+                else:
+                  use_native_ir = True
               day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
@@ -1333,35 +1390,43 @@ def run_all_plume_updraft_model_predict(verbose     = True,
           else:
             print('Model inputs entered are not available. Options are IR, IR+VIS, IR+GLM, IR+WVIRDIFF, TROPDIFF, IR+SNOWICE, IR+CIRRUS, IR+DIRTYIRDIFF, IR+TROPDIFF, VIS+TROPDIFF, TROPDIFF+GLM, IR+VIS+TROPDIFF, VIS+TROPDIFF+GLM, IR+VIS+DIRTYIRDIFF, TROPDIFF+DIRTYIRDIFF, VIS+TROPDIFF+DIRTYIRDIFF, and IR+VIS+GLM. Please try again.')
             print()
-      if transition != 'y':
-        opt_pthresh = str(input('Would you like to use the previously identified optimal ' + mod_loc + ' likelihood value for the ' + mod_inputs + ' ' + mod_type + ' model? (y/n): ')).replace("'", '')
-        if opt_pthresh == '':
-          opt_pthresh = 'y'
-        
-        opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
-        if opt_pthresh[0].lower() != 'y':
-          counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-          mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
-          while mod_check == 0:
-            counter = counter + 1
-            if counter == 4:
-              print('Too many failed attempts! Exiting program.')
-              exit()
-            opt_pthresh = input('Enter the likelihood value you would like to use (0-1): ')
-            try:
-              opt_pthresh = float(opt_pthresh)
-              if opt_pthresh < 0 or opt_pthresh > 1:
-                print('Likelihood value must be between 0 and 1. Please try again.')
-                print()
-              else:
-                mod_check = 1
-                pthresh   = opt_pthresh
-            except:
-              print('Wrong type entered! Likelihood value must either be set to an integer or floating point value between 0 and 1. Please try again.')
-              print('Format type entered = ' + str(type(opt_pthresh)))
+
+      if transition == 'y':
+        opt_pthresh = str(input('Would you like to use the previously identified optimal ' + mod_loc + ' likelihood values for the day/night models? (y/n): ')).replace("'", '')
+      else:
+        opt_pthresh = str(input('Would you like to use the previously identified optimal ' + mod_loc + ' likelihood value for the ' + str(mod_inputs) + ' ' + str(mod_type) + ' model? (y/n): ')).replace("'", '')
+               
+      if opt_pthresh == '':
+        opt_pthresh = 'y'
+      
+      opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
+      if opt_pthresh[0].lower() != 'y':
+        counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
+        while mod_check == 0:
+          counter = counter + 1
+          if counter == 4:
+            print('Too many failed attempts! Exiting program.')
+            exit()
+          opt_pthresh = input('Enter the likelihood value you would like to use (0-1): ')
+          try:
+            opt_pthresh = float(opt_pthresh)
+            if opt_pthresh < 0 or opt_pthresh > 1:
+              print('Likelihood value must be between 0 and 1. Please try again.')
               print()
-        
-        print()
+            else:
+              mod_check = 1
+              if transition == 'y':
+                day['pthresh']   = opt_pthresh
+                night['pthresh'] = opt_pthresh
+              else:
+                pthresh = opt_pthresh
+          except:
+            print('Wrong type entered! Likelihood value must either be set to an integer or floating point value between 0 and 1. Please try again.')
+            print('Format type entered = ' + str(type(opt_pthresh)))
+            print()
+      
+      print()
       if sat[0:4] == 'goes':
         if d_str1 != None and d_str2 != None:
           dd = str(input('Do you need to download the satellite data files? (y/n): ')).replace("'", '')
@@ -1923,6 +1988,38 @@ def run_all_plume_updraft_model_predict(verbose     = True,
       dd      = ''.join(e for e in dd if e.isalnum())
       no_plot = dd[0].lower() != 'y'
 
+      opt_pthresh = vals[15]
+      opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
+      if opt_pthresh[0].lower() != 'y':
+        counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
+        mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
+        while mod_check == 0:
+          ot_pthresh   = input('You have chosen not to use optimal thresholds. Enter the OT likelihood value you would like to use (0-1): ')
+          aacp_pthresh = input('You have chosen not to use optimal thresholds. Enter the AACP likelihood value you would like to use (0-1): ')
+          counter = counter + 1
+          if counter == 4:
+            print('Too many failed attempts! Exiting program.')
+            exit()
+          try:
+            ot_pthresh   = float(ot_pthresh)
+            aacp_pthresh = float(aacp_pthresh)
+            if ot_pthresh < 0 or ot_pthresh > 1 or aacp_pthresh < 0 or aacp_pthresh > 1:
+              print('Likelihood value must be between 0 and 1. Please try again.')
+              print()
+            else:
+              mod_check = 1
+          except:
+            print('Wrong type entered! Likelihood value must either be set to an integer or floating point value between 0 and 1. Please try again.')
+            print('Format OT likelihood type entered = ' + str(type(ot_pthresh)))
+            print('Format AACP likelihood type entered = ' + str(type(aacp_pthresh)))
+            print()
+        
+        chk_day_night['OT']['day']['pthresh']     = ot_pthresh
+        chk_day_night['OT']['night']['pthresh']   = ot_pthresh
+        chk_day_night['AACP']['day']['pthresh']   = aacp_pthresh
+        chk_day_night['AACP']['night']['pthresh'] = aacp_pthresh
+
+
       if verbose:
         print('BOTH mode selected from config file.')
         print('OT   day   model : ' + chk_day_night['OT']['day']['mod_inputs']     + ' ' + chk_day_night['OT']['day']['mod_type'])
@@ -2195,7 +2292,13 @@ def run_all_plume_updraft_model_predict(verbose     = True,
             mod_check  = 1
             if mod_loc == 'OT':
               if mod_type == 'multiresunet':
-                use_native_ir = True
+                if not use_seviri_ir:
+                  no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                  if no_native.lower() != 'n':
+                    use_native_ir = False
+                  else:
+                    use_native_ir = True
+
                 day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
                 pthresh     = day0[3]
                 use_chkpnt  = os.path.realpath(day0[2])
@@ -2209,7 +2312,12 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                 print(mod_inputs)
                 exit()
             else:
-              use_native_ir = True
+              if not use_seviri_ir:
+                no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                if no_native.lower() != 'n':
+                  use_native_ir = False
+                else:
+                  use_native_ir = True
               day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
               pthresh     = day0[3]
               use_chkpnt  = os.path.realpath(day0[2])
@@ -2469,30 +2577,21 @@ def run_all_plume_updraft_model_predict(verbose     = True,
             print('Model inputs entered are not available. Options are IR, IR+VIS, IR+GLM, IR+WVIRDIFF, TROPDIFF, IR+SNOWICE, IR+CIRRUS, IR+DIRTYIRDIFF, IR+TROPDIFF, VIS+TROPDIFF, TROPDIFF+GLM, IR+VIS+TROPDIFF, VIS+TROPDIFF+GLM, IR+VIS+DIRTYIRDIFF, TROPDIFF+DIRTYIRDIFF, VIS+TROPDIFF+DIRTYIRDIFF, and IR+VIS+GLM. Please try again.')
             print()
     
-        opt_pthresh = vals[15]                                                                                                     #If user wants to use optimal likelihood score for model inputs chosen
-        opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
-        if opt_pthresh[0].lower() != 'y':
-          pthresh   = vals[16]                                                                                                     #Likelihood score chosen by user
-          counter   = 0                                                                                                            #Initialize variable to store the number of times the program attempted to ascertain information from the user 
-          mod_check = 0                                                                                                            #Initialize variable to store whether or not the user entered the appropriate information 
-          while mod_check == 0:
-            if counter >= 1:
-              pthresh = input('Enter the likelihood value you would like to use (0-1): ')
-            counter = counter + 1
-            if counter == 4:
-              print('Too many failed attempts! Exiting program.')
-              exit()
-            try:
-              pthresh = float(pthresh)
-              if pthresh < 0 or pthresh > 1:
-                print('Likelihood value must be between 0 and 1. Please try again.')
-                print()
-              else:
-                mod_check = 1
-            except:
-              print('Wrong type entered! Likelihood value must either be set to an integer or floating point value between 0 and 1. Please try again.')
-              print('Format type entered = ' + str(type(pthresh)))
-              print()
+      opt_pthresh = vals[15]                                                                                                     #If user wants to use optimal likelihood score for model inputs chosen
+      opt_pthresh = ''.join(e for e in opt_pthresh if e.isalnum())
+      if opt_pthresh[0].lower() != 'y':
+        try:
+            pthresh_val = float(vals[16])
+            if pthresh_val < 0 or pthresh_val > 1:
+                raise ValueError
+        except ValueError:
+            print('Invalid likelihood value in config file! Must be a number between 0 and 1.')
+            exit()
+        if transition == 'y':
+            day['pthresh']   = pthresh_val
+            night['pthresh'] = pthresh_val
+        else:
+            pthresh = pthresh_val
 
       dd = vals[14]                                                                                                                #If user wants to plot the data
       dd = ''.join(e for e in dd if e.isalnum())
@@ -2758,7 +2857,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                  print(mod_inputs)
                  print(mod_type)
                  exit()
-               day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, drcs = drcs)
+               day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
                pthresh0    = day0[3]
                use_chkpnt  = os.path.realpath(day0[2])
                opt_pthres0 = pthresh0
@@ -3148,7 +3247,12 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                      print(mod_inputs)
                      exit()
                  else:
-                   use_native_ir = True
+                   if not use_seviri_ir:
+                     no_native = str(input('Do you want to use the the tested optimal 0.5 km model? If yes, Press y. If no, Press n to use the experimental and untested 2 km model. (y/n): ')).replace("'", '')
+                     if no_native.lower() != 'n':
+                       use_native_ir = False
+                     else:
+                       use_native_ir = True
                    day0        = best_model_checkpoint_and_thresh(mod_inputs, mod_loc, native_ir = use_native_ir, seviri_ir = use_seviri_ir, drcs = drcs)
                    pthresh0    = day0[3]
                    use_chkpnt  = os.path.realpath(day0[2])
@@ -3702,6 +3806,9 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   if drcs:
     use_glm = True
   if nhours == None:
+    if d_str2 == d_str1:
+        print('The dates specified are exactly the same!! Please make sure the start date is prior to the end date. Exiting.')
+        exit()
     tstart = int(''.join(re.split('-', d_str1))[0:8])                                                                              #Extract start date of job for real-time post processing
     tend   = int(''.join(re.split('-', d_str2))[0:8])                                                                              #Extract end date of job for real-time post processing
     ts     = d_str1
@@ -3775,6 +3882,9 @@ def run_all_plume_updraft_model_predict(verbose     = True,
                                                  verbose        = verbose)
     else:
       mod_inp = re.split(r'\+', mod_inputs)
+      if 'VIS' not in mod_inp and 'vis' not in mod_inp and 'SNOWICE' not in mod_inp and 'snowice' not in mod_inp and 'CIRRUS' not in mod_inp and 'cirrus' not in mod_inp:
+        use_night = True
+
       run_tf_N_channel_plume_updraft_day_predict(date1          = d_str1, date2 = d_str2, 
                                                  use_updraft    = use_updraft, 
                                                  sat            = sat,
@@ -3957,6 +4067,8 @@ def run_all_plume_updraft_model_predict(verbose     = True,
       else:
         mod_inp  = re.split(r'\+', mod_inputs)
         trop_chk = mod_inp
+      if 'VIS' not in mod_inp and 'vis' not in mod_inp and 'SNOWICE' not in mod_inp and 'snowice' not in mod_inp and 'CIRRUS' not in mod_inp and 'cirrus' not in mod_inp:
+        use_night = True
       
       if 'tropdiff' not in trop_chk and 'TROPDIFF' not in trop_chk:
         download_gfs_analysis_files_from_gcloud(ts, 
@@ -4119,6 +4231,7 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
                 'VIS+TROPDIFF+DIRTYIRDIFF' : ['VIS+TROPDIFF+DIRTYIRDIFF', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff_dirtyirdiff', 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
 #                 'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
 #                 'BEST_DAY'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65],
+                'BEST'                     : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'BEST_DAY'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35]
 #                'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.65]
@@ -4128,6 +4241,7 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
       elif seviri_ir:
         best = {
                 'TROPDIFF'             : ['TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',             'updraft_day_model', '2026-05-08', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
+                'BEST'                 : ['TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',             'updraft_day_model', '2026-05-08', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'BEST_DAY'             : ['TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',             'updraft_day_model', '2026-05-08', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'BEST_NIGHT'           : ['TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',             'updraft_day_model', '2026-05-08', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35]
                 }
@@ -4154,6 +4268,7 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
 #                'BEST_DAY'                 : ['IR+VIS',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis',                   'updraft_day_model', '2023-09-07', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
 #                'BEST_NIGHT'               : ['IR',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir',                       'updraft_day_model', '2022-02-18', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.4]
 #                'BEST_DAY'                 : ['VIS+TROPDIFF',             'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'vis_tropdiff',             'updraft_day_model', '2025-03-31', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.10],
+                'BEST'                     : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'BEST_DAY'                 : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35],
                 'BEST_NIGHT'               : ['TROPDIFF',                 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'tropdiff',                 'updraft_day_model', '2025-06-19', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.35]
                 }
@@ -4200,6 +4315,7 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
 #                  'BEST_DAY'                             : ['IR+VIS+DIRTYIRDIFF',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',                    'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
 #                   'BEST_DAY'                             : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
 #                   'BEST_NIGHT'                           : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45]
+                  'BEST'                                 : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.30],
                   'BEST_DAY'                             : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.30],
                   'BEST_NIGHT'                           : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.30]
 #                   'BEST_DAY'                             : ['IR+DIRTYIRDIFF+IRGRADIENT+TROPDIFFOTS', 'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff_irgradient_tropdiffots', 'plume_day_model', '2026-03-24', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
@@ -4227,6 +4343,7 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
 #                  'IR+VIS+DIRTYIRDIFF'                   : ['IR+VIS+DIRTYIRDIFF',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',                    'plume_day_model', '2023-09-06', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
 #                  'BEST_DAY'                             : ['IR+VIS+DIRTYIRDIFF',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',                    'plume_day_model', '2023-09-06', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.45],
 #                  'BEST_DAY'                             : ['IR+VIS+DIRTYIRDIFF',                   'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_vis_dirtyirdiff',                    'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.3],
+                  'BEST'                                 : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.30],
                   'BEST_DAY'                             : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.30],
                   'BEST_NIGHT'                           : ['IR+DIRTYIRDIFF',                       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',                        'plume_day_model', '2023-12-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.30]
                   }
@@ -4241,7 +4358,6 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
       print(mod_input + ' inputs for ' + mod_object + ' is not set up to provide checkpoint files. Please specify new model inputs and try again.')
       exit()
   return(val)
-
 
 
 def _parallel_post_process(kwargs):
