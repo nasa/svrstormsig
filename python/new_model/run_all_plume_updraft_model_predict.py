@@ -133,6 +133,7 @@
 #                              2026-09-03. MAJOR REVISION. Integrated SEVIRI data into software structure. Due to satpy license change, able to use that as well.
 #                              2026-09-30. MINOR REVISION. Fixed issue where user tried to use optimal models but could not change the likelihood threshold because it was buried inside of 
 #                                          a seamless transition block. User should now be able to specify the threshold they would like to use for all model types.
+#                              2026-10-08. MAJOR REVISION. Added AACP detection capability for SEVIRI data. 
 #-
 
 #### Environment Setup ###
@@ -277,7 +278,7 @@ def run_all_plume_updraft_model_predict(verbose     = True,
   Output:
       Model run output files
   '''  
-  print('SVRSTORMSIG Software VERSION: 5.0.1')
+  print('SVRSTORMSIG Software VERSION: 5.1.0')
   print()
   if sys.path[0] != '':
     os.chdir(sys.path[0])                                                                                                          #Change directory to the system path of file 
@@ -683,7 +684,6 @@ def run_all_plume_updraft_model_predict(verbose     = True,
             chk_day_night['OT']['night']['pthresh']   = ot_pthresh
             chk_day_night['AACP']['day']['pthresh']   = aacp_pthresh
             chk_day_night['AACP']['night']['pthresh'] = aacp_pthresh
-
 
         print('BOTH mode selected. Optimal day/night models will be used for simultaneous OT and AACP detection.')
         print('OT   day   model : ' + chk_day_night['OT']['day']['mod_inputs']     + ' ' + chk_day_night['OT']['day']['mod_type'])
@@ -4287,8 +4287,19 @@ def best_model_checkpoint_and_thresh(mod_input, mod_object, native_ir = False, s
               'BEST'                 : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.15]
               }
     elif seviri_ir:
-      print('Not setup to run model to detect AACPs for SEVIRI data!! Exiting software. If using SEVIRI data, please run only for OT detection.')
-      exit()
+      best = {
+              'IR+WVIRDIFF'          : ['IR+WVIRDIFF',          'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_wvirdiff',          'plume_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.55],
+              'IR+DIRTYIRDIFF'       : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.051],
+#               'BEST'                 : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.051],
+#               'BEST_DAY'             : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.051],
+#               'BEST_NIGHT'           : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2023-11-21', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.051]
+              'BEST'                 : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2026-09-11', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+              'BEST_DAY'             : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2026-09-11', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25],
+              'BEST_NIGHT'           : ['IR+DIRTYIRDIFF',       'multiresunet', os.path.join('..', '..', 'data', 'model_checkpoints', 'ir_dirtyirdiff',       'plume_day_model', '2026-09-11', 'multiresunet', 'chosen_indices', 'by_date', 'by_updraft', 'unet_checkpoint.cp'), 0.25]
+
+              }
+#       print('Not setup to run model to detect AACPs for SEVIRI data!! Exiting software. If using SEVIRI data, please run only for OT detection.')
+#       exit()
     else:
       if run_log is not None:
           best = {

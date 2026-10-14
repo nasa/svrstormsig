@@ -49,6 +49,18 @@
 
 #### Environment Setup ###
 # Package imports
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.filterwarnings(
+    "ignore",
+    message=r"resource_tracker: There appear to be .* leaked semaphore objects"
+)
+warnings.filterwarnings("ignore", category=UserWarning, module="pyproj")
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="dask")
+
+# Suppress harmless post-processing NaN subtraction warnings
+warnings.filterwarnings("ignore", message="invalid value encountered in subtract")
+
 import numpy as np
 import glob
 import os
@@ -62,7 +74,6 @@ import requests
 from netCDF4 import Dataset
 import pandas as pd
 import pygrib
-import warnings
 import sys
 import time
 sys.path.insert(1, os.path.dirname(__file__))
@@ -298,7 +309,10 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                     try:
                         ot_res_for_dist = f[ot_var_key].values[0, :, :]
                         ot_pthresh_for_dist = float(f[ot_var_key].attrs.get('optimal_thresh', 0.35))
-                        ot_binary = (ot_res_for_dist >= max(0.05, ot_pthresh_for_dist - 0.05)).astype(bool)
+                        if seviri_res:
+                          ot_binary = (ot_res_for_dist >= max(0.05, ot_pthresh_for_dist - 0.02)).astype(bool)                        
+                        else:
+                          ot_binary = (ot_res_for_dist >= max(0.05, ot_pthresh_for_dist - 0.05)).astype(bool)
                         if np.sum(ot_binary) > 0:
                             dist_to_nearest_ot = distance_transform_edt(~ot_binary)
                     except Exception as e:
@@ -441,9 +455,14 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                         if current_obj.lower() == 'aacp':
                             res10_map = 0.10 * label_max_map
                             res_full = res.copy()
-                            res_full[above_thresh & (res_full < res10_map)] = 0
-                            res_full[above_thresh & (res_full >= res10_map)] = label_max_map[above_thresh & (res_full >= res10_map)]
-                            
+                            if seviri_res:
+                                res_base_map = np.maximum(0.125, res10_map)
+                                res_full[above_thresh & (res_full < res_base_map)] = 0
+                                res_full[above_thresh & (res_full >= res_base_map)] = label_max_map[above_thresh & (res_full >= res_base_map)]
+                            else:
+                                res_full[above_thresh & (res_full < res10_map)] = 0
+                                res_full[above_thresh & (res_full >= res10_map)] = label_max_map[above_thresh & (res_full >= res10_map)]
+                           
                             frac_max_map = np.clip(0.8 - 1.75 * (label_max_map - 0.3), 0.1, 0.8)
                             res_dyn_map = frac_max_map * label_max_map
                             res[above_thresh & (res < res_dyn_map)] = 0
@@ -458,7 +477,7 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                     if current_obj == 'AACP':
                         # Use the 10% map to create labeled_array0 so morphological checks hit the true cloud edge
                         res00 = res_full.copy()
-                        res00[res00 < pthresh0] = 0
+#                        res00[res00 < pthresh0] = 0
                         convective_proxy = bt0 <= 230
                         labeled_cells0, _ = label(convective_proxy, structure=s)
                         ll = np.copy(labeled_cells0).astype(float)
@@ -469,23 +488,56 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                         for u0, slc in enumerate(slices0):
                             if slc is None: continue
                             
+                            max_prob_thresh  = 0.8
+                            max_prob_thresh2 = 0.5
                             # Pad the bounding box so the dilation has room to grow
                             if native_ir and not seviri_res:
-                              pad  = 4
-                              pad2 = 4
-                              dist_thresh = 3
+                                pad  = 4
+                                pad2 = 4
+                                dist_thresh = 3
+                                min_plume_pixels   = 3
+                                max_ot_dist_pixels = 3
+                                min_core_pixels    = 2
+                                min_fill      = 0.20
+                                min_fill_weak = 0.30
                             elif seviri_res:
-                              pad  = 3
-                              pad2 = 3
-                              dist_thresh = 3
+                                pad  = 2
+                                pad2 = 1
+                                dist_thresh = 2
+                                min_plume_pixels   = 2  # Relaxed: Only requires 2 pixels (18 km2) to exist
+                                max_ot_dist_pixels = 3  
+                                min_core_pixels    = 2  # Relaxed: Only requires 1 high-confidence pixel
+                                min_fill           = 0.10    # Relaxed: Allows diagonal/stringy bounding boxes
+                                min_fill_weak      = 0.15
+#                                 max_prob_thresh    = 0.6
+#                                 max_prob_thresh2   = 0.3
                             else:
-                              pad  = 15
-                              pad2 = 6
-                              dist_thresh = 10
-                           
-                            min_plume_pixels   = max(3, int(4.0 / (xyres0**2)))                     # dynamic_plume_pixels filter ~4km^2 (VIS=16, IR=3, SEVIRI=3):
-                            max_ot_dist_pixels = max(3, int(2.5 / xyres0))
-                            min_core_pixels    = max(3, int(1.25 / (xyres0**2))) 
+                                pad  = 15
+                                pad2 = 6
+                                dist_thresh = 10
+                                min_plume_pixels   = max(3, int(4.0 / (xyres0**2)))                     
+                                max_ot_dist_pixels = max(3, int(2.5 / xyres0))
+                                min_core_pixels    = max(3, int(1.25 / (xyres0**2))) 
+                                min_fill      = 0.25
+                                min_fill_weak = 0.35                            
+
+#                             # Pad the bounding box so the dilation has room to grow
+#                             if native_ir and not seviri_res:
+#                               pad  = 4
+#                               pad2 = 4
+#                               dist_thresh = 3
+#                             elif seviri_res:
+#                               pad  = 3
+#                               pad2 = 1
+#                               dist_thresh = 2
+#                             else:
+#                               pad  = 15
+#                               pad2 = 6
+#                               dist_thresh = 10
+#                            
+#                             min_plume_pixels   = max(3, int(4.0 / (xyres0**2)))                     # dynamic_plume_pixels filter ~4km^2 (VIS=16, IR=3, SEVIRI=3):
+#                             max_ot_dist_pixels = max(3, int(2.5 / xyres0))
+#                             min_core_pixels    = max(3, int(1.25 / (xyres0**2))) 
                            
                             y_start = max(0, slc[0].start - pad)
                             y_stop  = min(bt0.shape[0], slc[0].stop + pad)
@@ -510,7 +562,9 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 bt_thresh = np.percentile(local_bt, 5)
                                 
                                 cell_area_pixels = len(local_bt)
-                              
+                                if seviri_res:
+                                    if cell_area_pixels < (250.0 / xyres0**2):
+                                        pad = 1
                                 dist_to_convection = distance_transform_edt(~(bt0 < bt_thresh))
                                 
                                 local_dist = dist_to_convection[padded_slc]
@@ -557,19 +611,25 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                 core_pixel_count = np.sum(plume_original_probs >= pthresh0)
                                 
                                 min_ot_dist = np.inf
+                                scaled_aacp_ot_max_dist = np.inf
                                 if aacp_ot_max_dist is not None and dist_to_nearest_ot is not None:
                                     local_ot_dist = dist_to_nearest_ot[padded_slc]
                                     min_ot_dist = np.min(local_ot_dist[local_inds0])
-                                
-                                is_textbook_plume = (max_prob > 0.8) and ((core_pixel_count >= min_core_pixels)) and (fill_ratio > 0.50) and (min_ot_dist <= max_ot_dist_pixels) and (plume_to_cell_ratio < 0.25) and (max_ring_bt2 <= ring_thresh)
+                                    if seviri_res:
+#                                        scaled_aacp_ot_max_dist = 3.0
+                                        scaled_aacp_ot_max_dist = 10.0 * (2.0 / xyres0)
+                                    else:
+                                        scaled_aacp_ot_max_dist = 10.0 * (2.0 / xyres0)
+                               
+                                is_textbook_plume = (max_prob > max_prob_thresh) and ((core_pixel_count >= min_core_pixels)) and (fill_ratio > 0.50) and (min_ot_dist <= max_ot_dist_pixels) and (plume_to_cell_ratio < 0.25) and (max_ring_bt2 <= ring_thresh)
                                 if not is_textbook_plume:
-                                    if (min_dist > dist_thresh) or (max_ring_bt > ring_thresh) or (dynamic_plume_pixels < min_plume_pixels) or ((fill_ratio < 0.25) or (fill_ratio < 0.35 and max_prob < 0.5)) or (core_pixel_count <= min_core_pixels) or (plume_to_cell_ratio >= 0.75):                    
-                                        res[labeled_array0 == (u0 + 1)] = 0.05
+                                    if (min_dist > dist_thresh) or (max_ring_bt > ring_thresh) or (dynamic_plume_pixels < min_plume_pixels) or ((fill_ratio < min_fill) or (fill_ratio < min_fill_weak and max_prob < max_prob_thresh2)) or (core_pixel_count <= min_core_pixels) or (plume_to_cell_ratio >= 0.75):                    
+                                        res[labeled_array0 == (u0 + 1)] = 0.0
                                            
                                     # Distance to OT filter
-                                    elif aacp_ot_max_dist is not None and dist_to_nearest_ot is not None:
-                                        if min_ot_dist > aacp_ot_max_dist:
-                                            res[labeled_array0 == (u0 + 1)] = 0.05
+                                    elif aacp_ot_max_dist is not None:
+                                        if dist_to_nearest_ot is None or min_ot_dist > scaled_aacp_ot_max_dist:
+                                            res[labeled_array0 == (u0 + 1)] = 0.0
 
                     # Optimized OT BTD processing
                     maxc = np.nanmax(res) if np.any(np.isfinite(res)) else 0
@@ -617,10 +677,18 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                     
                                     # Get Tropopause temp at the core
                                     core_trop = tropT2[global_y, global_x]
-                                    if np.isfinite(core_trop):
+                                    
+                                    delete_obj = False
+                                    
+                                    # Calculate the object's pixel count
+                                    ot_pixel_count = np.sum(local_inds2)
+                                    max_ot_pixels  = int(650.0 / (xyres0**2)) 
+                                    if ot_pixel_count > max_ot_pixels:
+                                        delete_obj = True
+                                    
+                                    if np.isfinite(core_trop) and not delete_obj:
                                         trop_diff = min_bt0 - core_trop
                                         raw_max_prob = np.nanmax(res_safe[slc2][local_inds2])
-                                        delete_obj = False
                                         if trop_diff > 10.0:
                                             delete_obj = True
 #                                         elif (trop_diff > 5.0) and (raw_max_prob < 0.7):
@@ -630,11 +698,11 @@ def run_write_severe_storm_post_processing(inroot          = os.path.join('..', 
                                             if np.isfinite(local_max_cape) and local_max_cape < 100:  # Less than 100 J/kg means no convection
                                                 delete_obj = True                                        
                                        
-                                        if delete_obj:
-                                            global_inds2_delete = (labeled_array2 == u + 1)
-                                            labeled_array2[global_inds2_delete] = 0
-                                            res[global_inds2_delete] = 0
-                                            continue  # Skip Anvil BTD calculation and do not save this object
+                                    if delete_obj:
+                                        global_inds2_delete = (labeled_array2 == u + 1)
+                                        labeled_array2[global_inds2_delete] = 0
+                                        res[global_inds2_delete] = 0
+                                        continue  # Skip Anvil BTD calculation and do not save this object
 
                                     # Bounding box for anvil using global coordinates
                                     i_pix = [max(0, global_y - int(anv_p/2)), min(bt0.shape[0], global_y + ceil(anv_p/2))]

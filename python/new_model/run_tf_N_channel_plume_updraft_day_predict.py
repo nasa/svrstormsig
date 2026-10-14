@@ -178,7 +178,7 @@ from glm_gridder.run_download_seviri_iodc_data_parallel import *
 from glm_gridder.run_seviri_create_image_from_three_modalities import *
 from glm_gridder.run_seviri_create_image_from_three_modalities2 import *
 from EDA.seviri_create_vis_ir_numpy_arrays_from_netcdf_files2 import *
-#from EDA.MultiResUnet_new_UPsampling_v2 import MultiResUnet_new_UPsampling_v2
+from EDA.MultiResUnet_new_UPsampling_v2 import MultiResUnet_new_UPsampling_v2
 backend.clear_session()
 
 
@@ -315,9 +315,9 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
     use_native_ir = False
 
   if both_mode:
-    if sat.lower() in ['seviri', 'seviri-iodc', 'seviriiodc', 'msg1', 'msg2', 'msg3', 'msg4', 'msg01', 'msg02', 'msg03', 'msg04']:
-      print('Not sure how you made it this far but software is currently only set up to detect OTs with SEVIRI data. Exiting program. Please try again.')
-      exit()
+#     if sat.lower() in ['seviri', 'seviri-iodc', 'seviriiodc', 'msg1', 'msg2', 'msg3', 'msg4', 'msg01', 'msg02', 'msg03', 'msg04']:
+#       print('Not sure how you made it this far but software is currently only set up to detect OTs with SEVIRI data. Exiting program. Please try again.')
+#       exit()
     # ------------------------------------------------------------------
     # BOTH mode: OT + AACP simultaneous detection.
     #
@@ -828,6 +828,32 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                             og_bucket_name       = og_bucket_name,
                                             comb_bucket_name     = c_bucket_name,
                                             proc_bucket_name     = p_bucket_name,
+                                            new_weighting        = new_weighting,
+                                            verbose              = verbose)
+      elif 'seviri' in sat.lower() or 'msg' in sat.lower() or 'meteosat' in sat.lower():
+        ir_file0, dims = seviri_create_vis_ir_numpy_arrays_from_netcdf_files2(
+                                            inroot               = o,
+                                            layered_root         = os.path.join(outroot, 'combined_nc_dir'),
+                                            outroot              = os.path.join(outroot, 'labelled', pat),
+                                            json_root            = os.path.join(outroot, 'labelled'),
+                                            date_range           = date_range,
+                                            domain_sector        = sector00,
+                                            satellite            = sat,
+                                            ir_min_value         = 180, ir_max_value = 230, gradient_sigma = 1.0,
+                                            no_write_vis         = no_vis,
+                                            no_write_irdiff      = no_irdiff,
+                                            no_write_glm         = not union['use_glm'],
+                                            no_write_cirrus      = no_cirrus,
+                                            no_write_snowice     = no_snowice,
+                                            no_write_dirtyirdiff = no_dirtyirdiff,
+                                            no_write_trop        = no_tropdiff,
+                                            no_write_irlaplacian = no_irlaplacian,
+                                            run_gcs              = run_gcs, real_time = rt, del_local = False,
+                                            use_local            = True,
+                                            og_bucket_name       = og_bucket_name,
+                                            comb_bucket_name     = c_bucket_name,
+                                            proc_bucket_name     = p_bucket_name,
+                                            use_native_ir        = False,
                                             new_weighting        = new_weighting,
                                             verbose              = verbose)
       else:
@@ -1781,11 +1807,16 @@ def run_tf_N_channel_plume_updraft_day_predict(date1          = None, date2 = No
                                                                               json_root        = os.path.join(outroot, 'labelled'),  
                                                                               date_range       = date_range, 
                                                                               domain_sector    = sector00, 
-                                                                              satellite        = 'Meteosat09',
+                                                                              satellite        = sat,
                                                                               ir_min_value     = 180, ir_max_value   = 230, gradient_sigma = 1.0,
-                                                                              no_write_vis = no_vis, no_write_irdiff = True, 
-                                                                              no_write_glm     = True,
-                                                                              no_write_cirrus  = True, no_write_snowice = True, no_write_dirtyirdiff = True, no_write_trop = no_tropdiff, no_write_irlaplacian = no_irlaplacian, 
+                                                                              no_write_vis         = no_vis, 
+                                                                              no_write_irdiff      = no_irdiff, 
+                                                                              no_write_glm         = not use_glm,
+                                                                              no_write_cirrus      = no_cirrus, 
+                                                                              no_write_snowice     = no_snowice, 
+                                                                              no_write_dirtyirdiff = no_dirtyirdiff, 
+                                                                              no_write_trop        = no_tropdiff, 
+                                                                              no_write_irlaplacian = no_irlaplacian, 
                                                                               run_gcs          = run_gcs, real_time = rt, del_local = del_local, use_local = True,
                                                                               og_bucket_name   = og_bucket_name, comb_bucket_name = c_bucket_name, proc_bucket_name = p_bucket_name, 
                                                                               use_native_ir    = False, 
@@ -2466,6 +2497,18 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
     print('Model type being used = ' + mod_type)
     print('Number of input channels = ' + str(n_channels))
     print(dims)
+  
+  chk_str = use_chkpnt if use_chkpnt is not None else ""
+
+  # Determine standard patch size for patching/tiling logic:
+  if use_seviri:
+    patch_sz = 64 if use_updraft else 128
+  elif 'tropdiffots' in chk_str:
+    patch_sz = 512
+  elif 'plume_day_model' in chk_str:
+    patch_sz = 2000
+  else:
+    patch_sz = 512
 
   # Build the model architecture
   if use_native_ir:
@@ -2486,16 +2529,18 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
       if mod_type.lower() == 'unet':  
         model = unet(input_size = (dims[1], dims[2], n_channels))                                                                                                           #Run unet function with N channels
       elif mod_type.lower() == 'multiresunet':  
-        if len(re.split('tropdiffots', use_chkpnt)) != 1:
-            model = MultiResUnet(512, 512, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
+        if use_seviri:
+#          model = MultiResUnet(64, 64, n_channels)                                                                                                                        #Run MultiResUnet function with N channels (64x64 mapped patch logic)
+          if use_updraft:
+            model = MultiResUnet(patch_sz, patch_sz, n_channels)                                                                                                                        #Run MultiResUnet function with N channels (64x64 mapped patch logic)
+          else:
+#            model = MultiResUnet_new_UPsampling(patch_sz, patch_sz, n_channels)
+#            model = MultiResUnet(patch_sz, patch_sz, n_channels)                                                                                                                        #Run MultiResUnet function with N channels (64x64 mapped patch logic)
+            model = MultiResUnet_new_UPsampling_v2(patch_sz, patch_sz, n_channels)
+        elif 'tropdiffots' in chk_str:
+          model = MultiResUnet(512, 512, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
         else:
-            if use_seviri:
-              model = MultiResUnet(64, 64, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
-#              model = MultiResUnet_new_UPsampling_v2(64, 64, n_channels) 
-            else:
-              model = MultiResUnet(dims[1], dims[2], n_channels)                                                                                                            #Run MultiResUnet function with N channels
-#            model = MultiResUnet(128, 128, n_channels)                                                                                                                      #Run MultiResUnet function with N channels
-        
+          model = MultiResUnet(dims[1], dims[2], n_channels)                                                                                                              #Run MultiResUnet function with N channels
       else:  
         print('Not set up to do model specified.')  
         print(mod_type)  
@@ -2721,12 +2766,6 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
 
       # Tiling / batching logic
       tropdiffots_patched = False                                                                                                                                           #Flag: True when predict_large_image_patches is used for tropdiffots; skips normal dataset/model.predict path and reconstruction
-      if len(re.split('tropdiffots', use_chkpnt)) != 1:
-        patch_sz = 512                                                                                                                                                      #Tropdiffots AACP model was trained on 256x256 boxes
-      elif 'plume_day_model' in use_chkpnt:
-        patch_sz = 2000
-      else:
-        patch_sz = 512
       if use_native_ir:
         if dims[1] == 500 and dims[2] == 500:
           imgs2 = np.zeros((imgs.shape[0], 512, 512, imgs.shape[-1]))
@@ -2761,9 +2800,14 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
               model = unet(input_size=(patch_sz, patch_sz, n_channels))
             elif mod_type.lower() == 'multiresunet':
               if use_seviri:
+                if use_updraft:
                   model = MultiResUnet(patch_sz, patch_sz, n_channels)
 #                  model = MultiResUnet_new_UPsampling_v2(patch_sz, patch_sz, n_channels)
 #                  print(patch_sz)
+                else:
+#                  model = MultiResUnet_new_UPsampling(patch_sz, patch_sz, n_channels)
+#                  model = MultiResUnet(patch_sz, patch_sz, n_channels)
+                  model = MultiResUnet_new_UPsampling_v2(patch_sz, patch_sz, n_channels)
               else:
                   model = MultiResUnet(patch_sz, patch_sz, n_channels)
             else:
@@ -2782,7 +2826,7 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           batch_size = 16
           results_tiles = predict_large_image_patches(model, imgs2,
                                                       patch_size = patch_sz,
-                                                      overlap    = 64,
+                                                      overlap    = patch_sz // 2 if use_seviri else 64,
                                                       batch_size = batch_size,
                                                       verbose    = verbose)
   
@@ -2799,22 +2843,18 @@ def tf_N_channel_plume_updraft_day_predict(dims           = [1, 2000, 2000],
           #dims <= 2000
           if use_seviri:
             results = predict_large_image_patches(model, imgs,
-                                                  patch_size = 64,
-                                                  overlap    = 32,
+                                                  patch_size = patch_sz,
+                                                  overlap    = patch_sz // 2,
                                                   batch_size = 16,
                                                   verbose    = verbose)
           
           else:
-            if 'updraft_day_model' in (use_chkpnt if use_chkpnt is not None else ''):
+            if 'updraft_day_model' in chk_str:
               dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(1)                                                                                                   #Creates a Dataset whose elements are slices of the given tensors
-#               dataset.cache                                                                                                                                                   #Cache the elements in the dataset
-#               dataset.prefetch(1)                                                                                                                                             #Creates a Dataset that prefetches elements from this dataset
               results = model.predict(dataset)
             else:
-              if len(re.split('tropdiffots', use_chkpnt)) == 1:
+              if 'tropdiffots' not in chk_str:
                 dataset = tf.data.Dataset.from_tensor_slices((imgs)).batch(1)                                                                                                 #Creates a Dataset whose elements are slices of the given tensors
-#                 dataset.cache                                                                                                                                                 #Cache the elements in the dataset
-#                 dataset.prefetch(1)                                                                                                                                           #Creates a Dataset that prefetches elements from this dataset
                 results = model.predict(dataset)
               else:
                 results = predict_large_image_patches(model, imgs,
